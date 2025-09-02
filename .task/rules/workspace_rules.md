@@ -1,43 +1,44 @@
-# TaskPilot MCP Server - Workspace-Specific Rules and Guidelines
+# Specly Workspace-Specific Rules and Guidelines
 
 ## Coding Standards
 
 ### TypeScript Guidelines
-- Use strict TypeScript configuration with `noImplicitAny`, `strictNullChecks`
-- Prefer interfaces over types for object shapes
-- Use `const assertions` for immutable data structures
-- Follow functional programming patterns where possible
-- Use proper error handling with Result/Either patterns
+- Enforce strict TS (`strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`).
+- Prefer `type` for unions / composition; `interface` only when extending.
+- Use `as const` for immutable manifests (ordered_specs, edges) pre-hash.
+- Pure functions for hashing, graph validation, and canonicalization (no IO).
+- Avoid broad `any`; use generics + discriminated unions for executor payloads.
 
-### Node.js/MCP Server Standards
-- Follow MCP protocol specifications strictly
-- Use async/await over Promises chains
-- Implement proper logging with structured format
-- Use environment variables for configuration
-- Validate all inputs using schema validation (Zod)
+### Server & Execution Standards
+- Unified execute endpoint only (`POST /api/tools/:tool/execute`) — no legacy tool-flow / feedback endpoints.
+- All spec & tool version hashes recomputed server-side; reject mismatch with client proposal.
+- Logging: structured JSON lines with `ts`, `level`, `msg`, `task_id?`, `session_id?`, `spec_hash?`.
+- Config via env with typed loader; fail fast on missing required vars.
+- Input/output validation: Zod schemas for API; JSON Schema for spec IO definitions.
+- No dynamic code execution for executors (whitelist enumerated executor_type values).
 
 ### React/Frontend Standards
-- Use TypeScript for all React components
-- Follow shadcn-ui component patterns
-- Use TanStack Router for navigation
-- Implement proper loading and error states
-- Use React Query for data fetching
+- TypeScript everywhere (no `.jsx`).
+- Components referencing spec / tool / profile data must treat hashes as opaque identifiers (never substring mutate).
+- Use React Query (or TanStack Query) with query keys including hash or version to avoid stale collisions.
+- SSE event names unified: `session.update`, `task.update`, `rule.update`.
+- Provide skeleton/loading + error boundaries per page.
 
 ## Git Workflow
 
 ### Branch Naming
-- `feature/TP-XXX-description` for new features
-- `bugfix/TP-XXX-description` for bug fixes
-- `refactor/TP-XXX-description` for refactoring
-- `docs/TP-XXX-description` for documentation
+- `feature/SP-###-short-desc`
+- `bugfix/SP-###-short-desc`
+- `refactor/SP-###-short-desc`
+- `docs/SP-###-short-desc`
 
 ### Commit Message Format
 ```
-TP-XXX: Brief description
+SP-###: Concise imperative summary
 
-- Detailed explanation of changes
-- Reference to task requirements
-- Any breaking changes noted
+* Context / rationale (if needed)
+* Notable design decisions
+* Breaking changes + migration steps (if any)
 ```
 
 ### Git Commit Best Practices
@@ -57,102 +58,109 @@ TP-XXX: Brief description
 ## Testing Requirements
 
 ### Coverage Expectations
-- Minimum 80% code coverage for core MCP tools
-- Unit tests for all business logic
-- Integration tests for database operations
-- E2E tests for critical user workflows
+- ≥85% line coverage for SpecEngine, hashing, graph validation, profile inheritance, action journal.
+- Golden hash fixture tests mandatory (fail build on drift).
+- Graph validation negative tests (cycle, orphan, duplicate entry) required.
+- Lease conflict tests (mismatched client_state_id) required.
 
 ### Testing Frameworks
-- **Backend**: Jest for unit/integration tests
-- **Frontend**: Vitest + React Testing Library
-- **E2E**: Playwright for full workflow testing
-- **Database**: In-memory SQLite for test isolation
+- **Backend**: Vitest for unit/integration (unify stack) + supertest for API.
+- **Frontend**: Vitest + React Testing Library.
+- **E2E**: (Deferred) — mark scenarios; optional Playwright later.
+- **Database**: Ephemeral SQLite file per test suite; wrap in transaction for rollback harness.
 
 ## Security Guidelines
 
 ### Authentication/Authorization
-- Use secure token-based authentication for GitHub integration
-- Validate and sanitize all user inputs
-- Implement rate limiting for API endpoints
-- Use HTTPS in production environments
+- (Current scope) Internal trusted environment — future auth placeholder.
+- Validate and sanitize all inputs (Zod + custom guards); reject unknown fields (strip / error as appropriate).
+- Rate limiting not yet required; document if external exposure planned.
 
 ### Data Handling
-- Encrypt sensitive configuration data
-- Use parameterized queries to prevent SQL injection
-- Implement proper session management
-- Log security events for audit trail
+- No plaintext secrets in repo; env injection only.
+- Parameterized queries (Drizzle) — never manual string concatenation.
+- Session lease enforcement: mismatch → 409; `force_start` allowed only if prior lease exists.
+- Log security-relevant events (lease conflict, invalid hash attempt).
 
 ## Performance Considerations
 
 ### Database Optimization
-- Use database indexes for frequently queried fields
-- Implement connection pooling for SQLite
-- Optimize queries to minimize N+1 problems
-- Use pagination for large result sets
+- Indices: (tool_versions.hash), (specs.hash), (profile_version_tools.profile_version_id, tool_name), (task_dependencies.task_id), (workspace_rules.workspace_id, relation).
+- Use read-only transactions for pure queries.
+- Avoid N+1: batch lookups for profile version tool resolution.
+- Introduce simple in-memory hash cache (optional) with eviction on new spec insert.
 
 ### Frontend Performance
-- Implement code splitting for React components
-- Use React.memo for expensive component renders
-- Optimize bundle size with tree shaking
-- Implement proper caching strategies
+- Code-split heavy graph visualization components.
+- Memoize derived DAG layout computations.
+- Avoid re-render storms: batch SSE updates (max 10Hz UI refresh).
+- Use hash prefix short display (first 8 chars) with copy full hash action.
 
 ## Custom Rules
 
-### MCP Tool Development
-- Each tool must implement proper input validation
-- Tools should return structured responses with error handling
-- Implement the Analytical Thinking Framework in tool logic
-- Provide detailed descriptions and examples in tool schemas
-- **CRITICAL: NO HARDCODED TEMPLATES** - All response formatting must be in database feedback steps
-- Tools must only provide context data and return `orchestrationResult.prompt_text`
-- Use `{{context.variable}}` syntax in feedback step templates for variable substitution
+### Spec & Executor Development
+- All executable units are specs; legacy multi-step tool flow logic removed.
+- Executors must be versioned; no implicit upgrades without new spec hash.
+- NO hardcoded prompt templates inside code — templates live in `specs.content_template` only.
+- Provide minimal executor output; formatting handled by downstream specs or UI.
+- Use `{{context.variable}}` style only within stored templates (never inline code strings).
 
 ### Database Operations
-- Use transactions for multi-table operations
-- Implement proper migration system for schema changes
-- Use soft deletes for audit trail preservation
-- Validate data integrity with foreign key constraints
+- Wrap profile version publish & workspace upgrade in transactions.
+- Destructive migration (legacy table removal) must precede seed script run in same release.
+- Enforce foreign keys and unique constraints for integrity (fail fast).
+- Soft delete tasks/sessions; purge on retention job schedule.
 
 ### Task Management Specific
-- Task IDs must follow TP-XXX format (TaskPilot prefix)
-- Always update task progress when making changes
-- Link code changes to specific task IDs
-- Maintain dependency chain integrity
+- Task IDs follow SP-### (backend) & SP-1xx (UI) & SP-2xx (docs) scheme.
+- Every PR references at least one SP Task ID in title or first line.
+- Update `docs/task.md` progress % on merge; do not leave stale statuses.
+- Maintain accurate dependency lists (no circular task dependency definitions).
 
 ### UI/UX Guidelines
-- Follow modern design principles with proper spacing
-- Implement responsive design for mobile compatibility
-- Use consistent color scheme throughout application
-- Provide clear feedback for user actions
+- Consistent hash & status badge components across pages.
+- Accessible colors (WCAG AA) for status & edge states.
+- Keyboard navigation for spec editor & graph canvas (tab focus order logical).
+- Provide JSON validation feedback inline in spec editor.
 
 ### Development Workflow
-- Phase 1: MCP tools take priority over UI development
-- Use SQLite3 for all data persistence (no file-based storage)
-- Implement GitHub integration as bidirectional sync
-- Follow incremental development with working prototypes
+- Backend foundation (SP-001→SP-006) before new UI screens (SP-100+), except branding (SP-109) allowed later.
+- No shadow mode; direct cutover only.
+- Seed script idempotency mandatory before enabling UI listing pages.
+- Add graph validation before accepting external tool version submissions.
 
 ### Error Handling
-- Use structured error responses in MCP tools
-- Implement proper error boundaries in React components
-- Log errors with contextual information
-- Provide user-friendly error messages in UI
+- Structured error JSON: `{ error: { code, message, details? } }` for API.
+- Distinguish 409 vs 422 for conflict vs validation.
+- React error boundaries around graph editor & execution console.
+- Log stack traces only at debug level unless fatal.
 
 ### Documentation
-- Maintain up-to-date API documentation for MCP tools
-- Document database schema changes in migrations
-- Keep README.md current with setup instructions
-- Document any breaking changes in CHANGELOG.md
+- Keep `docs/specly-architecture.md` synchronized with any schema or execution model change (same PR).
+- Add/update golden hash fixtures instructions in `docs/task.md` (SP-200 scope).
+- README quickstart path: create spec → publish tool version → create profile version → execute.
+- Document breaking changes in CHANGELOG.md and reference SP task.
 
 ## Technology Stack Constraints
-- **Backend**: Node.js 18+, TypeScript 5+, SQLite3
-- **Frontend**: React 18, shadcn-ui, TanStack Router
-- **Build Tools**: Vite for frontend, tsc for backend
-- **Package Manager**: bun (preferred), fallback to npm only when necessary
-- **Deployment**: Docker containerization for production
+- **Backend**: Node.js 18+, TypeScript 5+, Express, Drizzle ORM, SQLite3
+- **Frontend**: React 18, Rsbuild, Tailwind CSS, React Query
+- **Build Tools**: Rsbuild (UI) & tsc (backend)
+- **Package Manager**: bun preferred; fallback npm only on incompatibility
+- **Deployment**: Container image with deterministic build (lockfile pinned)
 
 ## Package Management Rules
-- **Always use bun instead of npm where possible** for faster performance
-- Use `bun install` instead of `npm install`
-- Use `bun run` instead of `npm run` for scripts
-- Use `bun add` instead of `npm install <package>`
-- Only fallback to npm if bun compatibility issues arise
+- Prefer `bun install` / `bun run` / `bun add`.
+- Keep lockfile committed; no manual edits.
+- Add new dependency only with justification referencing SP task.
+- Remove unused deps promptly (tracked in SP-201 doc overhaul if discovered).
+
+## Specly-Specific Invariants
+- Hash canonicalization must be stable across OS/locale.
+- Exactly one entry_spec per tool version; reject if missing or multiple.
+- No cycles in tool version graph; unreachable specs produce warning (log) but allowed initially.
+- Profile version flatten ensures no runtime union operations.
+- Action journal ensures at most one side-effect execution per (spec_hash, session_id, idempotency_key) tuple.
+- Lease ownership changes only via `force_start` with prior lease mismatch.
+
+## Rule Change Log
+- 2025-09-02: Initial Specly rewrite of workspace rules replacing TaskPilot references.

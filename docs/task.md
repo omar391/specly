@@ -1,6 +1,6 @@
 # Specly Unified Task List (Direct Cutover)
 
-No backward compatibility. Tasks formatted as execution-ready units with traceability to `docs/migration_roadmap.md`, `docs/migration_roadmap_ui.md`, `docs/file_changes.md`, and `docs/file_changes_ui.md`.
+No backward compatibility. Tasks formatted as execution-ready units with traceability to `migration_roadmap.md`, `migration_roadmap_ui.md`, `file_changes.md`, and `file_changes_ui.md`.
 
 Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 
@@ -9,7 +9,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 
 ## Task ID: SP-001
 - **Title**: Create Specly Core Schema
-- **Description**: Implement new global + workspace schema (specs, tools, tool_versions, profiles, profile_versions, profile_version_tools, workspace_profile_versions, action_journal, workspace_rules, tasks, task_dependencies, sessions). Remove legacy tool_flows / feedback_steps tables from code (drop tables via migration). See docs/migration_roadmap.md §2, docs/file_changes.md (schema sections).
+- **Description**: Implement new global + workspace schema (specs, tools, tool_versions, profiles, profile_versions, profile_version_tools, workspace_profile_versions, action_journal, workspace_rules, tasks, task_dependencies, sessions). Remove legacy tool_flows / feedback_steps tables from code (drop tables via migration). See migration_roadmap.md §2, file_changes.md (schema sections).
 - **Priority**: High
 - **Dependencies**: None
 - **Status**: TBD
@@ -75,14 +75,14 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 
 ## Task ID: SP-007
 - **Title**: CLI Refactor (Remove StepId)
-- **Description**: Update all tool CLI commands to call unified execute. Remove stepId flags & text. Provide session/task flags. See docs/file_changes.md tools section.
+- **Description**: Update all tool CLI commands to call unified execute. Remove stepId flags & text. Provide session/task flags. See file_changes.md tools section.
 - **Priority**: Medium
 - **Dependencies**: SP-006
 - **Status**: TBD
 - **Progress**: 0%
 - **Completed At**: 
 - **Notes**: Ensure backward incompatible removal clearly documented in README.
-- **Connected File List**: ./src/tools/*.ts, ./src/utils/cli-parser.ts, ./docs/README.md
+- **Connected File List**: ./src/tools/*.ts, ./src/utils/cli-parser.ts, ./README.md
 
 ## Task ID: SP-008
 - **Title**: Task & Session Model Upgrade
@@ -232,7 +232,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 
 ## Task ID: SP-100
 - **Title**: UI API Client Refactor
-- **Description**: Replace `TaskPilotApiClient` with `SpeclyApiClient`; remove tool-flow & feedback methods; add spec/tool/profile endpoints. Update types (statuses, remove dependencies array). See docs/file_changes_ui.md.
+- **Description**: Replace `TaskPilotApiClient` with `SpeclyApiClient`; remove tool-flow & feedback methods; add spec/tool/profile endpoints. Update types (statuses, remove dependencies array). See file_changes_ui.md.
 - **Priority**: High
 - **Dependencies**: SP-006
 - **Status**: TBD
@@ -363,7 +363,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Progress**: 0%
 - **Completed At**: 
 - **Notes**: Failing test must block merge.
-- **Connected File List**: ./src/__tests__/hash.test.ts, ./docs/docs/migration_roadmap.md
+- **Connected File List**: ./src/__tests__/hash.test.ts, ./docs/migration_roadmap.md
 
 ## Task ID: SP-201
 - **Title**: Documentation Overhaul
@@ -374,7 +374,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Progress**: 0%
 - **Completed At**: 
 - **Notes**: Include sample curl requests.
-- **Connected File List**: ./docs/README.md, ./docs/specly-docs/architecture.md
+- **Connected File List**: ./README.md, ./docs/specly-architecture.md
 
 ## Task ID: SP-202
 - **Title**: Security & Limits Documentation
@@ -385,7 +385,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Progress**: 0%
 - **Completed At**: 
 - **Notes**: Add to architecture doc appendix.
-- **Connected File List**: ./docs/specly-docs/architecture.md
+- **Connected File List**: ./docs/specly-architecture.md
 
 ## Task ID: SP-203
 - **Title**: Migration Completion Report
@@ -396,7 +396,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Progress**: 0%
 - **Completed At**: 
 - **Notes**: Include risk outcomes vs initial list.
-- **Connected File List**: ./docs/docs/migration_roadmap.md, ./docs/docs/task.md
+- **Connected File List**: ./docs/migration_roadmap.md, ./docs/task.md
 
 ---
 ## Deferred / Optional Enhancements
@@ -445,27 +445,30 @@ Rollback (minimal since destructive): backup of pre-migration DB snapshot retain
 ## Updated Traceability Matrix (Representative)
 | SP Task | Roadmap Section | File Changes Anchor |
 |---------|-----------------|---------------------|
-| SP-001 | docs/migration_roadmap.md §2 | global/workspace schema additions |
-| SP-002 | docs/migration_roadmap.md §1.3 | hash utilities (new) |
-| SP-003 | docs/migration_roadmap.md §2 / §1.4 | repository layer refactors |
-| SP-004 | docs/migration_roadmap.md §5 | seed scripts & data conversion |
-| SP-005 | docs/migration_roadmap.md §3 | spec-engine.ts (new) |
-| SP-006 | docs/migration_roadmap.md §4 | router/middleware execute endpoint |
-| SP-008 | docs/migration_roadmap.md §2.2 | task/session schema + logic |
-| SP-014 | docs/migration_roadmap.md §API / §13 | spec/tool version endpoints |
-| SP-015 | docs/migration_roadmap.md §API / §4 / §12 | profile/version/binding endpoints |
-| SP-016 | docs/migration_roadmap.md §API / §5 / §6 / §15 | task & dependency endpoints |
-| SP-017 | docs/migration_roadmap.md §11 / §8 / §17 | rules endpoints & reinforcement |
-| SP-018 | docs/migration_roadmap.md §7 / §13 | graph validation |
-| SP-019 | docs/migration_roadmap.md §9 | session lease logic tests |
-| SP-020 | docs/migration_roadmap.md §10 | retry policy tests |
-| SP-009 | docs/migration_roadmap.md §1.4 | profile-service flatten logic |
-| SP-010 | docs/migration_roadmap.md §2 (action_journal) | action_journal integration |
-| SP-013 | docs/migration_roadmap.md §Security | validation additions |
-| SP-100 | docs/migration_roadmap_ui.md §API | api-client refactor |
-| SP-106 | docs/migration_roadmap_ui.md §Sessions | execution console |
-| SP-201 | docs/migration_roadmap.md §Docs | README overhaul |
+| SP-001 | migration_roadmap.md §2 | global/workspace schema additions |
+| SP-002 | migration_roadmap.md §1.3 | hash utilities (new) |
+| SP-003 | migration_roadmap.md §2 / §1.4 | repository layer refactors |
+| SP-004 | migration_roadmap.md §5 | seed scripts & data conversion |
+| SP-005 | migration_roadmap.md §3 | spec-engine.ts (new) |
+| SP-006 | migration_roadmap.md §4 | router/middleware execute endpoint |
+| SP-008 | migration_roadmap.md §2.2 | task/session schema + logic |
+| SP-014 | migration_roadmap.md §API / §13 | spec/tool version endpoints |
+| SP-015 | migration_roadmap.md §API / §4 / §12 | profile/version/binding endpoints |
+| SP-016 | migration_roadmap.md §API / §5 / §6 / §15 | task & dependency endpoints |
+| SP-017 | migration_roadmap.md §11 / §8 / §17 | rules endpoints & reinforcement |
+| SP-018 | migration_roadmap.md §7 / §13 | graph validation |
+| SP-019 | migration_roadmap.md §9 | session lease logic tests |
+| SP-020 | migration_roadmap.md §10 | retry policy tests |
+| SP-009 | migration_roadmap.md §1.4 | profile-service flatten logic |
+| SP-010 | migration_roadmap.md §2 (action_journal) | action_journal integration |
+| SP-013 | migration_roadmap.md §Security | validation additions |
+| SP-100 | migration_roadmap_ui.md §API | api-client refactor |
+| SP-106 | migration_roadmap_ui.md §Sessions | execution console |
+| SP-201 | migration_roadmap.md §Docs | README overhaul |
 
 (Other tasks map similarly; see their Description fields.)
 
-This task plan is living; update in PRs referencing Task IDs. All implementers must maintain alignment with `docs/migration_roadmap.md` and `docs/migration_roadmap_ui.md`.
+## Notes
+Legacy phase-based planning removed 2025-09-02 for clarity under direct cutover approach. Historical phased plan intentionally discarded (no appendix) to prevent drift.
+
+This task plan is living; update in PRs referencing Task IDs. All implementers must maintain alignment with `migration_roadmap.md` and `migration_roadmap_ui.md`.
