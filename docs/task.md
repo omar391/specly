@@ -52,40 +52,6 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Notes**: Seeding fully implemented and validated. Seed definitions (`SPECLY_SEED_SPECS`, `SPECLY_SEED_TOOLS`, `SPECLY_ROOT_PROFILE`) established in `embedded-seed-data.ts`. `SeedManager.seedSpecly()` now: (1) deterministically orders spec & tool processing, (2) creates specs & tool versions idempotently by hash, (3) creates root profile + initial profile version on first run, (4) attaches latest tool versions, (5) always (re)binds all existing workspaces to latest profile version, (6) returns structured result incl. created hash arrays, (7) emits structured JSON log with stable ordering. Tests: idempotency, profile version existence, and post-creation workspace binding added (`seed-manager.test.ts`) using isolated in-memory GLOBAL DB for deterministic first-run counts. Structured logging & deterministic ordering complete acceptance criteria for logging/reporting. Additional workspaces created after initial seed get bound on subsequent seed run (verified by test). No remaining blockers—SP-004 closure unblocks SP-005 SpecEngine.
 - **Connected File List**: ./src/data/embedded-seed-data.ts, ./src/services/seed-manager.ts, ./src/scripts/seed-specly.ts
 
-### SP-005 Draft Planning Addendum (Pending Formalization)
-Goals:
-- Deterministic spec execution routing (single-step initial scope)
-- Graph validation & ordering abstraction (independent of persistence)
-- Stable canonical hash usage for execution caching (reuse from SP-002)
-
-Core Proposed Interfaces:
-```ts
-interface SpecNode { hash: string; intent: 'human' | 'autonomous'; sideEffect: boolean; }
-interface ToolGraph { entry: string; nodes: Record<string, SpecNode>; edges: Array<{from: string; to: string; priority: number}>; }
-interface ExecutionStep { specHash: string; awaitingHuman: boolean; }
-interface ExecutionPlan { steps: ExecutionStep[]; warnings: string[]; }
-interface ExecutionPlanner {
-	buildPlan(graph: ToolGraph): ExecutionPlan;
-}
-```
-
-Initial Tasks (to become separate Task IDs or folded into SP-005 notes):
-1. Minimal graph extractor from existing toolVersions.graphManifest
-2. Cycle & unreachable detection (warning vs error policy)
-3. Priority-based ordering (stable sort by priority then spec hash)
-4. Awaiting human flag propagation when intent === 'human'
-5. Unit tests: linear chain, branch merge, cycle rejection, unreachable node warn
-
-Open Questions:
-- Should unreachable specs invalidate publish? (Draft: warn only)
-- Multi-entry future possibility? (Out of scope; enforce single entry now)
-
-Assumptions:
-- Tool version manifest already validated for structural integrity (SP-018 will later tighten)
-- No side_effect replay logic until SP-010
-
-Next Action after addendum acceptance: create `spec-engine.ts` scaffold implementing interfaces + failing tests (TDD start).
-
 ## Task ID: SP-005
 - **Title**: Implement SpecEngine Core
 - **Description**: Execution loop per pseudocode (routing, human awaiting, session lease, context merge). Exclude side_effect idempotency (later task). §3 roadmap.
@@ -94,7 +60,39 @@ Next Action after addendum acceptance: create `spec-engine.ts` scaffold implemen
 - **Status**: In-Progress
 - **Progress**: 15%
 - **Completed At**: 
-- **Notes**: Skeleton `spec-engine.ts` added with BasicExecutionPlanner (topological ordering, cycle detection, priority + hash deterministic ordering, unreachable warnings) and tests (`spec-engine.test.ts`) covering: linear chain, priority branch ordering, cycle rejection, unreachable node warning. Next: integrate planner into forthcoming execute loop (pending SP-006). Remaining for SP-005: session lease integration, awaiting_input state transitions, context merge stub, result_code propagation.
+- **Notes**: 
+	Core Goals (initial scope):
+	- Deterministic spec execution routing (single-step initial scope)
+	- Graph validation & ordering abstraction (independent of persistence layer)
+	- Stable canonical hash usage for execution caching (leverages SP-002 hashes)
+
+	Implemented to date:
+	- Skeleton `spec-engine.ts` with `BasicExecutionPlanner` (topological ordering, cycle detection via Kahn variant, priority + hash deterministic ordering, unreachable node warnings)
+	- Interfaces established: `SpecNode`, `ToolGraph`, `ExecutionStep`, `ExecutionPlan`, `ExecutionPlanner`
+	- Tests (`spec-engine.test.ts`) cover linear chain ordering, branch priority resolution, cycle rejection, unreachable node warning path
+
+	Remaining (for full SP-005 completion):
+	1. Execution loop integrating planner (iterate plan, route to executor/autonomous vs awaiting human)
+	2. Session lease acquisition & renewal semantics
+	3. Awaiting_input state transitions & resume handling
+	4. Context merge strategy (accumulative vs selective) placeholder -> implementation
+	5. Result code & error propagation policy (success / partial / failed states)
+	6. Hook points for side_effect idempotency & retry (deferred to SP-010) – ensure extension seams
+	7. Minimal metrics counters (may shift to SP-012 but keep seam)
+
+		Decisions (locked defaults):
+		- Unreachable specs: now a validation ERROR (publish rejected) unless an internal override flag `allow_unreachable=true` is explicitly set (intended for dev diagnostics only). This replaces prior tentative "warn only" stance.
+		- Single entry invariant: exactly one entry spec required; multi-entry deferred (future explicit feature if needed).
+		- Pre-persist validation: full structural validation (spec existence, single entry, no self-loops, no cycles, unreachable detection, priority normalization, integer & non-negative priorities) occurs before tool version hash is finalized and stored.
+		- Side-effect replay: stub seam only (records success, no reuse logic) until SP-010 adds action journal replay & retry semantics.
+		- Edge selection ordering: specificity (result_code > always), lower numeric priority wins, tie-break by stable insertion index/hash.
+
+	Assumptions:
+	- Tool version manifest structurally valid prior to planning (SP-018 will harden validation rules)
+	- No side_effect replay logic until SP-010 introduces action journal integration
+		(Assumptions updated: structural validity now enforced earlier via validator added under SP-018—in planner we assume invariants. Validator now fully implemented and returns normalized manifest used for hashing & planning; planner will rely on normalized edges & priority defaults.)
+
+	Progress Justification (15%): Planner + tests done (foundation); execution + session + state management remain majority of complexity.
 - **Connected File List**: ./src/services/spec-engine.ts, ./src/types/index.ts
 
 ## Task ID: SP-006
@@ -231,13 +229,13 @@ Next Action after addendum acceptance: create `spec-engine.ts` scaffold implemen
 
 ## Task ID: SP-018
 - **Title**: Graph & Transition Validation
-- **Description**: Add validator ensuring: no cycles reachable from entry_spec, all edges reference ordered_specs, exactly one entry_spec in ordered_specs, unreachable specs flagged (warning), priority integers normalized (default 100). Architecture refs: transitions & routing §7, tool versions graph manifest §13. Dead-end mid-graph triggers failure test. Provide separate util with tests.
+- **Description**: Implement pre-persist validator ensuring: exactly one entry_spec, all edges reference declared ordered_specs, no self-loops, no cycles (whole reachable subgraph), unreachable specs produce ERROR (publish rejected) unless an internal `allow_unreachable=true` flag supplied (dev only), priorities normalized (missing -> 100, must be integer >=0), edges sorted deterministically for hashing. Architecture refs: transitions & routing §7, tool versions graph manifest §13. Dead-end mid-run still treated as execution failure (distinct from validation). Provide separate util with tests.
 - **Priority**: Medium
 - **Dependencies**: SP-002
-- **Status**: TBD
-- **Progress**: 0%
+- **Status**: In-Progress
+- **Progress**: 30%
 - **Completed At**: 
-- **Notes**: Cycle detection via DFS; complexity O(V+E).
+- **Notes**: Validator implemented (`validateToolGraph`) returning normalized manifest (integer priority fill default=100, deterministic edge ordering by `from_spec, priority asc, result_code specificity (specific before always), target spec hash`), and throws `GraphValidationError` with typed codes (ERR_MULTI_ENTRY, ERR_CYCLE, ERR_UNREACHABLE, ERR_SELF_LOOP, ERR_NEGATIVE_PRIORITY, ERR_DUPLICATE_ORDERED_SPEC, ERR_UNDECLARED_SPEC). Kahn-based topological pass derives reachability + cycle detection in O(V+E). Unreachable specs now hard error unless `allowUnreachable=true` (internal). Tests cover: happy path normalization (edge sort + priority fill), cycle, unreachable (error), unreachable (allowed), self-loop, negative priority, duplicate ordered_specs, undeclared spec edge. Integrated into planned tool version publication flow (SP-014) pre-hash; planner (SP-005) now assumes validator invariants and will not re-check structural errors—only runtime execution states. Remaining for SP-018: integrate with upcoming API endpoints (SP-014), add dead-end mid-run failure classification test, expose minimal public error -> 422 mapping utility, and documentation snippet in architecture §7 & §13 referencing normalization guarantees.
 - **Connected File List**: ./src/utils/graph-validate.ts, ./src/__tests__/graph-validate.test.ts
 
 ## Task ID: SP-019

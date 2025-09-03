@@ -58,28 +58,31 @@ export class BasicExecutionPlanner implements ExecutionPlanner {
       inDegree[e.to]++;
     }
 
-    // Cycle detection via DFS color marking
-    const color: Record<string, 0 | 1 | 2> = {}; // 0=unvisited,1=visiting,2=done
-    const cyclePath: string[] = [];
-    let hasCycle = false;
-    const dfs = (node: string) => {
-      color[node] = 1;
-      for (const edge of adjacency[node]) {
-        const n = edge.to;
-        if (color[n] === 0) {
-          dfs(n);
-          if (hasCycle) return;
-        } else if (color[n] === 1) {
-          hasCycle = true;
-          cyclePath.push(n);
-          return;
-        }
+      // Cycle detection (Kahn variant): if topological pass visits fewer reachable nodes than reachable set, cycle exists.
+      const reachable = new Set<string>();
+      const qReach = [graph.entry];
+      while (qReach.length) {
+          const n = qReach.shift()!;
+          if (reachable.has(n)) continue;
+          reachable.add(n);
+          for (const e of adjacency[n]) qReach.push(e.to);
       }
-      color[node] = 2;
-    };
-    dfs(graph.entry);
-    if (hasCycle) {
-      throw new Error(`Cycle detected in tool graph involving ${cyclePath.join(' -> ')}`);
+      // Copy inDegree for simulation
+      const inDegCopy: Record<string, number> = { ...inDegree };
+      const readyCycle: string[] = [];
+      for (const h of reachable) if (inDegCopy[h] === 0) readyCycle.push(h);
+      let visitedCount = 0;
+      while (readyCycle.length) {
+          // deterministic pop
+          readyCycle.sort();
+          const cur = readyCycle.shift()!;
+          visitedCount++;
+          for (const e of adjacency[cur]) {
+              inDegCopy[e.to]--; if (inDegCopy[e.to] === 0 && reachable.has(e.to)) readyCycle.push(e.to);
+          }
+      }
+      if (visitedCount < reachable.size) {
+          throw new Error('Cycle detected in tool graph');
     }
 
     // Kahn topological with priority ordering among ready nodes
@@ -104,15 +107,7 @@ export class BasicExecutionPlanner implements ExecutionPlanner {
       });
     };
 
-    const reachable = new Set<string>();
-    // BFS from entry to mark reachable
-    const q = [graph.entry];
-    while (q.length) {
-      const n = q.shift()!;
-      if (reachable.has(n)) continue;
-      reachable.add(n);
-      for (const e of adjacency[n]) q.push(e.to);
-    }
+      // reachable already computed above
 
     pushOrdered();
     while (ready.length) {

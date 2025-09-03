@@ -322,7 +322,7 @@ async function createProfileVersion({ profileId, parentProfileVersionId, additio
 |------|------|------------|------------------|
 | 1 | Schema creation | Create new Specly tables; drop legacy after verification snapshot | New tables exist; legacy tables absent |
 | 2 | Seed base data | Convert legacy flow definitions in-memory → specs & tool versions; insert root profile/version; bind workspaces | Counts match expectations; no legacy queries needed |
-| 3 | Implement SpecEngine | Add engine + repositories + hashing utilities | Unit tests pass (hash, routing) |
+| 3 | Implement SpecEngine & Validator | Add engine + repositories + hashing utilities + pre-persist graph validator (single entry, no cycles, no unreachable, priority normalization) | Unit tests pass (hash, routing, validation: cycle, unreachable, multi-entry) |
 | 4 | Replace execution path | Wire API / CLI to SpecEngine; remove ToolFlowExecutor imports | All tests use new engine only |
 | 5 | Profile inheritance | Implement create child profile versions + upgrading | Inheritance tests green |
 | 6 | Side effects & idempotency | Add action journal enforcement & retry policies | Journal tests green |

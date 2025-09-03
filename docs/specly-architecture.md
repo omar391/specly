@@ -51,11 +51,11 @@ Transition row structure (in `tool_versions.graph_manifest.edges` & optionally a
 ```
 { from, to, condition_type: 'result_code' | 'always', condition_value?, priority? }
 ```
-Selection algorithm:
+Selection algorithm (deterministic):
 1. Gather edges with `from = current_spec`.
 2. Partition by specificity (result_code > always).
-3. From highest non-empty partition, pick edge with lowest `priority` (default 100); tie-break by insertion order.
-4. If none → task `failed` (dead-end).
+3. From highest non-empty partition, pick edge with lowest `priority` (normalized: missing → 100); tie-break by stable insertion order (or hash secondary if needed).
+4. If none → task `failed` with `result_code = no_transition` (dead-end mid-run distinct from validation failures).
 5. Human next node sets task `awaiting_input`, session `idle`.
 
 ## 8. Spec Execution Flow
@@ -118,6 +118,18 @@ Graph manifest minimal schema:
 ```
 Expression-based transitions are future extension (will add condition_type 'expression').
 
+### 13.1 Pre-Persist Graph Validation (Validator)
+Before hashing & persisting a tool version, the validator enforces:
+- Exactly one `entry_spec` (multi-entry not supported).
+- All `ordered_specs` unique; all edge `from`/`to` appear in `ordered_specs`.
+- No self-loops.
+- No cycles (Kahn or DFS detection across reachable subgraph from entry).
+- No unreachable specs (any node not reached from entry) → ERROR unless internal flag `allow_unreachable=true` supplied (dev only; not public API feature).
+- Priorities: missing → 100; must be integer ≥ 0; reject non-integer / negative.
+- Edge list normalized (sorted) before hash to guarantee deterministic hashing.
+
+Validator returns a normalized manifest (filled priorities, sorted edges). Failure produces typed error codes: `ERR_MULTI_ENTRY`, `ERR_UNDECLARED_SPEC`, `ERR_SELF_LOOP`, `ERR_CYCLE`, `ERR_UNREACHABLE`, `ERR_PRIORITY_INVALID`.
+
 ## 14. Specs
 Immutable hashed table `specs`:
 Fields: executor_type, executor_version, intent, side_effect, content_template, static_params, input_schema, output_schema, idempotency_key_template, retry_policy, show_output, security, metadata (display_name, tags, supersedes?, visibility), created_at.
@@ -176,11 +188,14 @@ Rules:
 | Circular profile inheritance | Reject creation (DFS check). |
 | Overriding non-existent tool in child | Treated as addition. |
 | Removal of tool not present | Ignored (idempotent). |
-| Dead-end spec (no edges) mid-run | Task failed with diagnostic. |
+| Dead-end spec (no edges) mid-run | Task failed with diagnostic (result_code `no_transition`). |
 | Duplicate alias post-flattening | Reject before insert (unique constraint). |
 | Client resume mismatch | 409 unless `force_start`. |
 | Human input spec w/out args | Return prompt; no progression. |
-| Side-effect replay | Journal short-circuit with stored result. |
+| Side-effect replay | (Phase 1 seam) Journal write only; replay & retry logic added later (SP-010). |
+| Unreachable spec in new tool version | Validation error (422) unless `allow_unreachable=true` internal override. |
+| Multiple entry specs declared | Validation error (ERR_MULTI_ENTRY). |
+| Cycle in edges | Validation error (ERR_CYCLE). |
 
 ## 19. Extensibility (Deferred)
 - Transition expressions (condition_type=expression)
