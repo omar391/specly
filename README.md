@@ -44,7 +44,7 @@ TaskPilot runs as a unified server supporting multiple interaction modes:
 ### 2. REST API
 - **Workspace Management**: `/api/workspaces`
 - **Task Operations**: `/api/workspaces/{id}/tasks`
-- **Unified Tool Execution**: `POST /api/tools/{tool}/execute?mode=run|resume` (replaces legacy tool-flows & feedback-steps)
+- **Unified Tool Execution**: `POST /api/tools/{tool}/execute` (start or resume inferred) (replaces legacy tool-flows & feedback-steps)
 
 ### 3. Web UI
 - **React-based Dashboard**: Modern interface for task management
@@ -283,8 +283,7 @@ rm .task/workspace.db
 | `/workspaces` | GET | List all workspaces |
 | `/workspaces/{id}/tasks` | GET, POST | Manage tasks |
 | `/workspaces/{id}/tasks/{taskId}` | PUT | Update specific task |
-| `/tools/{tool}/execute?mode=run` | POST | Start execution of a tool graph (inline graph today) |
-| `/tools/{tool}/execute?mode=resume` | POST | Resume paused execution with human input |
+| `/tools/{tool}/execute` | POST | Start execution (graph provided) or resume (resumeToken provided) |
 
 Legacy endpoints `/tool-flows` and `/feedback-steps` have been removed (404). Use the unified execute endpoint.
 
@@ -292,7 +291,7 @@ Legacy endpoints `/tool-flows` and `/feedback-steps` have been removed (404). Us
 
 Run (start new execution):
 ```bash
-curl -X POST "http://localhost:8989/api/tools/specly_execute/execute?mode=run" \
+curl -X POST "http://localhost:8989/api/tools/specly_execute/execute" \
   -H 'Content-Type: application/json' \
   -d '{
     "graph": {
@@ -323,7 +322,7 @@ Possible Paused Response:
 
 Resume after providing human output:
 ```bash
-curl -X POST "http://localhost:8989/api/tools/specly_execute/execute?mode=resume" \
+curl -X POST "http://localhost:8989/api/tools/specly_execute/execute" \
   -H 'Content-Type: application/json' \
   -d '{
     "resumeToken": "abc123",
@@ -361,7 +360,7 @@ Error Mapping (current):
 | (none) | 200 | Completed or awaiting_input (success path) |
 | EXECUTOR_FAILED/other | 500 | Runtime failure |
 
-`tool_version_id` path is reserved; sending only that field returns 501 until persistence lands (SP-014).
+`tool_version_id` path is reserved; sending only that field (without graph or resumeToken) returns 501 until persistence lands (SP-014). Supplying deprecated `mode` query param now returns 400.
 
 ### Tool Schema
 

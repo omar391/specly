@@ -72,13 +72,14 @@ This document defines the minimal REST API endpoints required for TaskPilot UI i
 ```
 
 ### 3. POST /api/tools/{tool}/execute
-**Purpose**: Unified execution (run or resume) of a tool version graph via SpecEngine.
-**Query Param**: `mode=run|resume` (default `run`)
+**Purpose**: Unified execution (start or resume) of a tool version graph via SpecEngine.
 
-#### Run Mode (mode=run)
-Starts a new execution given either an inline `graph` manifest (current) or a `tool_version_id` (future – not yet implemented).
+Execution intent is inferred:
+- Provide `graph` (and no `resumeToken`) → start new run.
+- Provide `resumeToken` + `human_input` (+ `graph` until persistence added) → resume paused run.
+`mode` query param has been removed (was `run|resume`). Supplying it now returns HTTP 400.
 
-Request Body (run):
+Request Body (start new run):
 ```json
 {
   "graph": {
@@ -133,8 +134,7 @@ Tool Version Path Not Implemented (501):
 { "error": { "message": "tool_version_id resolution not implemented yet; provide graph" } }
 ```
 
-#### Resume Mode (mode=resume)
-Continues a paused execution using the prior `resumeToken` and human input for the awaiting spec.
+Resume Run:
 
 Request Body (resume):
 ```json
@@ -182,7 +182,7 @@ Planned Enhancements:
 - Extended error mapping (LEASE_RENEW_FAILED, ROUTE_DEAD_END, RESUME_TOKEN_INVALID)
 - Richer `results` detail (timings, result codes)
 
-Backward Compatibility: Legacy `/tool-flows` and `/feedback-steps` endpoints have been removed (return 404 if accessed). Consumers must migrate to the unified execute model.
+Backward Compatibility: Legacy `/tool-flows` and `/feedback-steps` endpoints have been removed (404). Previous `mode` parameter removed—clients updated to rely on `resumeToken` presence.
 
 ### 4. POST /api/workspaces/{id}/tasks
 **Purpose**: Create new task

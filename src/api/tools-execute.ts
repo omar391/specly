@@ -13,72 +13,58 @@ export class ToolsExecuteController {
   ) {}
 
   async execute(req: Request, res: Response) {
-    const toolName = req.params.tool; // reserved for future persisted lookup / tool_version resolution
-    const { mode = 'run' } = req.query as { mode?: 'run' | 'resume' };
+    // Reject deprecated query param early if present
+    if (req.query.mode) {
+      return res.status(400).json({ error: { message: 'mode query param deprecated; omit it (auto-detect run vs resume)' } });
+    }
     try {
-      if (mode === 'resume') return await this.handleResume(req, res);
-      return await this.handleRun(req, res, toolName);
+      const parseResult = unifiedRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return res.status(400).json({ error: { message: 'Invalid request', details: parseResult.error.flatten() } });
+      }
+      const data = parseResult.data;
+
+      // tool_version_id future path
+      if (!data.graph && data.tool_version_id && !data.resumeToken) {
+        return res.status(501).json({ error: { message: 'tool_version_id resolution not implemented yet; provide graph' } });
+      }
+
+      const engine = this.engineFactory();
+      const sessionCtx = data.session?.id && data.session?.client_id ? { sessionId: data.session.id, clientId: data.session.client_id, force: data.session.force } : undefined;
+
+      // Resume path
+      if (data.resumeToken) {
+        const paused = await this.pausedStore.get(data.resumeToken);
+        if (!paused) return res.status(404).json({ error: { message: 'resumeToken not found' } });
+        if (!data.graph) return res.status(400).json({ error: { message: 'graph required for resume until persistence implemented' } });
+        const graph = data.graph as unknown as ToolGraph;
+        const ctx = await engine.resume(graph, paused, { specHash: data.human_input!.specHash, humanOutput: data.human_input!.output }, sessionCtx);
+        if (ctx.status !== 'awaiting_input') {
+          await this.pausedStore.delete(data.resumeToken);
+        }
+        return res.status(mapHttpStatus(ctx.errorCode)).json(serializeContext(ctx));
+      }
+
+      // Run path
+      if (!data.graph) return res.status(400).json({ error: { message: 'graph required (no tool_version_id path yet)' } });
+      const graph = data.graph as unknown as ToolGraph;
+      const ctx = await engine.run(graph, sessionCtx);
+      if (ctx.status === 'awaiting_input' && ctx.resumeToken) {
+        const paused: SerializedPausedState = {
+          plan: { steps: graphToSteps(graph), warnings: ctx.warnings },
+          currentIndex: findIndexOfSpec(graph, ctx.awaitingSpec!),
+          executed: ctx.executed,
+          results: ctx.results,
+          warnings: ctx.warnings,
+          awaitingSpec: ctx.awaitingSpec!,
+          sessionContext: {}
+        };
+        await this.pausedStore.save(ctx.resumeToken, paused);
+      }
+      return res.status(mapHttpStatus(ctx.errorCode)).json(serializeContext(ctx));
     } catch (e: any) {
-      res.status(500).json({ error: { message: e?.message || 'Internal error' } });
+      return res.status(500).json({ error: { message: e?.message || 'Internal error' } });
     }
-  }
-
-  private async handleRun(req: Request, res: Response, toolName: string) {
-    const parseResult = runRequestSchema.safeParse(req.body);
-    if (!parseResult.success) {
-      return res.status(400).json({ error: { message: 'Invalid request', details: parseResult.error.flatten() } });
-    }
-    const data = parseResult.data;
-
-    // For now we require graph (tool_version_id future path). If only tool_version_id is provided return 501 to signal unimplemented feature path.
-    if (!data.graph && data.tool_version_id) {
-      return res.status(501).json({ error: { message: 'tool_version_id resolution not implemented yet; provide graph' } });
-    }
-  // Cast via unknown because schema only validates a structural subset of SpecNode
-  const graph = data.graph as unknown as ToolGraph; // validated shape minimal
-
-    const engine = this.engineFactory();
-    const sessionCtx = data.session?.id && data.session?.client_id ? { sessionId: data.session.id, clientId: data.session.client_id, force: data.session.force } : undefined;
-    const ctx = await engine.run(graph, sessionCtx);
-    if (ctx.status === 'awaiting_input' && ctx.resumeToken) {
-      const paused: SerializedPausedState = {
-        plan: { steps: graphToSteps(graph), warnings: ctx.warnings },
-        currentIndex: findIndexOfSpec(graph, ctx.awaitingSpec!),
-        executed: ctx.executed,
-        results: ctx.results,
-        warnings: ctx.warnings,
-        awaitingSpec: ctx.awaitingSpec!,
-        sessionContext: {}
-      };
-      await this.pausedStore.save(ctx.resumeToken, paused);
-    }
-    return res.status(mapHttpStatus(ctx.errorCode)).json(serializeContext(ctx));
-  }
-
-  private async handleResume(req: Request, res: Response) {
-    const parseResult = resumeRequestSchema.safeParse(req.body);
-    if (!parseResult.success) {
-      return res.status(400).json({ error: { message: 'Invalid request', details: parseResult.error.flatten() } });
-    }
-    const data = parseResult.data;
-  const paused = await this.pausedStore.get(data.resumeToken);
-    if (!paused) return res.status(404).json({ error: { message: 'resumeToken not found' } });
-
-    if (!data.graph && data.tool_version_id) {
-      return res.status(501).json({ error: { message: 'tool_version_id resolution not implemented yet; provide graph' } });
-    }
-    if (!data.graph) {
-      return res.status(400).json({ error: { message: 'graph required for resume (no persistence yet)' } });
-    }
-  const graph = data.graph as unknown as ToolGraph;
-    const engine = this.engineFactory();
-    const sessionCtx = data.session?.id && data.session?.client_id ? { sessionId: data.session.id, clientId: data.session.client_id, force: data.session.force } : undefined;
-    const ctx = await engine.resume(graph, paused, { specHash: data.human_input.specHash, humanOutput: data.human_input.output }, sessionCtx);
-    if (ctx.status !== 'awaiting_input' && data.resumeToken) {
-      // Clean up consumed resume token once execution advances
-      await this.pausedStore.delete(data.resumeToken);
-    }
-    return res.status(mapHttpStatus(ctx.errorCode)).json(serializeContext(ctx));
   }
 }
 
@@ -134,19 +120,21 @@ const sessionSchema = z.object({
   force: z.boolean().optional()
 }).optional();
 
-const runRequestSchema = z.object({
-  graph: graphSchema.optional(),
-  tool_version_id: z.string().uuid().optional(),
-  session: sessionSchema
-}).refine(d => !!d.graph || !!d.tool_version_id, { message: 'graph or tool_version_id required', path: ['graph'] });
-
-const resumeRequestSchema = z.object({
-  resumeToken: z.string().min(1),
+// Unified schema (run or resume inferred by presence of resumeToken)
+const unifiedRequestSchema = z.object({
+  resumeToken: z.string().min(1).optional(),
   human_input: z.object({
     specHash: z.string().min(1),
     output: z.any().optional()
-  }),
+  }).optional(),
   graph: graphSchema.optional(),
   tool_version_id: z.string().uuid().optional(),
   session: sessionSchema
+}).superRefine((val, ctx) => {
+  const isResume = !!val.resumeToken;
+  if (isResume) {
+    if (!val.human_input) ctx.addIssue({ code: 'custom', path: ['human_input'], message: 'human_input required when resumeToken provided' });
+  } else {
+    if (!val.graph && !val.tool_version_id) ctx.addIssue({ code: 'custom', path: ['graph'], message: 'graph or tool_version_id required' });
+  }
 });

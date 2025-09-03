@@ -50,8 +50,8 @@ describe('POST /api/tools/:tool/execute', () => {
   });
 
   it('pauses on human spec and returns resumeToken', async () => {
-    const graph = basicGraph('second'); // human at c, so should execute a,b then pause before c? Actually human at c means pause at c.
-    const res = await request(app).post('/api/tools/demo/execute').query({ mode: 'run' }).send({ graph });
+    const graph = basicGraph('second');
+    const res = await request(app).post('/api/tools/demo/execute').send({ graph });
     expect([200, 422]).toContain(res.status); // structural issues would 422 but not expected here
     if (res.status === 200) {
       expect(res.body.status).toBe('awaiting_input');
@@ -65,11 +65,7 @@ describe('POST /api/tools/:tool/execute', () => {
     const start = await request(app).post('/api/tools/demo/execute').send({ graph });
     expect(start.body.status).toBe('awaiting_input');
     const token = start.body.resumeToken;
-    const resume = await request(app).post('/api/tools/demo/execute').query({ mode: 'resume' }).send({
-      resumeToken: token,
-      human_input: { specHash: 'c', output: { ok: true } },
-      graph
-    });
+    const resume = await request(app).post('/api/tools/demo/execute').send({ resumeToken: token, human_input: { specHash: 'c', output: { ok: true } }, graph });
     expect(resume.status).toBe(200);
     expect(resume.body.status).toBe('completed');
     expect(resume.body.executed.includes('c')).toBe(true);
@@ -93,11 +89,7 @@ describe('POST /api/tools/:tool/execute', () => {
 
   it('returns 404 on invalid resume token', async () => {
     const graph = basicGraph('second');
-    const res = await request(app).post('/api/tools/demo/execute').query({ mode: 'resume' }).send({
-      resumeToken: 'bogus',
-      human_input: { specHash: 'c' },
-      graph
-    });
+    const res = await request(app).post('/api/tools/demo/execute').send({ resumeToken: 'bogus', human_input: { specHash: 'c' }, graph });
     expect(res.status).toBe(404);
   });
 

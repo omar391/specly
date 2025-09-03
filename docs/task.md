@@ -147,7 +147,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Completed At**: 
 - **Notes**: 
 	Implementation Deliverables Achieved:
-	- Added `ToolsExecuteController` with unified `run` vs `resume` branching (query param `mode=run|resume`).
+	- Added `ToolsExecuteController` (initially used query param `mode=run|resume`; refactored to implicit detection via `resumeToken` — query param removed for early simplification).
 	- Zod validation schemas for run & resume requests (graph structural subset + optional `tool_version_id` future path). Enforces presence of `graph` or `tool_version_id` (returns 501 if only `tool_version_id` provided since resolution not implemented yet).
 	- Introduced `PausedStateStore` abstraction (`InMemoryPausedStateStore`) replacing ad-hoc Map to future-proof persistence (DB-backed store later).
 	- Integrated structural error mapping: cycles & self-loops -> HTTP 422 (SpecEngineErrorCode.GRAPH_CYCLE), missing nodes -> 422, lease conflicts -> 409, runtime executor failures -> 500.
@@ -162,7 +162,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 	4. Add negative test for self-loop distinct from cycle (already covered via cycle mapping but explicit test optional).
 	5. Extended error code mapping & lease conflict examples once lease enforcement tightened (ties to SP-019).
 	Progress Justification (70%): Core endpoint, validation, abstraction, tests, and legacy cleanup done; remaining items are documentation, extended lease semantics, and persisted tool_version path (deferred) — enough to integrate UI flows.
-	Progress Justification (80% updated): Documentation deliverables (api-design & README) completed; contract examples and error mapping published. Remaining functional scope unchanged (lease enforcement tests, persisted resolution path, optional self-loop explicit test). Documentation portion of SP-006 now complete.
+	Progress Justification (80% updated): Documentation deliverables (api-design & README) completed; contract examples and error mapping published. Mode param removed proactively (hardship now) to reduce future API surface churn; implicit run/resume detection validated by updated tests. Remaining functional scope unchanged (lease enforcement tests, persisted resolution path, optional self-loop explicit test). Documentation portion of SP-006 now complete.
 - **Connected File List**: ./src/api/router.ts, ./src/api/tools-execute.ts, ./src/services/paused-state-store.ts, ./src/__tests__/tools-execute-endpoint.test.ts
 
 ## Task ID: SP-007
