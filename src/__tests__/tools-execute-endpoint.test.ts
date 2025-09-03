@@ -2,21 +2,43 @@ import request from 'supertest';
 import express from 'express';
 import { createApiRouter } from '../api/router.js';
 import { DatabaseService } from '../services/database-service.js';
+import { v4 as uuid } from 'uuid';
 import { SpecEngine, ToolGraph } from '../services/spec-engine.js';
 import { ToolsExecuteController } from '../api/tools-execute.js';
 import { InMemoryPausedStateStore } from '../services/paused-state-store.js';
 import { describe, it, expect, beforeAll } from 'vitest';
 
 // Minimal database service stub (router expects real instance; we stub required methods)
-class StubDatabaseService {} // Extend later if endpoints require
+// Lightweight mock database service to avoid native better-sqlite3 usage for these endpoint tests
+class MockDatabaseService {
+  private toolVersions: Record<string, any> = {};
+  private specs: Record<string, any> = {};
 
-function buildApp(engineFactory?: () => SpecEngine) {
-  const db = new StubDatabaseService() as unknown as DatabaseService;
+  seedToolVersion(hash: string, manifest: any) {
+    this.toolVersions[hash] = { hash, toolName: manifest.tool_name || 'demo', graphManifest: manifest };
+  }
+  seedSpec(hash: string, intent: 'autonomous' | 'human' = 'autonomous', sideEffect = false) {
+    this.specs[hash] = { hash, intent, sideEffect };
+  }
+  getGlobal() {
+    return {
+      getToolVersion: async (hash: string) => this.toolVersions[hash] || null,
+      getSpecsByHashes: async (hashes: string[]) => {
+        const out: Record<string, any> = {};
+        for (const h of hashes) if (this.specs[h]) out[h] = this.specs[h];
+        return out;
+      }
+    } as any;
+  }
+}
+
+function buildApp(engineFactory?: () => SpecEngine, mockDb?: MockDatabaseService) {
+  const db = (mockDb || new MockDatabaseService()) as unknown as DatabaseService;
   const app = express();
   app.use(express.json());
   const router = createApiRouter(db);
   app.use('/api', router);
-  return app;
+  return { app, mockDb: db as unknown as MockDatabaseService };
 }
 
 function basicGraph(humanAt?: 'none' | 'first' | 'second'): ToolGraph {
@@ -36,9 +58,11 @@ function basicGraph(humanAt?: 'none' | 'first' | 'second'): ToolGraph {
 }
 
 describe('POST /api/tools/:tool/execute', () => {
-  let app: express.Express;
+  let app: express.Express; let mockDb: MockDatabaseService;
   beforeAll(() => {
-    app = buildApp();
+    const built = buildApp();
+    app = built.app;
+    mockDb = built.mockDb;
   });
 
   it('runs a full autonomous graph and returns completed', async () => {
@@ -93,8 +117,34 @@ describe('POST /api/tools/:tool/execute', () => {
     expect(res.status).toBe(404);
   });
 
-  it('returns 501 when only tool_version_id provided (future path)', async () => {
-    const res = await request(app).post('/api/tools/demo/execute').send({ tool_version_id: '123e4567-e89b-12d3-a456-426614174000' });
-    expect(res.status).toBe(501);
+  it('runs using only tool_version_id (autonomous)', async () => {
+    const specA = uuid();
+    const specB = uuid();
+    mockDb.seedSpec(specA, 'autonomous');
+    mockDb.seedSpec(specB, 'autonomous');
+    const toolHash = uuid();
+    const manifest = { ordered_specs: [specA, specB], entry_spec: specA, edges: [{ from: specA, to: specB, priority: 100 }] };
+    mockDb.seedToolVersion(toolHash, manifest);
+    const res = await request(app).post('/api/tools/demo/execute').send({ tool_version_id: toolHash });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('completed');
+    expect(res.body.executed.length).toBe(2);
+  });
+
+  it('pauses/resumes using only tool_version_id (human in second node)', async () => {
+    const specA = uuid();
+    const specHuman = uuid();
+    mockDb.seedSpec(specA, 'autonomous');
+    mockDb.seedSpec(specHuman, 'human');
+    const toolHash = uuid();
+    const manifest = { ordered_specs: [specA, specHuman], entry_spec: specA, edges: [{ from: specA, to: specHuman, priority: 100 }] };
+    mockDb.seedToolVersion(toolHash, manifest);
+    const start = await request(app).post('/api/tools/demo/execute').send({ tool_version_id: toolHash });
+    expect(start.status).toBe(200);
+    expect(start.body.status).toBe('awaiting_input');
+    const resume = await request(app).post('/api/tools/demo/execute').send({ tool_version_id: toolHash, resumeToken: start.body.resumeToken, human_input: { specHash: specHuman, output: { ok: true } } });
+    expect(resume.status).toBe(200);
+    expect(resume.body.status).toBe('completed');
+    expect(resume.body.executed.includes(specHuman)).toBe(true);
   });
 });

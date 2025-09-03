@@ -28,7 +28,7 @@ export function createApiRouter(databaseService: DatabaseService): Router {
   // Initialize controllers
   const workspacesController = new WorkspacesController(databaseService);
   const tasksController = new TasksController(databaseService, workspacesController);
-  const toolsExecuteController = new ToolsExecuteController();
+  const toolsExecuteController = new ToolsExecuteController(undefined, undefined, databaseService);
   // Placeholder: future spec/profile controllers will be initialized here.
 
   // Apply middleware

@@ -1,9 +1,11 @@
-import { eq, and, desc, asc } from 'drizzle-orm';
+import { eq, and, desc, asc, inArray } from 'drizzle-orm';
 import { DrizzleDatabaseManager, getGlobalDatabase } from './drizzle-connection.js';
 import {
   workspaces,
   sessions,
-  mcpServerMappings
+  mcpServerMappings,
+  toolVersions,
+  specs
 } from './schema/global-schema.js';
 import type {
   Workspace,
@@ -19,6 +21,27 @@ export class GlobalDatabaseService {
 
   constructor(dbInstance?: DrizzleDatabaseManager) {
     this.db = dbInstance || getGlobalDatabase();
+  }
+
+  // ========================================
+  // SPEC & TOOL VERSION OPERATIONS (for execute path)
+  // ========================================
+
+  /** Fetch tool version by hash */
+  async getToolVersion(hash: string) {
+    const db = this.db.getDb();
+    const [result] = await db.select().from(toolVersions).where(eq(toolVersions.hash, hash)).limit(1);
+    return result || null;
+  }
+
+  /** Fetch multiple specs by hashes (returns map hash -> spec) */
+  async getSpecsByHashes(hashes: string[]) {
+    if (!hashes.length) return {} as Record<string, typeof specs.$inferSelect>;
+    const db = this.db.getDb();
+    const rows = await db.select().from(specs).where(inArray(specs.hash, hashes));
+    const map: Record<string, typeof specs.$inferSelect> = {};
+    for (const r of rows) map[r.hash] = r;
+    return map;
   }
 
   /**

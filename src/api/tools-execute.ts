@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { SpecEngine, ToolGraph, SerializedPausedState, SpecEngineErrorCode } from '../services/spec-engine.js';
 import { PausedStateStore, InMemoryPausedStateStore } from '../services/paused-state-store.js';
 import { z } from 'zod';
+import { DatabaseService } from '../services/database-service.js';
+import { getGlobalDatabaseService } from '../database/global-queries.js';
 
 // Default store (can be overridden for tests / future persistence)
 const defaultPausedStateStore = new InMemoryPausedStateStore();
@@ -9,7 +11,8 @@ const defaultPausedStateStore = new InMemoryPausedStateStore();
 export class ToolsExecuteController {
   constructor(
     private engineFactory: () => SpecEngine = () => new SpecEngine(),
-    private pausedStore: PausedStateStore = defaultPausedStateStore
+    private pausedStore: PausedStateStore = defaultPausedStateStore,
+    private db: DatabaseService | null = null
   ) {}
 
   async execute(req: Request, res: Response) {
@@ -24,9 +27,36 @@ export class ToolsExecuteController {
       }
       const data = parseResult.data;
 
-      // tool_version_id future path
-      if (!data.graph && data.tool_version_id && !data.resumeToken) {
-        return res.status(501).json({ error: { message: 'tool_version_id resolution not implemented yet; provide graph' } });
+      // Resolve graph from tool_version_id if provided and graph omitted (run or resume)
+      let resolvedGraph: ToolGraph | undefined;
+      if (!data.graph && data.tool_version_id) {
+        try {
+          // Use injected DatabaseService if available, else fallback singleton (tests may stub)
+          const globalDb = this.db ? this.db.getGlobal() : getGlobalDatabaseService();
+          const toolVersion = await globalDb.getToolVersion(data.tool_version_id);
+          if (!toolVersion) {
+            return res.status(404).json({ error: { message: 'tool_version_id not found' } });
+          }
+          const manifest: any = toolVersion.graphManifest;
+          // manifest shape expected: { ordered_specs: string[], entry_spec: string, edges: {from,to,priority?}[] }
+          if (!manifest || !manifest.ordered_specs || !manifest.entry_spec || !Array.isArray(manifest.edges)) {
+            return res.status(500).json({ error: { message: 'Stored tool version manifest invalid' } });
+          }
+          // Fetch spec intents for nodes (fallback to autonomous if missing) – specs may not all exist if seed incomplete
+          const specMap = await globalDb.getSpecsByHashes(manifest.ordered_specs);
+          const nodes: Record<string, any> = {};
+            for (const h of manifest.ordered_specs) {
+              const spec = (specMap as any)[h];
+              nodes[h] = { hash: h, intent: spec?.intent || 'autonomous', sideEffect: spec?.sideEffect || false };
+            }
+          resolvedGraph = {
+            entry: manifest.entry_spec,
+            nodes,
+            edges: manifest.edges.map((e: any) => ({ from: e.from, to: e.to, priority: e.priority }))
+          };
+        } catch (err: any) {
+          return res.status(500).json({ error: { message: err?.message || 'Failed to resolve tool_version_id' } });
+        }
       }
 
       const engine = this.engineFactory();
@@ -36,8 +66,8 @@ export class ToolsExecuteController {
       if (data.resumeToken) {
         const paused = await this.pausedStore.get(data.resumeToken);
         if (!paused) return res.status(404).json({ error: { message: 'resumeToken not found' } });
-        if (!data.graph) return res.status(400).json({ error: { message: 'graph required for resume until persistence implemented' } });
-        const graph = data.graph as unknown as ToolGraph;
+        const graph = (data.graph || resolvedGraph) as unknown as ToolGraph;
+        if (!graph) return res.status(400).json({ error: { message: 'graph or tool_version_id required for resume' } });
         const ctx = await engine.resume(graph, paused, { specHash: data.human_input!.specHash, humanOutput: data.human_input!.output }, sessionCtx);
         if (ctx.status !== 'awaiting_input') {
           await this.pausedStore.delete(data.resumeToken);
@@ -46,8 +76,8 @@ export class ToolsExecuteController {
       }
 
       // Run path
-      if (!data.graph) return res.status(400).json({ error: { message: 'graph required (no tool_version_id path yet)' } });
-      const graph = data.graph as unknown as ToolGraph;
+      const graph = (data.graph || resolvedGraph) as unknown as ToolGraph;
+      if (!graph) return res.status(400).json({ error: { message: 'graph or tool_version_id required' } });
       const ctx = await engine.run(graph, sessionCtx);
       if (ctx.status === 'awaiting_input' && ctx.resumeToken) {
         const paused: SerializedPausedState = {

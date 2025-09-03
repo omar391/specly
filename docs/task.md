@@ -148,11 +148,11 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Notes**: 
 	Implementation Deliverables Achieved:
 	- Added `ToolsExecuteController` (initially used query param `mode=run|resume`; refactored to implicit detection via `resumeToken` — query param removed for early simplification).
-	- Zod validation schemas for run & resume requests (graph structural subset + optional `tool_version_id` future path). Enforces presence of `graph` or `tool_version_id` (returns 501 if only `tool_version_id` provided since resolution not implemented yet).
+	- Zod validation schemas for run & resume requests (graph structural subset + optional `tool_version_id` path). Enforces presence of `graph` or `tool_version_id`; server now resolves stored manifest when only `tool_version_id` provided.
 	- Introduced `PausedStateStore` abstraction (`InMemoryPausedStateStore`) replacing ad-hoc Map to future-proof persistence (DB-backed store later).
 	- Integrated structural error mapping: cycles & self-loops -> HTTP 422 (SpecEngineErrorCode.GRAPH_CYCLE), missing nodes -> 422, lease conflicts -> 409, runtime executor failures -> 500.
 	- Removed legacy endpoints & stub files (`tool-flows.ts`, `feedback-steps.ts`) and cleaned router numbering.
-	- Added endpoint integration tests (`tools-execute-endpoint.test.ts`): full autonomous completion, human pause + resume, structural cycle error (422), missing graph (400), invalid resume token (404), tool_version_id-only (501).
+	- Added endpoint integration tests (`tools-execute-endpoint.test.ts`): full autonomous completion, human pause + resume, structural cycle error (422), missing graph (400), invalid resume token (404), tool_version_id autonomous & pause/resume flows.
 	- Enhanced SpecEngine structural validation mapping for `ERR_SELF_LOOP` → `GRAPH_CYCLE` for consistent 422 surface.
 	- Documentation updated: `api-design.md` now documents unified execute endpoint (run & resume modes, schemas, responses, error mapping) and removes legacy tool-flow/feedback endpoints; `README.md` updated with quickstart curl examples and error mapping table.
 	Remaining Scope for SP-006 Completion:
@@ -199,11 +199,11 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Connected File List**: ./src/services/profile-service.ts, ./src/api/router.ts, ./src/tools/update.ts
 
 ## Task ID: SP-010
-- **Title**: Action Journal & Side-Effect Idempotency
-- **Description**: Add action_journal repository & integrate side_effect idempotency + retry logic into SpecEngine. Implement computeIdemKey.
+ **Status**: In-Progress
+ **Progress**: 60%
 - **Priority**: Medium
-- **Dependencies**: SP-005
-- **Status**: TBD
+ **Status**: In-Progress
+ **Progress**: 80%
 - **Progress**: 0%
 - **Completed At**: 
 - **Notes**: Journal tests for reuse and retry exhaustion.

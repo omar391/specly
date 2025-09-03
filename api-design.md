@@ -95,7 +95,7 @@ Request Body (start new run):
 ```
 
 Validation Rules:
-- Must supply `graph` OR `tool_version_id` (currently `graph` required; supplying only `tool_version_id` returns 501 Not Implemented)
+- Must supply `graph` OR `tool_version_id` (both allowed; if both present `graph` takes precedence). When `tool_version_id` provided server resolves stored graph manifest.
 - `graph.entry` must exist in `graph.nodes`
 - Minimal structural subset validated; full normalization handled upstream when persisted
 
@@ -129,10 +129,7 @@ Structural Error (422):
 }
 ```
 
-Tool Version Path Not Implemented (501):
-```json
-{ "error": { "message": "tool_version_id resolution not implemented yet; provide graph" } }
-```
+Tool Version Path (Resolved): supply only `tool_version_id` to execute latest stored manifest without resending graph.
 
 Resume Run:
 

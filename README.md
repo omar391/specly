@@ -360,7 +360,7 @@ Error Mapping (current):
 | (none) | 200 | Completed or awaiting_input (success path) |
 | EXECUTOR_FAILED/other | 500 | Runtime failure |
 
-`tool_version_id` path is reserved; sending only that field (without graph or resumeToken) returns 501 until persistence lands (SP-014). Supplying deprecated `mode` query param now returns 400.
+`tool_version_id` path is active: sending only that field (without graph or resumeToken) executes the persisted manifest. If both `graph` and `tool_version_id` are supplied the explicit `graph` wins. Supplying deprecated `mode` query param returns 400.
 
 ### Tool Schema
 
