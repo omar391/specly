@@ -81,6 +81,21 @@ export interface SpecEngineOptions {
   planner?: ExecutionPlanner;
   executor?: SpecExecutor; // handles autonomous specs
   // future: hooks for session lease, journal, rule injection, metrics
+  leaseProvider?: LeaseProvider;
+  leaseRenewEvery?: number; // specs per renewal (default 5)
+}
+
+// Phase 2: Lease provider interface (simple)
+export interface LeaseProvider {
+  acquire(sessionId: string, clientId: string, force?: boolean): Promise<{ leaseId: string }>; // throws on conflict
+  renew(leaseId: string): Promise<void>;
+  release(leaseId: string): Promise<void>;
+}
+
+class NoopLeaseProvider implements LeaseProvider {
+  async acquire(_sessionId: string, _clientId: string, _force?: boolean) { return { leaseId: 'noop' }; }
+  async renew(_leaseId: string) { /* noop */ }
+  async release(_leaseId: string) { /* noop */ }
 }
 
 /**
@@ -93,13 +108,17 @@ export interface SpecEngineOptions {
 export class SpecEngine {
   private planner: ExecutionPlanner;
   private executor: SpecExecutor;
+  private leaseProvider: LeaseProvider;
+  private leaseRenewEvery: number;
 
   constructor(opts: SpecEngineOptions = {}) {
     this.planner = opts.planner ?? new BasicExecutionPlanner();
     this.executor = opts.executor ?? new NoopAutonomousExecutor();
+    this.leaseProvider = opts.leaseProvider ?? new NoopLeaseProvider();
+    this.leaseRenewEvery = opts.leaseRenewEvery ?? 5;
   }
 
-  async run(graph: ToolGraph): Promise<ExecutionContext> {
+  async run(graph: ToolGraph, runOpts?: { sessionId?: string; clientId?: string; force?: boolean }): Promise<ExecutionContext> {
     try {
       const plan = this.planner.buildPlan(graph);
       const state: ExecutionState = {
@@ -111,10 +130,16 @@ export class SpecEngine {
 
       const executed: string[] = [];
       const results: Record<string, unknown> = {};
+      let leaseId: string | undefined;
+      let specsSinceRenew = 0;
 
       const finalizeError = (message: string): ExecutionContext => {
         state.failed = true;
         state.failureMessage = message;
+        // Best effort release
+        if (leaseId) {
+          void this.leaseProvider.release(leaseId).catch(() => {/* ignore */});
+        }
         return {
           status: 'error',
           executed,
@@ -123,6 +148,16 @@ export class SpecEngine {
           error: { message }
         };
       };
+
+      // Lease acquisition if session context provided
+      if (runOpts?.sessionId && runOpts?.clientId) {
+        try {
+          const lease = await this.leaseProvider.acquire(runOpts.sessionId, runOpts.clientId, runOpts.force);
+          leaseId = lease.leaseId;
+        } catch (e: any) {
+          return finalizeError(`Lease acquisition failed: ${e?.message || 'unknown'}`);
+        }
+      }
 
       while (state.currentIndex < plan.steps.length) {
         const step = plan.steps[state.currentIndex];
@@ -166,6 +201,14 @@ export class SpecEngine {
           if (output && typeof output === 'object') {
             Object.assign(state.sessionContext, output as Record<string, unknown>);
           }
+          // Lease renewal cadence
+          if (leaseId) {
+            specsSinceRenew++;
+            if (specsSinceRenew >= this.leaseRenewEvery) {
+              try { await this.leaseProvider.renew(leaseId); } catch (e: any) { return finalizeError(`Lease renewal failed: ${e?.message || 'unknown'}`); }
+              specsSinceRenew = 0;
+            }
+          }
         } catch (err: any) {
           rec.status = 'failed';
           rec.endedAt = Date.now();
@@ -176,6 +219,10 @@ export class SpecEngine {
         state.currentIndex++;
       }
 
+      // Release lease on normal completion
+      if (leaseId) {
+        void this.leaseProvider.release(leaseId).catch(() => {/* ignore */});
+      }
       return { status: 'completed', executed, results, warnings: plan.warnings };
     } catch (e: any) {
       return {

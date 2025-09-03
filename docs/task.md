@@ -8,8 +8,9 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 ## Backend Foundation
 
 ## Task ID: SP-001
-- **Title**: Create Specly Core Schema
+ **Progress**: 50%
 - **Description**: Implement new global + workspace schema (specs, tools, tool_versions, profiles, profile_versions, profile_version_tools, workspace_profile_versions, action_journal, workspace_rules, tasks, task_dependencies, sessions). Remove legacy tool_flows / feedback_steps tables from code (drop tables via migration). See migration_roadmap.md §2, file_changes.md (schema sections).
+ Progress Justification (50%): Ph0 foundation + Phases 1 & 2 complete. Phase 2 added LeaseProvider interface, acquisition, periodic renewal cadence (configurable), error handling on acquisition & renewal, and release on completion. Tests: spec-engine-lease (acquire/renew/release counts, acquisition conflict -> error, renewal failure mid-run). Remaining: pause/resume (Ph3), error taxonomy & dead-end runtime classification (Ph4), journal seam (Ph5), metrics seam (Ph6), docs (Ph7), hardening/perf/concurrency (Ph8).
 - **Priority**: High
 - **Dependencies**: None
 - **Status**: Done
