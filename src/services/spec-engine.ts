@@ -181,8 +181,8 @@ export class SpecEngine {
         } catch (vErr: any) {
             if (vErr instanceof GraphValidationError) {
                 let code: SpecEngineErrorCode | undefined;
-                if (vErr.code === 'ERR_UNDECLARED_SPEC') code = SpecEngineErrorCode.GRAPH_MISSING_NODE;
-                if (vErr.code === 'ERR_CYCLE') code = SpecEngineErrorCode.GRAPH_CYCLE;
+        if (vErr.code === 'ERR_UNDECLARED_SPEC') code = SpecEngineErrorCode.GRAPH_MISSING_NODE;
+        if (vErr.code === 'ERR_CYCLE' || vErr.code === 'ERR_SELF_LOOP') code = SpecEngineErrorCode.GRAPH_CYCLE;
                 return { status: 'error', executed: [], results: {}, warnings: [], error: { message: vErr.message }, errorCode: code };
             }
             throw vErr;
@@ -312,10 +312,12 @@ export class SpecEngine {
         void this.leaseProvider.release(leaseId).catch(() => {/* ignore */});
       }
       return { status: 'completed', executed, results, warnings: plan.warnings };
-    } catch (e: any) {
-        const msg = e?.message || 'Unknown error';
-        const code: SpecEngineErrorCode | undefined = /Cycle detected/.test(msg) ? SpecEngineErrorCode.GRAPH_CYCLE : undefined;
-        return { status: 'error', executed: [], results: {}, warnings: [], error: { message: msg }, errorCode: code };
+  } catch (e: any) {
+    const msg = e?.message || 'Unknown error';
+    let code: SpecEngineErrorCode | undefined;
+    if (/Cycle detected/.test(msg)) code = SpecEngineErrorCode.GRAPH_CYCLE;
+    if (/Missing node during execution/.test(msg)) code = SpecEngineErrorCode.GRAPH_MISSING_NODE;
+    return { status: 'error', executed: [], results: {}, warnings: [], error: { message: msg }, errorCode: code };
     }
   }
 

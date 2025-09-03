@@ -7,6 +7,7 @@ import { Router, Request, Response } from 'express';
 import { DatabaseService } from '../services/database-service.js';
 import { WorkspacesController } from './workspaces.js';
 import { TasksController } from './tasks.js';
+import { ToolsExecuteController } from './tools-execute.js';
 // Legacy ToolFlowsController & FeedbackStepsController removed (drastic migration)
 import { 
   errorHandler, 
@@ -27,6 +28,7 @@ export function createApiRouter(databaseService: DatabaseService): Router {
   // Initialize controllers
   const workspacesController = new WorkspacesController(databaseService);
   const tasksController = new TasksController(databaseService, workspacesController);
+  const toolsExecuteController = new ToolsExecuteController();
   // Placeholder: future spec/profile controllers will be initialized here.
 
   // Apply middleware
@@ -38,6 +40,11 @@ export function createApiRouter(databaseService: DatabaseService): Router {
   const writeRateLimit = rateLimit(30, 60 * 1000); // 30 requests per minute
 
   // API Routes (register specific routes first)
+
+  // POST /api/tools/:tool/execute (unified run/resume)
+  router.post('/tools/:tool/execute', writeRateLimit, async (req, res) => {
+    await toolsExecuteController.execute(req, res);
+  });
 
   // 1. GET /api/workspaces - List all workspaces
   router.get('/workspaces', readRateLimit, async (req, res, next) => {
@@ -55,20 +62,8 @@ export function createApiRouter(databaseService: DatabaseService): Router {
     } catch (error) {
       next(error);
     }
-    // Legacy tool-flow / feedback endpoints removed: respond Gone
   });
-
-  // 3. GET /api/workspaces/{id}/tool-flows - Get tool flows for workspace
-  router.get('/workspaces/:workspaceId/tool-flows', readRateLimit, validateWorkspaceId, async (req, res) => {
-    res.status(410).json({ error: 'Legacy tool flows removed' });
-  });
-
-  // 4. GET /api/workspaces/{id}/feedback-steps - Get feedback steps for workspace
-  router.get('/workspaces/:workspaceId/feedback-steps', readRateLimit, validateWorkspaceId, async (req, res) => {
-    res.status(410).json({ error: 'Legacy feedback steps removed' });
-  });
-
-  // 5. POST /api/workspaces/{id}/tasks - Create new task
+  // 3. POST /api/workspaces/{id}/tasks - Create new task
   router.post('/workspaces/:workspaceId/tasks', writeRateLimit, validateWorkspaceId, async (req, res, next) => {
     try {
       await tasksController.createTask(req, res);
@@ -77,7 +72,7 @@ export function createApiRouter(databaseService: DatabaseService): Router {
     }
   });
 
-  // 6. PUT /api/workspaces/{id}/tasks/{taskId} - Update task
+  // 4. PUT /api/workspaces/{id}/tasks/{taskId} - Update task
   router.put('/workspaces/:workspaceId/tasks/:taskId', writeRateLimit, validateWorkspaceId, validateTaskId, async (req, res, next) => {
     try {
       await tasksController.updateTask(req, res);

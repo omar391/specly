@@ -142,11 +142,26 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Description**: Add `POST /api/tools/:tool/execute` using SpecEngine. Remove legacy tool-flow & feedback endpoints. Update router + middleware (session ownership). migration_roadmap.md §4 API Contract.
 - **Priority**: High
 - **Dependencies**: SP-005
-- **Status**: TBD
-- **Progress**: 0%
+- **Status**: In-Progress
+- **Progress**: 70%
 - **Completed At**: 
-- **Notes**: Validate request shape, return consistent content array. Cleanup: remove legacy API controllers & routes (`tool-flows.ts`, `feedback-steps.ts`) and return 410/404 for their former paths. Ensure router no longer mounts these endpoints and tests confirm absence.
-- **Connected File List**: ./src/api/router.ts, ./src/api/middleware.ts, ./src/api/types.ts
+- **Notes**: 
+	Implementation Deliverables Achieved:
+	- Added `ToolsExecuteController` with unified `run` vs `resume` branching (query param `mode=run|resume`).
+	- Zod validation schemas for run & resume requests (graph structural subset + optional `tool_version_id` future path). Enforces presence of `graph` or `tool_version_id` (returns 501 if only `tool_version_id` provided since resolution not implemented yet).
+	- Introduced `PausedStateStore` abstraction (`InMemoryPausedStateStore`) replacing ad-hoc Map to future-proof persistence (DB-backed store later).
+	- Integrated structural error mapping: cycles & self-loops -> HTTP 422 (SpecEngineErrorCode.GRAPH_CYCLE), missing nodes -> 422, lease conflicts -> 409, runtime executor failures -> 500.
+	- Removed legacy endpoints & stub files (`tool-flows.ts`, `feedback-steps.ts`) and cleaned router numbering.
+	- Added endpoint integration tests (`tools-execute-endpoint.test.ts`): full autonomous completion, human pause + resume, structural cycle error (422), missing graph (400), invalid resume token (404), tool_version_id-only (501).
+	- Enhanced SpecEngine structural validation mapping for `ERR_SELF_LOOP` → `GRAPH_CYCLE` for consistent 422 surface.
+	Remaining Scope for SP-006 Completion:
+	1. Documentation: Update README & api-design.md to reflect unified endpoint contract & error codes (Phase 7 docs synergy with SP-005).
+	2. Session/lease integration reinforcement in endpoint path (currently pass-through; add conflict tests after lease provider real enforcement evolves).
+	3. Persisted graph/tool_version path (implement `tool_version_id` resolution) — deferred to SP-014; ensure no breaking contract changes.
+	4. Add negative test for self-loop distinct from cycle (already covered via cycle mapping but explicit test optional).
+	5. Add contract examples (success, pause, resume) to `api-design.md`.
+	Progress Justification (70%): Core endpoint, validation, abstraction, tests, and legacy cleanup done; remaining items are documentation, extended lease semantics, and persisted tool_version path (deferred) — enough to integrate UI flows.
+- **Connected File List**: ./src/api/router.ts, ./src/api/tools-execute.ts, ./src/services/paused-state-store.ts, ./src/__tests__/tools-execute-endpoint.test.ts
 
 ## Task ID: SP-007
 - **Title**: CLI Refactor (Remove StepId)
