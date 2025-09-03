@@ -102,6 +102,8 @@ export interface SpecEngineOptions {
   // future: hooks for session lease, journal, rule injection, metrics
     leaseProvider?: ClientStateLeaseProvider;
   leaseRenewEvery?: number; // specs per renewal (default 5)
+  journalAdapter?: ActionJournalAdapter; // Phase 5 journal seam
+  metricsCollector?: MetricsCollector; // Phase 6 metrics seam
 }
 
 // Phase 2: Lease provider interface (simple)
@@ -117,6 +119,32 @@ class NoopClientStateLeaseProvider implements ClientStateLeaseProvider {
   async release(_leaseId: string) { /* noop */ }
 }
 
+// Phase 5: Action journal seam (skeleton – no reuse logic yet)
+export type JournalEventStatus = 'started' | 'succeeded' | 'failed';
+
+export interface ActionJournalAdapter {
+  recordStart(specHash: string, attempt: number): Promise<void> | void;
+  recordSuccess(specHash: string, attempt: number, output: unknown): Promise<void> | void;
+  recordFailure(specHash: string, attempt: number, error: { message: string }): Promise<void> | void;
+}
+
+class NoopActionJournalAdapter implements ActionJournalAdapter {
+  recordStart(_specHash: string, _attempt: number) { /* noop */ }
+  recordSuccess(_specHash: string, _attempt: number, _output: unknown) { /* noop */ }
+  recordFailure(_specHash: string, _attempt: number, _error: { message: string }) { /* noop */ }
+}
+
+// Phase 6: Metrics seam (simple counter/histogram interface)
+export interface MetricsCollector {
+  inc(counter: string, labels?: Record<string,string>): void;
+  observe(histogram: string, value: number, labels?: Record<string,string>): void;
+}
+
+class NoopMetricsCollector implements MetricsCollector {
+  inc(_counter: string, _labels?: Record<string,string>) { /* noop */ }
+  observe(_hist: string, _value: number, _labels?: Record<string,string>) { /* noop */ }
+}
+
 /**
  * SpecEngine:
  * - Builds plan (assumes pre-validation via SP-018)
@@ -129,12 +157,16 @@ export class SpecEngine {
   private executor: SpecExecutor;
     private leaseProvider: ClientStateLeaseProvider;
   private leaseRenewEvery: number;
+  private journal: ActionJournalAdapter;
+  private metrics: MetricsCollector;
 
   constructor(opts: SpecEngineOptions = {}) {
     this.planner = opts.planner ?? new BasicExecutionPlanner();
     this.executor = opts.executor ?? new NoopAutonomousExecutor();
       this.leaseProvider = opts.leaseProvider ?? new NoopClientStateLeaseProvider();
     this.leaseRenewEvery = opts.leaseRenewEvery ?? 5;
+    this.journal = opts.journalAdapter ?? new NoopActionJournalAdapter();
+    this.metrics = opts.metricsCollector ?? new NoopMetricsCollector();
   }
 
   async run(graph: ToolGraph, runOpts?: { sessionId?: string; clientId?: string; force?: boolean }): Promise<ExecutionContext> {
@@ -214,6 +246,7 @@ export class SpecEngine {
         const rec = state.records[step.specHash];
 
         if (node.intent === 'human') {
+            try { this.metrics.inc('specly_engine_human_pause_total'); } catch { /* swallow */ }
             const resumeToken = this.buildResumeToken(state, step.specHash);
           return {
             status: 'awaiting_input',
@@ -227,13 +260,18 @@ export class SpecEngine {
 
         // Autonomous execution
         rec.status = 'running';
+        try { this.metrics.inc('specly_engine_specs_started_total'); } catch { /* swallow */ }
         rec.attempts += 1;
         rec.startedAt = rec.startedAt ?? Date.now();
+        // Journal start (best-effort, non-blocking)
+        try { await this.journal.recordStart(step.specHash, rec.attempts); } catch { /* swallow */ }
         try {
           const output = await this.executor.execute(step.specHash);
           rec.status = 'completed';
           rec.endedAt = Date.now();
           rec.output = output;
+          try { await this.journal.recordSuccess(step.specHash, rec.attempts, output); } catch { /* swallow */ }
+          try { this.metrics.inc('specly_engine_specs_completed_total'); } catch { /* swallow */ }
           results[step.specHash] = output;
           executed.push(step.specHash);
           // Merge into session context (last write wins). For now shallow assign.
@@ -244,7 +282,7 @@ export class SpecEngine {
           if (leaseId) {
             specsSinceRenew++;
             if (specsSinceRenew >= this.leaseRenewEvery) {
-                try { await this.leaseProvider.renew(leaseId); } catch (e: any) { return finalizeError(`Lease renewal failed: ${e?.message || 'unknown'}`, SpecEngineErrorCode.LEASE_RENEW_FAILED); }
+                try { await this.leaseProvider.renew(leaseId); try { this.metrics.inc('specly_engine_lease_renewals_total'); } catch { /* swallow */ } } catch (e: any) { return finalizeError(`Lease renewal failed: ${e?.message || 'unknown'}`, SpecEngineErrorCode.LEASE_RENEW_FAILED); }
               specsSinceRenew = 0;
             }
           }
@@ -252,6 +290,8 @@ export class SpecEngine {
           rec.status = 'failed';
           rec.endedAt = Date.now();
             rec.errorMessage = err?.message || 'Autonomous executor error';
+            try { await this.journal.recordFailure(step.specHash, rec.attempts, { message: rec.errorMessage || 'Autonomous executor error' }); } catch { /* swallow */ }
+            try { this.metrics.inc('specly_engine_specs_failed_total'); } catch { /* swallow */ }
             return finalizeError(`Execution failed at spec ${step.specHash}: ${rec.errorMessage}`, SpecEngineErrorCode.EXECUTOR_FAILED);
         }
 
@@ -294,6 +334,9 @@ export class SpecEngine {
         // Mark human spec as completed in results for continuity
         serializedState.results[input.specHash] = input.humanOutput;
         serializedState.executed.push(input.specHash);
+  // Journal success for human spec (treated as provided externally)
+  try { await this.journal.recordSuccess(input.specHash, 1, input.humanOutput); } catch { /* swallow */ }
+  try { this.metrics.inc('specly_engine_resume_total'); } catch { /* swallow */ }
 
         // Build a partial plan (reuse previous plan steps)
         const remainingSteps = serializedState.plan.steps.slice(nextIndex + 1);
@@ -315,7 +358,7 @@ export class SpecEngine {
             try { const lease = await this.leaseProvider.acquire(runOpts.sessionId, runOpts.clientId, runOpts.force); leaseId = lease.leaseId; } catch (e: any) { return finalizeError(`Lease acquisition failed: ${e?.message || 'unknown'}`, SpecEngineErrorCode.LEASE_ACQUIRE_FAILED); }
         }
 
-        for (const step of remainingSteps) {
+    for (const step of remainingSteps) {
             const node = graph.nodes[step.specHash];
             if (!node) return finalizeError(`Missing node during execution: ${step.specHash}`, SpecEngineErrorCode.GRAPH_MISSING_NODE);
             if (node.intent === 'human') {
@@ -324,18 +367,24 @@ export class SpecEngine {
                 return { status: 'awaiting_input', executed, results, warnings: plan.warnings, awaitingSpec: step.specHash, resumeToken };
             }
             try {
+        try { await this.journal.recordStart(step.specHash, 1); } catch { /* swallow */ }
+        try { this.metrics.inc('specly_engine_specs_started_total'); } catch { /* swallow */ }
                 const output = await this.executor.execute(step.specHash);
                 results[step.specHash] = output;
                 executed.push(step.specHash);
+        try { await this.journal.recordSuccess(step.specHash, 1, output); } catch { /* swallow */ }
+        try { this.metrics.inc('specly_engine_specs_completed_total'); } catch { /* swallow */ }
                 if (output && typeof output === 'object') Object.assign(serializedState.sessionContext, output as Record<string, unknown>);
                 if (leaseId) {
                     specsSinceRenew++;
                     if (specsSinceRenew >= (this.leaseRenewEvery)) {
-                        try { await this.leaseProvider.renew(leaseId); } catch (e: any) { return finalizeError(`Lease renewal failed: ${e?.message || 'unknown'}`, SpecEngineErrorCode.LEASE_RENEW_FAILED); }
+            try { await this.leaseProvider.renew(leaseId); try { this.metrics.inc('specly_engine_lease_renewals_total'); } catch { /* swallow */ } } catch (e: any) { return finalizeError(`Lease renewal failed: ${e?.message || 'unknown'}`, SpecEngineErrorCode.LEASE_RENEW_FAILED); }
                         specsSinceRenew = 0;
                     }
                 }
             } catch (err: any) {
+        try { this.metrics.inc('specly_engine_specs_failed_total'); } catch { /* swallow */ }
+        try { await this.journal.recordFailure(step.specHash, 1, { message: err?.message || 'Autonomous executor error' }); } catch { /* swallow */ }
                 return finalizeError(`Execution failed at spec ${step.specHash}: ${err?.message || 'Autonomous executor error'}`, SpecEngineErrorCode.EXECUTOR_FAILED);
             }
         }

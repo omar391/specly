@@ -9,7 +9,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 
 ## Task ID: SP-001
  **Progress**: 65%
-- **Description**: Implement new global + workspace schema (specs, tools, tool_versions, profiles, profile_versions, profile_version_tools, workspace_profile_versions, action_journal, workspace_rules, tasks, task_dependencies, sessions). Remove legacy tool_flows / feedback_steps tables from code (drop tables via migration). See migration_roadmap.md §2, file_changes.md (schema sections).
+- **Description**: Implement new global + workspace schema (specs, tools, tool_versions, profiles, profile_versions, profile_version_tools, workspace_profile_versions, action_journal, workspace_rules, tasks, task_dependencies, sessions). Remove legacy tool_flows / feedback_steps tables from code (drop tables via migration). See migration_roadmap.md §2 New Database Schema, file_changes.md (schema sections).
  Progress Justification (65%): Phases 1–3 complete. Phase 3 added pause/resume: human spec pause returns resumeToken, new resume() API continues plan after injecting provided human output. Added mismatch protection (stale/incorrect spec hash -> error). Added spec-engine-resume tests (pause→resume completion, stale token). Renamed LeaseProvider → ClientStateLeaseProvider for clarity with architecture session ownership semantics. Remaining: error taxonomy & dead-end runtime classification (Ph4), journal seam (Ph5), metrics seam (Ph6), docs sync (Ph7), hardening/perf/concurrency (Ph8).
 - **Priority**: High
 - **Dependencies**: None
@@ -21,7 +21,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 
 ## Task ID: SP-002
 - **Title**: Hashing & Canonicalization Utilities
-- **Description**: Implement spec canonical JSON hash + tool version hash (ordered specs + sorted edges). Add golden vector tests. §1.3 roadmap.
+- **Description**: Implement spec canonical JSON hash + tool version hash (ordered specs + sorted edges). Add golden vector tests. migration_roadmap.md §1.3 Hash Canonicalization.
 - **Priority**: High
 - **Dependencies**: SP-001
 - **Status**: In-Progress
@@ -32,7 +32,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 
 ## Task ID: SP-003
 - **Title**: Repository Layer (Spec / ToolVersion / Profile / ProfileVersion / Rules / ActionJournal)
-- **Description**: Add data access classes (CRUD + specialized queries: fetch active tool version via workspace binding, inheritance flatten support). Remove legacy query functions. §2, §1.4.
+- **Description**: Add data access classes (CRUD + specialized queries: fetch active tool version via workspace binding, inheritance flatten support). Remove legacy query functions. migration_roadmap.md §2 New Database Schema, migration_roadmap.md §1.4 Profile Inheritance Flatten Algorithm.
 - **Priority**: High
 - **Dependencies**: SP-001, SP-002
 **Status**: Done
@@ -43,7 +43,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 
 ## Task ID: SP-004
 - **Title**: Spec Seeding & Initial Tool Version Publication
-- **Description**: Convert legacy in-memory definitions (or seed file) directly into specs & linear tool versions; create root profile + initial profile version; bind all workspaces. After seeding, delete any code referencing legacy flows. §5 step 2.
+- **Description**: Convert legacy in-memory definitions (or seed file) directly into specs & linear tool versions; create root profile + initial profile version; bind all workspaces. After seeding, delete any code referencing legacy flows. migration_roadmap.md §5 Status Model (step 2 reference).
 - **Priority**: High
 - **Dependencies**: SP-003
 - **Status**: Done
@@ -54,11 +54,11 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 
 ## Task ID: SP-005
 - **Title**: Implement SpecEngine Core
-- **Description**: Execution loop per pseudocode (routing, human awaiting, session lease, context merge). Exclude side_effect idempotency (later task). §3 roadmap.
+- **Description**: Execution loop per pseudocode (routing, human awaiting, session lease, context merge). Exclude side_effect idempotency (later task). migration_roadmap.md §3 Execution Engine.
 - **Priority**: High
 - **Dependencies**: SP-003, SP-004
 - **Status**: In-Progress
-- **Progress**: 75%
+- **Progress**: 84%
 - **Completed At**: 
 - **Notes**: 
 	Core Goals (initial scope):
@@ -132,14 +132,14 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 	| ROUTE_DEAD_END | Runtime | Plan exhausted while current node still has configured outgoing edges (dynamic routing gap) | Investigate routing logic / conditions |
 	| RESUME_TOKEN_INVALID | Runtime | Resume token mismatch or stale | Refresh latest state & resume again |
 
-	Progress Justification (75%): Phases 1–3 fully delivered (state, leases, pause/resume). Phase 4 structural + error code surfacing integrated (validator invoked pre-run). Remaining scope confined to journal seam, metrics seam, documentation polish, and hardening/performance tests (Phases 5–8).
+	Progress Justification (84%): Phases 1–3 fully delivered (state, leases, pause/resume). Phase 4 structural + error code surfacing integrated (validator invoked pre-run). Phase 5 (journal seam skeleton) implemented (ActionJournalAdapter + event ordering tests). Phase 6 (metrics seam skeleton) now implemented: MetricsCollector interface + counters (specs_started, specs_completed, specs_failed, human_pauses, resume_total, lease_renewals) instrumented in run()/resume(), with metrics tests covering success, failure, and pause/resume flows. Remaining scope: documentation/architecture enrichment (Phase 7) and hardening/performance & concurrency edge tests (Phase 8) before SP-005 closure.
 
 	> Project Rule (Enforced): No backward compatibility shims or legacy translation utilities will be introduced when performing internal refactors (e.g., error code enum migration). All changes are allowed to be drastic; consumers must adapt immediately. This supersedes any prior transitional helper additions.
 - **Connected File List**: ./src/services/spec-engine.ts, ./src/types/index.ts
 
 ## Task ID: SP-006
 - **Title**: Unified Execute API Endpoint
-- **Description**: Add `POST /api/tools/:tool/execute` using SpecEngine. Remove legacy tool-flow & feedback endpoints. Update router + middleware (session ownership). §4.
+- **Description**: Add `POST /api/tools/:tool/execute` using SpecEngine. Remove legacy tool-flow & feedback endpoints. Update router + middleware (session ownership). migration_roadmap.md §4 API Contract.
 - **Priority**: High
 - **Dependencies**: SP-005
 - **Status**: TBD
@@ -172,7 +172,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 
 ## Task ID: SP-009
 - **Title**: Profile Inheritance Service
-- **Description**: Implement `createProfileVersion` flatten + removals/overrides. Include cycle detection. Add endpoint & CLI commands for profile version creation & workspace upgrade. §1.4, §5 step 5.
+- **Description**: Implement `createProfileVersion` flatten + removals/overrides. Include cycle detection. Add endpoint & CLI commands for profile version creation & workspace upgrade. migration_roadmap.md §1.4 Profile Inheritance Flatten Algorithm, migration_roadmap.md §5 Status Model (step 5 reference).
 - **Priority**: Medium
 - **Dependencies**: SP-003, SP-004
 - **Status**: TBD
@@ -227,7 +227,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 
 ## Task ID: SP-014
 - **Title**: Spec & Tool API Endpoints
-- **Description**: Implement endpoints: POST /api/specs, POST /api/tools, POST /api/tools/:tool/versions (validation + hash verification). Architecture refs: spec creation §14, tools & versions §13, API list §17. Include tests for: duplicate spec hash (idempotent return), duplicate tool name (409), invalid graph (cycle) rejection (ties to SP-018 validator). Update router & types.
+- **Description**: Implement endpoints: POST /api/specs, POST /api/tools, POST /api/tools/:tool/versions (validation + hash verification). Architecture refs: migration_roadmap.md §14 Specs, migration_roadmap.md §13 Tools & Versions, migration_roadmap.md §4 API Contract (was §17). Include tests for: duplicate spec hash (idempotent return), duplicate tool name (409), invalid graph (cycle) rejection (ties to SP-018 validator). Update router & types.
 - **Priority**: High
 - **Dependencies**: SP-001, SP-002, SP-003
 - **Status**: TBD
@@ -238,7 +238,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 
 ## Task ID: SP-015
 - **Title**: Profile & Workspace Binding Endpoints
-- **Description**: Implement: POST /api/profiles, POST /api/profiles/:profile/versions, POST /api/profiles/:profile/versions/:version/publish, POST /api/workspaces/:id/profile/upgrade, GET /api/workspaces/:id/profile. Architecture refs: profiles/inheritance §4 & §12, API §17. Tests: duplicate profile name (409), inheritance cycle rejection, publish increments version_number, upgrade pins workspace binding.
+- **Description**: Implement: POST /api/profiles, POST /api/profiles/:profile/versions, POST /api/profiles/:profile/versions/:version/publish, POST /api/workspaces/:id/profile/upgrade, GET /api/workspaces/:id/profile. Architecture refs: specly-architecture.md §4 Profile Inheritance & specly-architecture.md §12 Profiles & Versions Data Model, migration_roadmap.md §4 API Contract (was §17). Tests: duplicate profile name (409), inheritance cycle rejection, publish increments version_number, upgrade pins workspace binding.
 - **Priority**: High
 - **Dependencies**: SP-009, SP-014
 - **Status**: TBD
@@ -249,7 +249,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 
 ## Task ID: SP-016
 - **Title**: Task & Dependency API Endpoints
-- **Description**: Implement: POST /api/tasks, PATCH /api/tasks/:id/status, POST/DELETE dependencies endpoints, GET /api/tasks/:id, GET /api/sessions?workspace_id=&task_id?. Architecture refs: status model §5, dependency management §6, API §17, sessions table §15. Tests: dependency cycle rejection, blocked→in_progress invalid, queued→paused invalid, status updates reflect dependency resolution.
+- **Description**: Implement: POST /api/tasks, PATCH /api/tasks/:id/status, POST/DELETE dependencies endpoints, GET /api/tasks/:id, GET /api/sessions?workspace_id=&task_id?. Architecture refs: specly-architecture.md §5 Status Model, specly-architecture.md §6 Dependency Management, migration_roadmap.md §4 API Contract (was §17), specly-architecture.md §15 Task & Session Tables. Tests: dependency cycle rejection, blocked→in_progress invalid, queued→paused invalid, status updates reflect dependency resolution.
 - **Priority**: High
 - **Dependencies**: SP-008, SP-006
 - **Status**: TBD
@@ -260,7 +260,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 
 ## Task ID: SP-017
 - **Title**: Workspace Rules Reinforcement & Prompt Injection
-- **Description**: Implement reinforcement algorithm (confidence update) and retrieval ordering (confidence desc, recency). Integrate top-N rules into human & autonomous prompt context. Architecture refs: workspace rules §11, execution flow context injection §8, API §17. Add rule upsert endpoint POST /api/rules and GET /api/rules. Tests: duplicate rule triple idempotent, confidence increases, inactive rules excluded.
+- **Description**: Implement reinforcement algorithm (confidence update) and retrieval ordering (confidence desc, recency). Integrate top-N rules into human & autonomous prompt context. Architecture refs: specly-architecture.md §11 Workspace Rules, specly-architecture.md §8 Spec Execution Flow (context injection), migration_roadmap.md §4 API Contract (was §17). Add rule upsert endpoint POST /api/rules and GET /api/rules. Tests: duplicate rule triple idempotent, confidence increases, inactive rules excluded.
 - **Priority**: Medium
 - **Dependencies**: SP-003, SP-005
 - **Status**: TBD
@@ -271,7 +271,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 
 ## Task ID: SP-018
 - **Title**: Graph & Transition Validation
-- **Description**: Implement pre-persist validator ensuring: exactly one entry_spec, all edges reference declared ordered_specs, no self-loops, no cycles (whole reachable subgraph), unreachable specs produce ERROR (publish rejected) unless an internal `allow_unreachable=true` flag supplied (dev only), priorities normalized (missing -> 100, must be integer >=0), edges sorted deterministically for hashing. Architecture refs: transitions & routing §7, tool versions graph manifest §13. Dead-end mid-run still treated as execution failure (distinct from validation). Provide separate util with tests.
+- **Description**: Implement pre-persist validator ensuring: exactly one entry_spec, all edges reference declared ordered_specs, no self-loops, no cycles (whole reachable subgraph), unreachable specs produce ERROR (publish rejected) unless an internal `allow_unreachable=true` flag supplied (dev only), priorities normalized (missing -> 100, must be integer >=0), edges sorted deterministically for hashing. Architecture refs: specly-architecture.md §7 Transitions & Routing, specly-architecture.md §13 Tools & Versions (graph manifest). Dead-end mid-run still treated as execution failure (distinct from validation). Provide separate util with tests.
 - **Priority**: Medium
 - **Dependencies**: SP-002
 - **Status**: In-Progress
@@ -531,20 +531,20 @@ Rollback (minimal since destructive): backup of pre-migration DB snapshot retain
 ## Updated Traceability Matrix (Representative)
 | SP Task | Roadmap Section | File Changes Anchor |
 |---------|-----------------|---------------------|
-| SP-001 | migration_roadmap.md §2 | global/workspace schema additions |
-| SP-002 | migration_roadmap.md §1.3 | hash utilities (new) |
-| SP-003 | migration_roadmap.md §2 / §1.4 | repository layer refactors |
-| SP-004 | migration_roadmap.md §5 | seed scripts & data conversion |
-| SP-005 | migration_roadmap.md §3 | spec-engine.ts (new) |
-| SP-006 | migration_roadmap.md §4 | router/middleware execute endpoint |
-| SP-008 | migration_roadmap.md §2.2 | task/session schema + logic |
-| SP-014 | migration_roadmap.md §API / §13 | spec/tool version endpoints |
-| SP-015 | migration_roadmap.md §API / §4 / §12 | profile/version/binding endpoints |
-| SP-016 | migration_roadmap.md §API / §5 / §6 / §15 | task & dependency endpoints |
-| SP-017 | migration_roadmap.md §11 / §8 / §17 | rules endpoints & reinforcement |
-| SP-018 | migration_roadmap.md §7 / §13 | graph validation |
-| SP-019 | migration_roadmap.md §9 | session lease logic tests |
-| SP-020 | migration_roadmap.md §10 | retry policy tests |
+| SP-001 | migration_roadmap.md §2 New Database Schema | global/workspace schema additions |
+| SP-002 | migration_roadmap.md §1.3 Hash Canonicalization | hash utilities (new) |
+| SP-003 | migration_roadmap.md §2 New Database Schema / §1.4 Profile Inheritance Flatten Algorithm | repository layer refactors |
+| SP-004 | migration_roadmap.md §5 Status Model | seed scripts & data conversion |
+| SP-005 | migration_roadmap.md §3 Execution Engine | spec-engine.ts (new) |
+| SP-006 | migration_roadmap.md §4 API Contract | router/middleware execute endpoint |
+| SP-008 | migration_roadmap.md §2.2 Workspace DB Changes | task/session schema + logic |
+| SP-014 | migration_roadmap.md §4 API Contract / §13 Tools & Versions | spec/tool version endpoints |
+| SP-015 | migration_roadmap.md §4 API Contract / specly-architecture.md §4 Profile Inheritance / specly-architecture.md §12 Profiles & Versions Data Model | profile/version/binding endpoints |
+| SP-016 | migration_roadmap.md §4 API Contract / specly-architecture.md §5 Status Model / specly-architecture.md §6 Dependency Management / specly-architecture.md §15 Task & Session Tables | task & dependency endpoints |
+| SP-017 | specly-architecture.md §11 Workspace Rules / specly-architecture.md §8 Spec Execution Flow / migration_roadmap.md §4 API Contract | rules endpoints & reinforcement |
+| SP-018 | specly-architecture.md §7 Transitions & Routing / specly-architecture.md §13 Tools & Versions | graph validation |
+| SP-019 | specly-architecture.md §9 Session & Client Ownership | session lease logic tests |
+| SP-020 | specly-architecture.md §10 Idempotency & Retries | retry policy tests |
 | SP-009 | migration_roadmap.md §1.4 | profile-service flatten logic |
 | SP-010 | migration_roadmap.md §2 (action_journal) | action_journal integration |
 | SP-013 | migration_roadmap.md §Security | validation additions |
@@ -556,5 +556,13 @@ Rollback (minimal since destructive): backup of pre-migration DB snapshot retain
 
 ## Notes
 Legacy phase-based planning removed 2025-09-02 for clarity under direct cutover approach. Historical phased plan intentionally discarded (no appendix) to prevent drift.
+
+### General Rule (Added 2025-09-03)
+After completing each discrete unit task or phase (e.g., journal seam, metrics seam):
+1. Perform an internal PR-style review of the local diff (logic correctness, style adherence, rule compliance, dead code, naming consistency).
+2. Only after review passes, run the full (or appropriately scoped) test suite.
+3. Commit with a message referencing affected Task ID(s) and a concise summary of the change scope.
+4. Push immediately (no batching unrelated tasks) to preserve atomic history and simplify audits.
+This rule is mandatory and supersedes any ad-hoc commit practices.
 
 This task plan is living; update in PRs referencing Task IDs. All implementers must maintain alignment with `migration_roadmap.md` and `migration_roadmap_ui.md`.
