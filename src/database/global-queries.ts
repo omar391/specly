@@ -44,6 +44,16 @@ export class GlobalDatabaseService {
     return map;
   }
 
+  // ========================================
+  // ACTION JOURNAL OPERATIONS (read-only helper for SP-010 tests)
+  // ========================================
+  async getActionJournalEntries(sessionId: string) {
+    const db = this.db.getDb();
+    // dynamic import to avoid circular type issues
+    const { actionJournal } = await import('./schema/global-schema.js');
+    return db.select().from(actionJournal).where(eq(actionJournal.sessionId, sessionId));
+  }
+
   /**
    * Run a raw SQL query and return all results
    */

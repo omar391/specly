@@ -9,6 +9,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { DrizzleDatabaseManager, DatabaseType, getWorkspaceDatabase, clearWorkspaceDatabaseCache } from '../database/drizzle-connection.js';
 import { WorkspaceDatabaseService } from '../database/workspace-queries.js';
 import fs from 'fs';
+import { ensureSpecs } from '../test-utils/ensure-specs.js';
 import path from 'path';
 import os from 'os';
 
@@ -213,7 +214,8 @@ describe('Database Persistence Investigation', () => {
 
             // This is where it should fail if there's a caching issue
             try {
-                const tasks = await statusWorkspaceDb.getAllTasks();
+                    await ensureSpecs([{ hash: 'hash1' }]);
+                    const tasks = await statusWorkspaceDb.getAllTasks();
                 console.log(`Status tool successfully got tasks:`, tasks.length);
                 expect(tasks).toEqual([]);
             } catch (error) {

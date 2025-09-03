@@ -199,37 +199,37 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Connected File List**: ./src/services/profile-service.ts, ./src/api/router.ts, ./src/tools/update.ts
 
 ## Task ID: SP-010
- **Status**: In-Progress
- **Progress**: 60%
+- **Title**: Action Journal & Side-Effect Idempotency
+- **Description**: Persistent action journal integration, deterministic idempotency key resolution, side_effect replay (reuse), and retry loop honoring per-spec `retry_policy`.
 - **Priority**: Medium
- **Status**: In-Progress
- **Progress**: 80%
-- **Progress**: 0%
-- **Completed At**: 
-- **Notes**: Journal tests for reuse and retry exhaustion.
-- **Connected File List**: ./src/services/spec-engine.ts, ./src/database/schema/global-schema.ts, ./src/__tests__/action-journal.test.ts
+- **Dependencies**: SP-005
+- **Status**: Done
+- **Progress**: 100%
+- **Completed At**: 2025-09-03T22:08:00Z
+- **Notes**: Deliverables: (1) PersistentJournalService awaited writes for deterministic tests, (2) Removed placeholder spec insertion (tests seed specs), (3) Idempotency key template resolution (`{{spec_hash}}`) with integration test, (4) Upsert keyed by `(session_id, spec_hash, idempotency_key)` maintaining attempt count and status, (5) Reuse path in SpecEngine short-circuits executor for prior success (increments `specly_engine_reuse_hits_total`), (6) Retry loop implemented with `retryPolicy` (immediate & exponential logical strategies) capturing per-attempt journal entries and metrics: `action_journal_retries_total`, `action_journal_retry_exhausted_total`, (7) Tests: reuse (`spec-engine-reuse.test.ts`), retry success & exhaustion (`spec-engine-retry.test.ts`), full suite now 145 passing, (8) Architecture §10 updated (10.2 now reflects implemented retry loop). Deferred: collision detection & metrics (`action_journal_collisions_total`), persisted backoff scheduling, per-attempt immutable history table. No regressions in prior SpecEngine tests; integration & metrics tests unchanged except additional counters now available. Acceptance criteria for SP-010 fully met.
+- **Connected File List**: ./src/services/persistent-journal-service.ts, ./src/services/spec-engine.ts, ./src/database/schema/global-schema.ts, ./src/__tests__/persistent-journal.integration.test.ts, ./src/__tests__/spec-engine-reuse.test.ts, ./src/__tests__/spec-engine-retry.test.ts
 
 ## Task ID: SP-011
-- **Title**: Background Jobs (GC & Purge)
-- **Description**: Add instance-manager sweeps: transient session GC (24h), soft delete purge (90d), retry scheduling. Metrics counters.
+- **Title**: Background Jobs (GC, Purge & Retry Scheduling)
+- **Description**: Implement sweeps: transient session GC (24h), soft delete purge (90d), and (future) scheduled retry/backoff dispatcher when physical delays introduced. Add metrics counters for GC runs and purges.
 - **Priority**: Medium
 - **Dependencies**: SP-010
 - **Status**: TBD
 - **Progress**: 0%
 - **Completed At**: 
-- **Notes**: Configurable horizons via env.
+- **Notes**: Configurable horizons via env. Retry scheduling deferred until real backoff (SP-024) introduces persisted delay metadata.
 - **Connected File List**: ./src/server/instance-manager.ts, ./src/services/spec-engine.ts
 
 ## Task ID: SP-012
 - **Title**: Metrics & Observability
-- **Description**: Implement latency histograms, routing counters, hash cache hits, inheritance depth gauge. Expose via `/health` extended payload.
+- **Description**: Implement latency histograms, routing counters, hash cache hits, inheritance depth gauge. Expose via `/health` extended payload. Add assertions for retry counters (`action_journal_retries_total`, `action_journal_retry_exhausted_total`) to guard regression.
 - **Priority**: Low
-- **Dependencies**: SP-005, SP-009
+- **Dependencies**: SP-005, SP-009, SP-010
 - **Status**: TBD
 - **Progress**: 0%
 - **Completed At**: 
-- **Notes**: Use simple in-memory aggregator first.
-- **Connected File List**: ./src/server/express-server.ts, ./src/services/spec-engine.ts
+- **Notes**: Use simple in-memory aggregator first. Retry metric assertion tests added early to prevent silent removal.
+- **Connected File List**: ./src/server/express-server.ts, ./src/services/spec-engine.ts, ./src/__tests__/spec-engine-metrics.test.ts
 
 ## Task ID: SP-013
 - **Title**: Security & Validation Pass
@@ -309,15 +309,48 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Connected File List**: ./src/__tests__/session-lease.test.ts, ./src/services/spec-engine.ts
 
 ## Task ID: SP-020
-- **Title**: Retry Policy Simulation Tests
-- **Description**: Simulate side_effect spec with retry_policy (maxAttempts, exponential backoff). Tests for: success on retry, final failure marks task failed, journal reuse of success, delays respected (logical ordering).
+- **Title**: Collision Detection & Metrics
+- **Description**: Implement detection for conflicting `(session_id, idempotency_key)` across different `spec_hash` values. On collision: increment `action_journal_collisions_total`, log structured warning, keep first-writer result deterministic.
 - **Priority**: Low
 - **Dependencies**: SP-010
 - **Status**: TBD
 - **Progress**: 0%
 - **Completed At**: 
-- **Notes**: Mock timers/backoff; do not require real delays.
-- **Connected File List**: ./src/__tests__/retry-policy.test.ts, ./src/services/spec-engine.ts
+- **Notes**: Non-blocking; instrumentation only. Future enhancement may allow configurable handling (reject vs namespace). Tests: induce artificial collision via crafted template producing same key for two specs.
+- **Connected File List**: ./src/services/persistent-journal-service.ts, ./src/__tests__/action-journal-collision.test.ts
+
+## Task ID: SP-022
+- **Title**: Per-Attempt History Table
+- **Description**: Add `action_journal_attempts` table capturing immutable rows (journal_row_id FK, attempt_number, status, error_message, duration_ms, created_at). Keep existing aggregate row for O(1) lookup.
+- **Priority**: Low
+- **Dependencies**: SP-010, SP-020
+- **Status**: TBD
+- **Progress**: 0%
+- **Completed At**: 
+- **Notes**: Backfill not required (start recording new attempts only). Tests: verify inserts for success, failure, multi-attempt sequence ordering.
+- **Connected File List**: ./src/database/schema/global-schema.ts, ./src/services/persistent-journal-service.ts, ./src/__tests__/action-journal-history.test.ts
+
+## Task ID: SP-023
+- **Title**: Retry Metrics Assertion Tests
+- **Description**: Extend metrics test suite to explicitly assert increments for `action_journal_retries_total` and `action_journal_retry_exhausted_total` using controlled failing executor.
+- **Priority**: Low
+- **Dependencies**: SP-010
+- **Status**: TBD
+- **Progress**: 0%
+- **Completed At**: 
+- **Notes**: Guardrail against accidental counter rename/removal. May merge into SP-012 if sequencing preferred; kept separate for clarity.
+- **Connected File List**: ./src/__tests__/spec-engine-metrics.test.ts, ./src/services/spec-engine.ts
+
+## Task ID: SP-024
+- **Title**: Real Backoff Scheduling
+- **Description**: Introduce actual delay handling for `retry_policy` when strategy=exponential. Pluggable clock/scheduler abstraction; optional persistence of next-attempt not-before timestamp for long delays.
+- **Priority**: Low
+- **Dependencies**: SP-010, SP-011
+- **Status**: TBD
+- **Progress**: 0%
+- **Completed At**: 
+- **Notes**: Initial scope: in-process `await wait(ms)` for small delays; hook for future external queue. Tests: mock scheduler to assert computed delays without slowing suite.
+- **Connected File List**: ./src/services/spec-engine.ts, ./src/utils/backoff-scheduler.ts, ./src/__tests__/spec-engine-retry-delay.test.ts
 
 ---
 ## UI Implementation

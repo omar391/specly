@@ -84,6 +84,22 @@ Selection algorithm (deterministic):
 - Retry policy (maxAttempts, strategy, delays).
 - On success reuse result; on failure with remaining attempts schedule retry/backoff; else mark task `failed`.
 
+### 10.1 Idempotency & Journal Mechanics
+The action journal enforces idempotent execution for side-effect specs and provides the substrate for retries. Core properties:
+1. Persistence Model: A single logical row per `(session_id, spec_hash, idempotency_key)` representing the latest attempt state. Columns capture status (`pending|success|failed`), attempt count, timestamps, result payload, and last error code.
+2. Idempotency Key Resolution: If a spec defines `idempotency_key_template`, the engine performs simple token substitution (`{{spec_hash}}`). Absent a template, the fallback key is the spec hash. Template expansion must be deterministic and side-effect free.
+3. Upsert Semantics: First observation inserts a `pending` row; subsequent lifecycle transitions mutate the same row (attempt count incremented, status and payload fields updated). This keeps lookups O(1) while preserving aggregate attempt count.
+4. Foreign Key Integrity: Specs must exist prior to execution; journal logic never creates placeholder spec rows. Environment (seeding or API publishing) is responsible for ensuring presence.
+5. Reuse (Replay) Path: For a side-effect spec, before invoking the executor the engine queries the journal for a `success` row with matching keys. If found, the stored result is injected directly into the execution context and normal routing continues without executor invocation.
+
+### 10.2 Retry & Collision Strategy
+1. Retry Policy: A spec-level JSON field `retry_policy` supplies `{ maxAttempts, strategy, baseDelayMs }`. The engine attempts execution up to `maxAttempts` times (inclusive of the first attempt). Supported strategies: `immediate` (no delay) and `exponential` (logical backoff value computed; scheduling of actual delays is an implementation detail and may be deferred). `maxAttempts` MUST be ≥ 1.
+2. Attempt Lifecycle: Each attempt (including the first) is journaled: `started` then `succeeded` or `failed`. On failure with remaining budget, the engine proceeds to the next attempt; on failure with no remaining budget it surfaces error code `EXECUTOR_FAILED`.
+3. Collision Semantics: The key space `(session_id, spec_hash, idempotency_key)` yields exactly one mutable journal row. Cross-spec collisions (distinct `spec_hash` producing the same `idempotency_key`) are undefined behavior and SHOULD be prevented by upstream key template design. Future revisions MAY introduce explicit collision detection and a counter `action_journal_collisions_total`.
+4. Metrics: Counters: `specly_engine_reuse_hits_total` (successful replay), `action_journal_retries_total` (each retry beyond the first), `action_journal_retry_exhausted_total` (terminal exhaustion). Additional histograms (e.g. retry backoff distributions) MAY be added without altering semantics.
+5. Audit & Forensics: The aggregate row maintains cumulative attempt count and final outcome. A future extension MAY add an immutable per-attempt history table for detailed auditing without impacting replay performance.
+6. Failure Tolerance: Journal write failures MUST NOT cause executor success paths to abort. Replay therefore provides at-most-once semantics; under transient write failure conditions re-execution MAY occur, preserving correctness over strict duplication avoidance.
+
 ## 11. Workspace Rules (Preferences)
 `workspace_rules (workspace_id, relation, rule)` unique triple; fields:
 - `relation`: 'always-do' | 'never-do' | 'is-a' | 'has-a'

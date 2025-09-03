@@ -5,6 +5,7 @@
  */
 
 import { validateToolGraph, GraphValidationError } from '../utils/graph-validate.js';
+import { PersistentJournalService } from './persistent-journal-service.js';
 
 export interface SpecNode {
   hash: string;
@@ -104,6 +105,14 @@ export interface SpecEngineOptions {
   leaseRenewEvery?: number; // specs per renewal (default 5)
   journalAdapter?: ActionJournalAdapter; // Phase 5 journal seam
   metricsCollector?: MetricsCollector; // Phase 6 metrics seam
+  retryPolicy?: RetryPolicy; // Phase 7 retry seam
+}
+
+// Phase 7: Basic retry policy definition
+export interface RetryPolicy {
+  maxAttempts: number; // total attempts including first (>=1)
+  strategy?: 'immediate' | 'exponential';
+  baseDelayMs?: number; // logical delay value (not actually sleeping in engine yet)
 }
 
 // Phase 2: Lease provider interface (simple)
@@ -159,6 +168,7 @@ export class SpecEngine {
   private leaseRenewEvery: number;
   private journal: ActionJournalAdapter;
   private metrics: MetricsCollector;
+  private retry: RetryPolicy;
 
   constructor(opts: SpecEngineOptions = {}) {
     this.planner = opts.planner ?? new BasicExecutionPlanner();
@@ -167,7 +177,9 @@ export class SpecEngine {
     this.leaseRenewEvery = opts.leaseRenewEvery ?? 5;
     this.journal = opts.journalAdapter ?? new NoopActionJournalAdapter();
     this.metrics = opts.metricsCollector ?? new NoopMetricsCollector();
+    this.retry = opts.retryPolicy ?? { maxAttempts: 1, strategy: 'immediate' };
   }
+  // (import relocated to top)
 
   async run(graph: ToolGraph, runOpts?: { sessionId?: string; clientId?: string; force?: boolean }): Promise<ExecutionContext> {
     try {
@@ -189,6 +201,10 @@ export class SpecEngine {
         }
 
       const plan = this.planner.buildPlan(graph);
+      // If caller provided sessionId and journal is noop, upgrade to persistent journal
+      if (runOpts?.sessionId && this.journal instanceof NoopActionJournalAdapter) {
+        this.journal = new PersistentJournalService(runOpts.sessionId);
+      }
       const state: ExecutionState = {
         plan,
         currentIndex: 0,
@@ -258,41 +274,91 @@ export class SpecEngine {
           };
         }
 
-        // Autonomous execution
+        // Autonomous execution with retry loop
         rec.status = 'running';
-        try { this.metrics.inc('specly_engine_specs_started_total'); } catch { /* swallow */ }
-        rec.attempts += 1;
         rec.startedAt = rec.startedAt ?? Date.now();
-        // Journal start (best-effort, non-blocking)
-        try { await this.journal.recordStart(step.specHash, rec.attempts); } catch { /* swallow */ }
-        try {
-          const output = await this.executor.execute(step.specHash);
-          rec.status = 'completed';
-          rec.endedAt = Date.now();
-          rec.output = output;
-          try { await this.journal.recordSuccess(step.specHash, rec.attempts, output); } catch { /* swallow */ }
-          try { this.metrics.inc('specly_engine_specs_completed_total'); } catch { /* swallow */ }
-          results[step.specHash] = output;
-          executed.push(step.specHash);
-          // Merge into session context (last write wins). For now shallow assign.
-          if (output && typeof output === 'object') {
-            Object.assign(state.sessionContext, output as Record<string, unknown>);
-          }
-          // Lease renewal cadence
-          if (leaseId) {
-            specsSinceRenew++;
-            if (specsSinceRenew >= this.leaseRenewEvery) {
+
+        // Side-effect reuse (pre-attempt)
+        if (node.sideEffect && this.journal && typeof (this.journal as any).getSuccessfulResult === 'function') {
+          try {
+            const prior = await (this.journal as any).getSuccessfulResult(step.specHash);
+            if (prior && prior.resultJson) {
+              rec.status = 'completed';
+              rec.endedAt = Date.now();
+              rec.output = prior.resultJson;
+              results[step.specHash] = prior.resultJson;
+              executed.push(step.specHash);
+              try { this.metrics.inc('specly_engine_reuse_hits_total'); } catch { /* swallow */ }
+              state.currentIndex++;
+              continue;
+            }
+          } catch { /* swallow */ }
+        }
+
+        const maxAttempts = Math.max(1, this.retry.maxAttempts || 1);
+        let attempt = 0;
+        let lastErr: any;
+        while (attempt < maxAttempts) {
+          attempt++;
+          rec.attempts = attempt; // reflect current attempt
+          try { this.metrics.inc('specly_engine_specs_started_total'); } catch { /* swallow */ }
+          // Journal start per attempt
+          if (this.journal instanceof PersistentJournalService) {
+            await this.journal.recordStart(step.specHash, attempt);
+          } else { try { await this.journal.recordStart(step.specHash, attempt); } catch { /* swallow */ } }
+          try {
+            const output = await this.executor.execute(step.specHash);
+            rec.status = 'completed';
+            rec.endedAt = Date.now();
+            rec.output = output;
+              if (this.journal instanceof PersistentJournalService) {
+                await this.journal.recordSuccess(step.specHash, attempt, output);
+              } else { try { await this.journal.recordSuccess(step.specHash, attempt, output); } catch { /* swallow */ } }
+              try { this.metrics.inc('specly_engine_specs_completed_total'); } catch { /* swallow */ }
+              results[step.specHash] = output;
+              executed.push(step.specHash);
+              if (output && typeof output === 'object') Object.assign(state.sessionContext, output as Record<string, unknown>);
+              if (leaseId) {
+                specsSinceRenew++;
+                if (specsSinceRenew >= this.leaseRenewEvery) {
                 try { await this.leaseProvider.renew(leaseId); try { this.metrics.inc('specly_engine_lease_renewals_total'); } catch { /* swallow */ } } catch (e: any) { return finalizeError(`Lease renewal failed: ${e?.message || 'unknown'}`, SpecEngineErrorCode.LEASE_RENEW_FAILED); }
-              specsSinceRenew = 0;
+                  specsSinceRenew = 0;
+                }
+              }
+              break; // success, exit retry loop
+            } catch (err: any) {
+              lastErr = err;
+              // Record failure for this attempt
+              if (this.journal instanceof PersistentJournalService) {
+                await this.journal.recordFailure(step.specHash, attempt, { message: err?.message || 'Autonomous executor error' });
+              } else { try { await this.journal.recordFailure(step.specHash, attempt, { message: err?.message || 'Autonomous executor error' }); } catch { /* swallow */ } }
+              if (attempt < maxAttempts) {
+                try { this.metrics.inc('action_journal_retries_total'); } catch { /* swallow */ }
+                // Logical backoff computation (no actual sleep to keep engine sync for tests)
+                if (this.retry.strategy === 'exponential') {
+                  const delay = (this.retry.baseDelayMs ?? 50) * Math.pow(2, attempt - 1);
+                  // Potential future: await wait(delay)
+                  void delay; // suppress unused lint
+                }
+                continue; // attempt another retry
+              } else {
+              // Exhausted attempts
+                rec.status = 'failed';
+                rec.endedAt = Date.now();
+                rec.errorMessage = err?.message || 'Autonomous executor error';
+              try { this.metrics.inc('specly_engine_specs_failed_total'); } catch { /* swallow */ }
+              try { this.metrics.inc('action_journal_retry_exhausted_total'); } catch { /* swallow */ }
+              return finalizeError(`Execution failed at spec ${step.specHash}: ${rec.errorMessage}`, SpecEngineErrorCode.EXECUTOR_FAILED);
             }
           }
-        } catch (err: any) {
+        }
+        if (rec.status !== 'completed') {
+          // Defensive: should have returned on failure or broken on success
           rec.status = 'failed';
           rec.endedAt = Date.now();
-            rec.errorMessage = err?.message || 'Autonomous executor error';
-            try { await this.journal.recordFailure(step.specHash, rec.attempts, { message: rec.errorMessage || 'Autonomous executor error' }); } catch { /* swallow */ }
-            try { this.metrics.inc('specly_engine_specs_failed_total'); } catch { /* swallow */ }
-            return finalizeError(`Execution failed at spec ${step.specHash}: ${rec.errorMessage}`, SpecEngineErrorCode.EXECUTOR_FAILED);
+          rec.errorMessage = lastErr?.message || 'Autonomous executor error';
+          try { this.metrics.inc('specly_engine_specs_failed_total'); } catch { /* swallow */ }
+          return finalizeError(`Execution failed at spec ${step.specHash}: ${rec.errorMessage}`, SpecEngineErrorCode.EXECUTOR_FAILED);
         }
 
         state.currentIndex++;
@@ -337,7 +403,9 @@ export class SpecEngine {
         serializedState.results[input.specHash] = input.humanOutput;
         serializedState.executed.push(input.specHash);
   // Journal success for human spec (treated as provided externally)
-  try { await this.journal.recordSuccess(input.specHash, 1, input.humanOutput); } catch { /* swallow */ }
+      if (this.journal instanceof PersistentJournalService) {
+        await this.journal.recordSuccess(input.specHash, 1, input.humanOutput);
+      } else { try { await this.journal.recordSuccess(input.specHash, 1, input.humanOutput); } catch { /* swallow */ } }
   try { this.metrics.inc('specly_engine_resume_total'); } catch { /* swallow */ }
 
         // Build a partial plan (reuse previous plan steps)
@@ -369,12 +437,16 @@ export class SpecEngine {
                 return { status: 'awaiting_input', executed, results, warnings: plan.warnings, awaitingSpec: step.specHash, resumeToken };
             }
             try {
-        try { await this.journal.recordStart(step.specHash, 1); } catch { /* swallow */ }
+              if (this.journal instanceof PersistentJournalService) {
+                await this.journal.recordStart(step.specHash, 1);
+              } else { try { await this.journal.recordStart(step.specHash, 1); } catch { /* swallow */ } }
         try { this.metrics.inc('specly_engine_specs_started_total'); } catch { /* swallow */ }
                 const output = await this.executor.execute(step.specHash);
                 results[step.specHash] = output;
                 executed.push(step.specHash);
-        try { await this.journal.recordSuccess(step.specHash, 1, output); } catch { /* swallow */ }
+              if (this.journal instanceof PersistentJournalService) {
+                await this.journal.recordSuccess(step.specHash, 1, output);
+              } else { try { await this.journal.recordSuccess(step.specHash, 1, output); } catch { /* swallow */ } }
         try { this.metrics.inc('specly_engine_specs_completed_total'); } catch { /* swallow */ }
                 if (output && typeof output === 'object') Object.assign(serializedState.sessionContext, output as Record<string, unknown>);
                 if (leaseId) {
@@ -386,7 +458,9 @@ export class SpecEngine {
                 }
             } catch (err: any) {
         try { this.metrics.inc('specly_engine_specs_failed_total'); } catch { /* swallow */ }
-        try { await this.journal.recordFailure(step.specHash, 1, { message: err?.message || 'Autonomous executor error' }); } catch { /* swallow */ }
+              if (this.journal instanceof PersistentJournalService) {
+                await this.journal.recordFailure(step.specHash, 1, { message: err?.message || 'Autonomous executor error' });
+              } else { try { await this.journal.recordFailure(step.specHash, 1, { message: err?.message || 'Autonomous executor error' }); } catch { /* swallow */ } }
                 return finalizeError(`Execution failed at spec ${step.specHash}: ${err?.message || 'Autonomous executor error'}`, SpecEngineErrorCode.EXECUTOR_FAILED);
             }
         }
