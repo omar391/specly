@@ -33,69 +33,9 @@ export interface Session {
   is_active: boolean;
 }
 
-export interface ToolFlow {
-  id: string;
-  tool_name: string;
-  workspace_id?: string; // null for global flows
-  flow_steps: ToolFlowStep[];
-  created_at: string;
-  updated_at: string;
-}
+// Legacy ToolFlow / FeedbackStep types removed (Specly schema migration)
 
-export interface ToolFlowStep {
-  id: string;
-  tool_flow_id: string;
-  step_order: number;
-  system_tool_fn: string;
-  feedback_step?: string;
-  next_tool?: string;
-}
-
-export interface FeedbackStep {
-  id: string;
-  name: string;
-  instructions: string;
-  workspace_id?: string; // null for global feedback steps
-  metadata: FeedbackStepMetadata;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface FeedbackStepMetadata {
-  category: string;
-  timeout_minutes: number;
-  required_for: string[];
-  [key: string]: any;
-}
-
-export interface GlobalSeedData {
-  global_tool_flows: GlobalToolFlow[];
-  global_feedback_steps: GlobalFeedbackStep[];
-}
-
-export interface GlobalToolFlow {
-  tool_name: string;
-  flow_steps: GlobalToolFlowStep[];
-}
-
-export interface GlobalToolFlowStep {
-  step_order: number;
-  system_tool_fn: string;
-  feedback_step?: string;
-  next_tool?: string;
-}
-
-export interface GlobalFeedbackStep {
-  name: string;
-  instructions: string;
-  metadata: FeedbackStepMetadata;
-}
-
-export interface PromptOrchestrationResult {
-  prompt_text: string;
-  next_tool?: string;
-  session_data?: any;
-}
+// Legacy prompt orchestration result type removed
 
 export interface TaskPilotToolResult {
   content: Array<{
@@ -103,8 +43,6 @@ export interface TaskPilotToolResult {
     text: string;
   }>;
   isError?: boolean;
-  // Multi-step tool support
-  stepResult?: ToolStepResult;
 }
 
 export interface MCPToolResult {
@@ -113,22 +51,9 @@ export interface MCPToolResult {
     text: string;
   }>;
   isError?: boolean;
-  // Multi-step tool support  
-  stepResult?: ToolStepResult;
 }
 
-// Multi-step tool flow types
-export interface ToolStepResult {
-  isFinalStep: boolean;
-  nextStepId?: string;
-  feedback?: string;
-  data?: any; // Context data passed between steps
-}
-
-export interface MultiStepToolInput {
-  stepId?: string;
-  [key: string]: any;
-}
+// Legacy multi-step tool flow types removed
 
 export type WorkspaceRule = {
   id: string;

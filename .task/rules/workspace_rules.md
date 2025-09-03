@@ -164,3 +164,4 @@ SP-###: Concise imperative summary
 
 ## Rule Change Log
 - 2025-09-02: Initial Specly rewrite of workspace rules replacing TaskPilot references.
+- 2025-09-02: Added mandate for drastic migration — remove all legacy tool_flow / feedback_step code & tables immediately (no coexistence). Any PR retaining legacy paths is invalid.

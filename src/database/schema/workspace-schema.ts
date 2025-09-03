@@ -58,24 +58,48 @@ export const remoteInterfaces = sqliteTable('remote_interfaces', {
   updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`)
 });
 
-export const workspaceToolFlows = sqliteTable('workspace_tool_flows', {
+
+// -------------------------------------------------------------
+// Specly New Workspace Schema (SP-001)
+// Legacy tasks table retained until data migration & code refactor complete.
+// New tables suffixed with New to avoid naming collision temporarily.
+// -------------------------------------------------------------
+
+export const tasksNew = sqliteTable('tasks_new', {
   id: text('id').primaryKey(),
-  toolName: text('tool_name').notNull(),
+  title: text('title').notNull(),
   description: text('description'),
-  feedbackStepId: text('feedback_step_id'),
-  nextTool: text('next_tool'),
+  status: text('status', { enum: ['queued', 'in_progress', 'awaiting_input', 'blocked', 'paused', 'completed', 'failed'] }).default('queued'),
+  priority: text('priority', { enum: ['high', 'medium', 'low'] }).default('medium'),
+  progress: integer('progress').default(0),
+  notes: text('notes'),
+  profileVersionId: text('profile_version_id'),
+  blockedReason: text('blocked_reason'),
+  deletedAt: text('deleted_at'),
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`)
+  updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+  completedAt: text('completed_at')
 });
 
-export const workspaceFeedbackSteps = sqliteTable('workspace_feedback_steps', {
+export const taskDependencies = sqliteTable('task_dependencies', {
+  taskId: text('task_id').notNull(),
+  dependsOnTaskId: text('depends_on_task_id').notNull()
+});
+
+export const sessionsNew = sqliteTable('sessions_new', {
   id: text('id').primaryKey(),
-  name: text('name').notNull().unique(),
-  description: text('description'),
-  templateContent: text('template_content').notNull(),
-  variableSchema: text('variable_schema', { mode: 'json' }).default({}),
-  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`)
+  workspaceId: text('workspace_id').notNull(),
+  taskId: text('task_id'),
+  profileVersionId: text('profile_version_id'),
+  currentSpecHash: text('current_spec_hash'),
+  status: text('status', { enum: ['active', 'idle'] }).default('active'),
+  clientStateId: text('client_state_id'),
+  lastActiveAt: text('last_active_at').default(sql`CURRENT_TIMESTAMP`),
+  context: text('context', { mode: 'json' }).default({}),
+  lastResultCode: text('last_result_code'),
+  humanBlocking: integer('human_blocking', { mode: 'boolean' }).default(false),
+  deletedAt: text('deleted_at'),
+  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`)
 });
 
 // Export types for use in other files
@@ -85,7 +109,8 @@ export type GithubConfig = typeof githubConfigs.$inferSelect;
 export type NewGithubConfig = typeof githubConfigs.$inferInsert;
 export type RemoteInterface = typeof remoteInterfaces.$inferSelect;
 export type NewRemoteInterface = typeof remoteInterfaces.$inferInsert;
-export type WorkspaceToolFlow = typeof workspaceToolFlows.$inferSelect;
-export type NewWorkspaceToolFlow = typeof workspaceToolFlows.$inferInsert;
-export type WorkspaceFeedbackStep = typeof workspaceFeedbackSteps.$inferSelect;
-export type NewWorkspaceFeedbackStep = typeof workspaceFeedbackSteps.$inferInsert;
+
+export type TaskNew = typeof tasksNew.$inferSelect;
+export type NewTaskNew = typeof tasksNew.$inferInsert;
+export type TaskDependency = typeof taskDependencies.$inferSelect;
+export type SessionNew = typeof sessionsNew.$inferSelect;

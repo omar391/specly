@@ -2,7 +2,7 @@
  * Unit Tests for CLI.ts
  * 
  * Tests CLI tool execution, argument parsing, result formatting,
- * and error handling for multi-step and traditional tool results.
+ * and error handling for the unified single-step TaskPilotToolResult model.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -59,35 +59,18 @@ describe('CLI Tool Execution Tests', () => {
             const result = await executeToolCall('taskpilot_start', args);
 
             expect(result).toBeDefined();
-
-            // Should return either ToolStepResult or TaskPilotToolResult
-            if ('isFinalStep' in result) {
-                expect(typeof result.isFinalStep).toBe('boolean');
-                expect(typeof result.feedback).toBe('string');
-            } else {
-                expect(result.content).toBeDefined();
-                expect(Array.isArray(result.content)).toBe(true);
-            }
+            expect(result.content).toBeDefined();
+            expect(Array.isArray(result.content)).toBe(true);
         }, 10000);
-
-        it('should execute taskpilot_add with multi-step support', async () => {
+        
+        it('should execute taskpilot_add (single-step)', async () => {
             const args = {
                 task_description: 'Test task for CLI execution',
                 workspace_path: testWorkspacePath
             };
-
-            // Test initial step
-            const initialResult = await executeToolCall('taskpilot_add', args);
-            expect(initialResult).toBeDefined();
-
-            // Test with stepId
-            const stepArgs = {
-                ...args,
-                stepId: 'validate'
-            };
-
-            const stepResult = await executeToolCall('taskpilot_add', stepArgs);
-            expect(stepResult).toBeDefined();
+            const result = await executeToolCall('taskpilot_add', args);
+            expect(result).toBeDefined();
+            expect(result.content).toBeDefined();
         }, 15000);
 
         it('should execute taskpilot_status with workspace', async () => {
@@ -127,17 +110,7 @@ describe('CLI Tool Execution Tests', () => {
             }).rejects.toThrow('Unknown tool');
         });
 
-        it('should validate stepId enum values', async () => {
-            const args = {
-                task_description: 'Test task',
-                workspace_path: testWorkspacePath,
-                stepId: 'invalid_step'
-            };
-
-            // Should not throw during validation, but tool should handle gracefully
-            const result = await executeToolCall('taskpilot_add', args);
-            expect(result).toBeDefined();
-        }, 10000);
+        // stepId validation removed with single-step migration
     });
 
     describe('Error Handling', () => {
@@ -149,13 +122,7 @@ describe('CLI Tool Execution Tests', () => {
             // Should not crash, should return error result
             const result = await executeToolCall('taskpilot_status', args);
             expect(result).toBeDefined();
-
-            if ('isFinalStep' in result) {
-                expect(result.data?.error).toBe(true);
-            } else {
-                // Traditional result may indicate error
-                expect(result.content).toBeDefined();
-            }
+            expect(result.content).toBeDefined();
         }, 10000);
 
         it('should handle database initialization errors gracefully', async () => {
@@ -221,43 +188,16 @@ describe('CLI Tool Execution Tests', () => {
     });
 
     describe('Result Format Consistency', () => {
-        it('should return consistent result format for traditional tools', async () => {
+        it('should return consistent result format (single model)', async () => {
             const args = {
                 workspace_path: testWorkspacePath
             };
 
             const result = await executeToolCall('taskpilot_start', args);
-
-            // Should be TaskPilotToolResult format
-            if (!('isFinalStep' in result)) {
-                expect(result).toHaveProperty('content');
-                expect(Array.isArray(result.content)).toBe(true);
-                expect(result.content[0]).toHaveProperty('type');
-                expect(result.content[0]).toHaveProperty('text');
-            }
-        }, 10000);
-
-        it('should return consistent result format for multi-step tools', async () => {
-            const args = {
-                task_description: 'Test multi-step result format',
-                workspace_path: testWorkspacePath
-            };
-
-            const result = await executeToolCall('taskpilot_add', args);
-
-            // Could be either format depending on implementation
-            if ('isFinalStep' in result) {
-                // ToolStepResult format
-                expect(typeof result.isFinalStep).toBe('boolean');
-                expect(typeof result.feedback).toBe('string');
-                if (!result.isFinalStep) {
-                    expect(result.nextStepId).toBeDefined();
-                }
-            } else {
-                // TaskPilotToolResult format
-                expect(result).toHaveProperty('content');
-                expect(Array.isArray(result.content)).toBe(true);
-            }
+            expect(result).toHaveProperty('content');
+            expect(Array.isArray(result.content)).toBe(true);
+            expect(result.content[0]).toHaveProperty('type');
+            expect(result.content[0]).toHaveProperty('text');
         }, 10000);
     });
 

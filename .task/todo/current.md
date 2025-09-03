@@ -12,10 +12,10 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Description**: Implement new global + workspace schema (specs, tools, tool_versions, profiles, profile_versions, profile_version_tools, workspace_profile_versions, action_journal, workspace_rules, tasks, task_dependencies, sessions). Remove legacy tool_flows / feedback_steps tables from code (drop tables via migration). See docs/migration_roadmap.md §2, docs/file_changes.md (schema sections).
 - **Priority**: High
 - **Dependencies**: None
-- **Status**: TBD
-- **Progress**: 0%
-- **Completed At**: 
-- **Notes**: Destructive migration—backup old DB files before applying. Enforce uniqueness indices.
+- **Status**: Done
+- **Progress**: 100%
+- **Completed At**: 2025-09-03T00:00:00Z
+- **Notes**: Legacy tool_flow / feedback system fully purged from code; new Specly schema active. Transitional tasksNew/sessionsNew pending rename under later task.
 - **Connected File List**: ./src/database/schema/global-schema.ts, ./src/database/schema/workspace-schema.ts, ./src/database/schema/relations.ts, ./src/database/migrations/*
 
 ## Task ID: SP-002

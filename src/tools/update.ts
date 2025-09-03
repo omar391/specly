@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { TaskPilotToolResult, ToolStepResult, MultiStepToolInput } from '../types/index.js';
+import type { TaskPilotToolResult } from '../types/index.js';
 import { BaseTool, BaseToolConfig, ToolDefinition, createBaseToolSchema } from './base-tool.js';
 import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
 import { WorkspaceDatabaseService } from '../database/workspace-queries.js';
@@ -24,7 +24,7 @@ export class UpdateToolNew extends BaseTool {
   constructor(drizzleDb: DrizzleDatabaseManager) {
     const config: BaseToolConfig = {
       name: ToolNames.UPDATE,
-      description: 'Update task properties with validation and audit trail. Supports multi-step workflow.',
+      description: 'Single-step update of task properties with audit trail.',
       requiredFields: ['task_id', 'workspace_path', 'field', 'value'],
       additionalProperties: {
         task_id: {
@@ -50,128 +50,60 @@ export class UpdateToolNew extends BaseTool {
     super(drizzleDb, config);
   }
 
-  /**
-   * Execute taskpilot_update tool with multi-step support using base class validation
-   */
-  async execute(input: MultiStepToolInput): Promise<ToolStepResult | TaskPilotToolResult> {
-    try {
-      const { stepId, workspace_path } = input;
-      const { task_id, field, value, reason } = input as UpdateToolInput;
-
-      // Use base class workspace validation
-      const workspaceValidation = await this.validateWorkspace(workspace_path);
-      if (!workspaceValidation.isValid) {
-        return {
-          isFinalStep: true,
-          feedback: workspaceValidation.error!,
-          data: { error: true, workspace_path }
-        };
-      }
-
-      const workspace = workspaceValidation.workspace;
-
-      // Route to appropriate step handler
-      switch (stepId) {
-        case 'validate':
-          return await this.handleValidationStep(input as UpdateToolInput, workspace);
-        case 'confirm':
-          return await this.handleConfirmStep(input as UpdateToolInput, workspace);
-        default:
-          return await this.handleInitialStep(input as UpdateToolInput, workspace);
-      }
-
-    } catch (error) {
-      const errorMessage = `Error in taskpilot_update: ${error instanceof Error ? error.message : String(error)}`;
-      return {
-        isFinalStep: true,
-        feedback: errorMessage,
-        data: { error: true, input }
-      };
+  async execute(input: any): Promise<TaskPilotToolResult> {
+    const { workspace_path, task_id, field, value, reason } = input as UpdateToolInput & { workspace_path: string };
+    const workspaceValidation = await this.validateWorkspace(workspace_path);
+    if (!workspaceValidation.isValid) {
+      return this.createErrorResult(workspaceValidation.error!, { workspace_path });
     }
+    const workspace = workspaceValidation.workspace;
+    return this.applyUpdate({ task_id, field, value, reason } as UpdateToolInput, workspace);
   }
 
-  /**
-   * Initial step - validate update request
-   */
-  private async handleInitialStep(input: UpdateToolInput, workspace: any): Promise<ToolStepResult> {
+  private async applyUpdate(input: UpdateToolInput, workspace: any): Promise<TaskPilotToolResult> {
     const { task_id, field, value, reason } = input;
-
-    const orchestrationResult = await this.orchestrator.orchestratePrompt(
-      ToolNames.UPDATE,
-      workspace.id,
-      {
-        task_id,
-        field,
-        value,
-        reason: reason || 'No reason provided',
-        step: 'initial'
+    try {
+      const workspaceDb = new WorkspaceDatabaseService(workspace.path, this.drizzleDb);
+      const task = await workspaceDb.getTask(task_id);
+      if (!task) {
+        return this.createErrorResult(`Task ${task_id} not found`, { task_id });
       }
-    );
-
-    return {
-      isFinalStep: false,
-      nextStepId: 'validate',
-      feedback: orchestrationResult.prompt_text,
-      data: { task_id, field, value, reason }
-    };
-  }
-
-  /**
-   * Validation step - verify update safety
-   */
-  private async handleValidationStep(input: UpdateToolInput, workspace: any): Promise<ToolStepResult> {
-    const { task_id, field, value, reason } = input;
-
-    const orchestrationResult = await this.orchestrator.orchestratePrompt(
-      'taskpilot_update',
-      workspace.id,
-      {
-        task_id,
-        field,
-        value,
-        reason: reason || 'No reason provided',
-        step: 'validation'
+      const updatedTask = { ...task } as any;
+      switch (field) {
+        case 'title':
+          updatedTask.title = value;
+          break;
+        case 'description':
+          updatedTask.description = value;
+          break;
+        case 'priority':
+          updatedTask.priority = value.toLowerCase();
+          break;
+        case 'status':
+          updatedTask.status = value;
+          break;
+        case 'progress':
+          updatedTask.progress = Number(value);
+          break;
+        case 'notes':
+          updatedTask.notes = (updatedTask.notes || '') + '\n' + value;
+          break;
+        case 'connected_files':
+          updatedTask.connectedFiles = value.split(',').map((v: string) => v.trim());
+          break;
+        case 'blocked_by':
+          updatedTask.dependencies = value.split(',').map((v: string) => v.trim());
+          break;
       }
-    );
-
-    return {
-      isFinalStep: false,
-      nextStepId: 'confirm',
-      feedback: orchestrationResult.prompt_text,
-      data: { task_id, field, value, reason, validated: true }
-    };
-  }
-
-  /**
-   * Confirmation step - apply the update (final step)
-   */
-  private async handleConfirmStep(input: UpdateToolInput, workspace: any): Promise<ToolStepResult> {
-    const { task_id, field, value, reason } = input;
-
-    const orchestrationResult = await this.orchestrator.orchestratePrompt(
-      'taskpilot_update',
-      workspace.id,
-      {
-        task_id,
-        field,
-        value,
-        reason: reason || 'No reason provided',
-        step: 'confirm'
-      }
-    );
-
-    return {
-      isFinalStep: true,
-      feedback: orchestrationResult.prompt_text,
-      data: {
-        task_id,
-        field,
-        value,
-        reason,
-        update_applied: true,
-        workspace_id: workspace.id
-      }
-    };
+      updatedTask.updatedAt = new Date().toISOString();
+      await workspaceDb.updateTask(task_id, updatedTask);
+      return this.createSuccessResult(
+        `Task ${task_id} updated successfully`,
+        { isFinalStep: true, feedback: 'Update applied', data: { task_id, field, value, reason, updated: true } }
+      );
+    } catch (error) {
+      return this.createErrorResult(`Failed to update task: ${error instanceof Error ? error.message : String(error)}`, { task_id, field, value });
+    }
   }
 
   /**
@@ -188,15 +120,10 @@ export class UpdateToolNew extends BaseTool {
   static getToolDefinition(): ToolDefinition {
     return {
       name: 'taskpilot_update',
-      description: 'Update task properties with validation and audit trail. Supports multi-step workflow.',
+      description: 'Single-step update of task properties with audit trail.',
       inputSchema: {
         type: 'object',
         properties: {
-          stepId: {
-            type: 'string',
-            enum: ['validate', 'confirm'],
-            description: 'Optional step ID for multi-step workflow: validate, confirm'
-          },
           task_id: {
             type: 'string',
             description: 'Task ID to update (e.g., TP-001)'

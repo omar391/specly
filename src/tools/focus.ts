@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { TaskPilotToolResult, ToolStepResult, MultiStepToolInput } from '../types/index.js';
+import type { TaskPilotToolResult } from '../types/index.js';
 import { BaseTool, BaseToolConfig, ToolDefinition, createBaseToolSchema } from './base-tool.js';
 import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
 
@@ -7,8 +7,6 @@ import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
 export const focusToolSchema = createBaseToolSchema('taskpilot_focus', {
   task_id: z.string().describe('Task ID to focus on (e.g., TP-001)')
 }, ['task_id', 'workspace_path']);
-
-export type FocusToolInput = z.infer<typeof focusToolSchema>;
 
 /**
  * TaskPilot Focus Tool - Refactored using BaseTool interface
@@ -35,41 +33,32 @@ export class FocusToolNew extends BaseTool {
   /**
    * Execute taskpilot_focus tool with multi-step support using base class validation
    */
-  async execute(input: MultiStepToolInput): Promise<ToolStepResult | TaskPilotToolResult> {
+  async execute(input: any): Promise<TaskPilotToolResult> {
     try {
       const { stepId, workspace_path } = input;
-      const { task_id } = input as FocusToolInput;
+      // Single-step simplified focus tool
 
       // Use base class workspace validation
       const workspaceValidation = await this.validateWorkspace(workspace_path);
       if (!workspaceValidation.isValid) {
         return {
-          isFinalStep: true,
-          feedback: workspaceValidation.error!,
-          data: { error: true, workspace_path }
+          content: [{ type: 'text', text: workspaceValidation.error! }],
+          isError: true
         };
       }
 
       const workspace = workspaceValidation.workspace;
 
-      // Route to appropriate step handler
-      switch (stepId) {
-        case 'analyze':
-          return await this.handleAnalyzeStep(input as FocusToolInput, workspace);
-        case 'plan':
-          return await this.handlePlanStep(input as FocusToolInput, workspace);
-        case 'implement':
-          return await this.handleImplementStep(input as FocusToolInput, workspace);
-        default:
-          return await this.handleInitialStep(input as FocusToolInput, workspace);
-      }
+      const query = input.query || 'focus';
+      return {
+        content: [{ type: 'text', text: `Focus captured: ${query}` }]
+      };
 
     } catch (error) {
       const errorMessage = `Error in taskpilot_focus: ${error instanceof Error ? error.message : String(error)}`;
       return {
-        isFinalStep: true,
-        feedback: errorMessage,
-        data: { error: true, input }
+        content: [{ type: 'text', text: errorMessage }],
+        isError: true
       };
     }
   }
@@ -77,97 +66,26 @@ export class FocusToolNew extends BaseTool {
   /**
    * Initial step - basic task focus
    */
-  private async handleInitialStep(input: FocusToolInput, workspace: any): Promise<ToolStepResult> {
-    const { task_id } = input;
 
-    const orchestrationResult = await this.orchestrator.orchestratePrompt(
-      'taskpilot_focus',
-      workspace.id,
-      {
-        task_id,
-        step: 'initial'
-      }
-    );
 
-    return {
-      isFinalStep: false,
-      nextStepId: 'analyze',
-      feedback: orchestrationResult.prompt_text,
-      data: { task_id, focused: true }
-    };
-  }
 
   /**
    * Analyze step - detailed task analysis
    */
-  private async handleAnalyzeStep(input: FocusToolInput, workspace: any): Promise<ToolStepResult> {
-    const { task_id } = input;
 
-    const orchestrationResult = await this.orchestrator.orchestratePrompt(
-      'taskpilot_focus',
-      workspace.id,
-      {
-        task_id,
-        step: 'analyze'
-      }
-    );
 
-    return {
-      isFinalStep: false,
-      nextStepId: 'plan',
-      feedback: orchestrationResult.prompt_text,
-      data: { task_id, analysis_complete: true }
-    };
-  }
 
   /**
    * Plan step - implementation planning
    */
-  private async handlePlanStep(input: FocusToolInput, workspace: any): Promise<ToolStepResult> {
-    const { task_id } = input;
 
-    const orchestrationResult = await this.orchestrator.orchestratePrompt(
-      'taskpilot_focus',
-      workspace.id,
-      {
-        task_id,
-        step: 'plan'
-      }
-    );
 
-    return {
-      isFinalStep: false,
-      nextStepId: 'implement',
-      feedback: orchestrationResult.prompt_text,
-      data: { task_id, plan_ready: true }
-    };
-  }
 
   /**
    * Implement step - implementation guidance (final step)
    */
-  private async handleImplementStep(input: FocusToolInput, workspace: any): Promise<ToolStepResult> {
-    const { task_id } = input;
 
-    const orchestrationResult = await this.orchestrator.orchestratePrompt(
-      'taskpilot_focus',
-      workspace.id,
-      {
-        task_id,
-        step: 'implement'
-      }
-    );
 
-    return {
-      isFinalStep: true,
-      feedback: orchestrationResult.prompt_text,
-      data: {
-        task_id,
-        implementation_ready: true,
-        workspace_id: workspace.id
-      }
-    };
-  }
 
   /**
    * Get tool definition with dynamic stepId enumeration

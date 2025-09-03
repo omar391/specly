@@ -106,8 +106,9 @@ export class DrizzleDatabaseManager {
   }
 
   /**
-   * Run programmatic migrations (pure TypeScript approach)
-   * This creates schema programmatically instead of using file-based migrations
+  * Run programmatic migrations (pure TypeScript approach)
+  * NOTE: Legacy tool flow / feedback tables have been fully removed per drastic migration directive.
+  * This creates only the minimal tables still required when file migrations are not used.
    */
   private async runProgrammaticMigrations(): Promise<void> {
     if (!this.sqlite) {
@@ -138,43 +139,6 @@ export class DrizzleDatabaseManager {
           is_active INTEGER DEFAULT 1
         );
 
-        CREATE TABLE IF NOT EXISTS tool_flows (
-          id TEXT PRIMARY KEY,
-          tool_name TEXT NOT NULL,
-          description TEXT,
-          feedback_step_id TEXT,
-          next_tool TEXT,
-          is_global INTEGER DEFAULT 1,
-          workspace_id TEXT REFERENCES workspaces(id) ON DELETE CASCADE,
-          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-          updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS tool_flow_steps (
-          id TEXT PRIMARY KEY,
-          tool_flow_id TEXT NOT NULL,
-          step_order INTEGER NOT NULL,
-          system_tool_fn TEXT NOT NULL,
-          feedback_step TEXT,
-          next_tool TEXT,
-          metadata TEXT DEFAULT '{}',
-          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-          updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (tool_flow_id) REFERENCES tool_flows(id) ON DELETE CASCADE
-        );
-
-        CREATE TABLE IF NOT EXISTS feedback_steps (
-          id TEXT PRIMARY KEY,
-          name TEXT NOT NULL,
-          description TEXT,
-          template_content TEXT NOT NULL,
-          variable_schema TEXT DEFAULT '{}',
-          is_global INTEGER DEFAULT 1,
-          workspace_id TEXT REFERENCES workspaces(id) ON DELETE CASCADE,
-          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-          updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-        );
-
         CREATE TABLE IF NOT EXISTS mcp_server_mappings (
           id TEXT PRIMARY KEY,
           interface_type TEXT NOT NULL CHECK(interface_type IN ('github', 'jira', 'linear', 'asana', 'trello', 'custom')),
@@ -188,10 +152,6 @@ export class DrizzleDatabaseManager {
         -- Indexes
         CREATE INDEX IF NOT EXISTS idx_sessions_workspace_id ON sessions(workspace_id);
         CREATE INDEX IF NOT EXISTS idx_sessions_is_active ON sessions(is_active);
-        CREATE INDEX IF NOT EXISTS idx_tool_flows_workspace_id ON tool_flows(workspace_id);
-        CREATE INDEX IF NOT EXISTS idx_tool_flows_tool_name ON tool_flows(tool_name);
-        CREATE INDEX IF NOT EXISTS idx_feedback_steps_workspace_id ON feedback_steps(workspace_id);
-        CREATE INDEX IF NOT EXISTS idx_feedback_steps_name ON feedback_steps(name);
         CREATE INDEX IF NOT EXISTS idx_mcp_server_mappings_interface_type ON mcp_server_mappings(interface_type);
         CREATE INDEX IF NOT EXISTS idx_mcp_server_mappings_default ON mcp_server_mappings(is_default);
       `);
@@ -243,33 +203,11 @@ export class DrizzleDatabaseManager {
           updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
 
-        CREATE TABLE IF NOT EXISTS workspace_tool_flows (
-          id TEXT PRIMARY KEY,
-          tool_name TEXT NOT NULL,
-          description TEXT,
-          feedback_step_id TEXT,
-          next_tool TEXT,
-          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-          updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS workspace_feedback_steps (
-          id TEXT PRIMARY KEY,
-          name TEXT NOT NULL UNIQUE,
-          description TEXT,
-          template_content TEXT NOT NULL,
-          variable_schema TEXT DEFAULT '{}',
-          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-          updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-        );
-
         -- Indexes
         CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
         CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
         CREATE INDEX IF NOT EXISTS idx_tasks_github_issue_number ON tasks(github_issue_number);
         CREATE INDEX IF NOT EXISTS idx_remote_interfaces_type ON remote_interfaces(interface_type);
-        CREATE INDEX IF NOT EXISTS idx_workspace_tool_flows_tool_name ON workspace_tool_flows(tool_name);
-        CREATE INDEX IF NOT EXISTS idx_workspace_feedback_steps_name ON workspace_feedback_steps(name);
       `);
     }
   }
@@ -395,15 +333,11 @@ export async function initializeBothDatabases(workspacePath: string): Promise<{
 export type {
   Workspace, NewWorkspace,
   Session, NewSession,
-  ToolFlow, NewToolFlow,
-  FeedbackStep, NewFeedbackStep,
   McpServerMapping, NewMcpServerMapping
 } from './schema/global-schema.js';
 
 export type {
   Task, NewTask,
   GithubConfig, NewGithubConfig,
-  RemoteInterface, NewRemoteInterface,
-  WorkspaceToolFlow, NewWorkspaceToolFlow,
-  WorkspaceFeedbackStep, NewWorkspaceFeedbackStep
+  RemoteInterface, NewRemoteInterface
 } from './schema/workspace-schema.js';

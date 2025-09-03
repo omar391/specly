@@ -72,70 +72,8 @@ export interface UpdateTaskRequest {
   reason: string;
 }
 
-// Tool Flow types
-export interface ToolFlowStep {
-  id: string;
-  step_order: number;
-  system_tool_fn: string;
-  feedback_step: string | null;
-  next_tool: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ToolFlow {
-  id: string;
-  tool_name: string;
-  description?: string | null;
-  feedback_step_id?: string | null;
-  next_tool?: string | null;
-  is_global?: boolean | null;
-  workspace_id?: string | null;
-  steps: ToolFlowStep[];
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ToolFlowsResponse {
-  global_flows: ToolFlow[];
-  workspace_flows: ToolFlow[];
-  available_tools: string[];
-  workspace: {
-    id: string;
-    name: string;
-    path: string;
-  };
-}
-
-// Feedback Step types
-export interface FeedbackStep {
-  id: string;
-  name: string;
-  instructions: string;
-  metadata: any;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface WorkspaceRule {
-  id: string;
-  category: string;
-  type: 'never' | 'always' | 'remember' | "don't" | 'preference';
-  content: string;
-  confidence: number;
-  created_at: string;
-}
-
-export interface FeedbackStepsResponse {
-  global_steps: FeedbackStep[];
-  workspace_steps: FeedbackStep[];
-  workspace_rules: WorkspaceRule[];
-  workspace: {
-    id: string;
-    name: string;
-    path: string;
-  };
-}
+// Legacy tool flow & feedback step interfaces removed (drastic migration).
+// Placeholder for future spec/profile API response types.
 
 // SSE Event types
 export interface WorkspaceStatusChangedEvent {
@@ -182,11 +120,4 @@ export interface TasksQueryParams {
   offset?: number;
 }
 
-export interface ToolFlowsQueryParams {
-  type?: 'global' | 'workspace' | 'all';
-  include?: 'steps' | 'all' | 'none';
-}
-
-export interface FeedbackStepsQueryParams {
-  type?: 'global' | 'workspace' | 'all';
-}
+// Removed ToolFlowsQueryParams & FeedbackStepsQueryParams.

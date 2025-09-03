@@ -1,21 +1,15 @@
-import { eq, and, or, desc, asc, isNull, isNotNull, inArray, notInArray, sql } from 'drizzle-orm';
+import { eq, and, or, desc, asc, inArray, notInArray, sql } from 'drizzle-orm';
 import { DrizzleDatabaseManager, getWorkspaceDatabase } from './drizzle-connection.js';
 import {
   tasks,
   githubConfigs,
   remoteInterfaces,
-  workspaceToolFlows,
-  workspaceFeedbackSteps,
   type Task,
   type NewTask,
   type GithubConfig,
   type NewGithubConfig,
   type RemoteInterface,
-  type NewRemoteInterface,
-  type WorkspaceToolFlow,
-  type NewWorkspaceToolFlow,
-  type WorkspaceFeedbackStep,
-  type NewWorkspaceFeedbackStep
+  type NewRemoteInterface
 } from './schema/workspace-schema.js';
 
 export class WorkspaceDatabaseService {
@@ -309,113 +303,7 @@ export class WorkspaceDatabaseService {
     return result.changes > 0;
   }
 
-  // ========================================
-  // WORKSPACE TOOL FLOW OPERATIONS
-  // ========================================
-
-  /**
-   * Create workspace tool flow
-   */
-  async createWorkspaceToolFlow(toolFlow: NewWorkspaceToolFlow): Promise<WorkspaceToolFlow> {
-    const db = this.db.getDb();
-    const [result] = await db.insert(workspaceToolFlows).values(toolFlow).returning();
-    return result;
-  }
-
-  /**
-   * Get all workspace tool flows
-   */
-  async getAllWorkspaceToolFlows(): Promise<WorkspaceToolFlow[]> {
-    const db = this.db.getDb();
-    return db.select().from(workspaceToolFlows).orderBy(asc(workspaceToolFlows.toolName));
-  }
-
-  /**
-   * Get workspace tool flow by tool name
-   */
-  async getWorkspaceToolFlowByName(toolName: string): Promise<WorkspaceToolFlow | null> {
-    const db = this.db.getDb();
-    const [result] = await db.select()
-      .from(workspaceToolFlows)
-      .where(eq(workspaceToolFlows.toolName, toolName))
-      .limit(1);
-    return result || null;
-  }
-
-  /**
-   * Update workspace tool flow
-   */
-  async updateWorkspaceToolFlow(id: string, updates: Partial<Omit<WorkspaceToolFlow, 'id' | 'createdAt'>>): Promise<WorkspaceToolFlow | null> {
-    const db = this.db.getDb();
-    const [result] = await db.update(workspaceToolFlows)
-      .set({ ...updates, updatedAt: new Date().toISOString() })
-      .where(eq(workspaceToolFlows.id, id))
-      .returning();
-    return result || null;
-  }
-
-  /**
-   * Delete workspace tool flow
-   */
-  async deleteWorkspaceToolFlow(id: string): Promise<boolean> {
-    const db = this.db.getDb();
-    const result = await db.delete(workspaceToolFlows).where(eq(workspaceToolFlows.id, id));
-    return result.changes > 0;
-  }
-
-  // ========================================
-  // WORKSPACE FEEDBACK STEP OPERATIONS
-  // ========================================
-
-  /**
-   * Create workspace feedback step
-   */
-  async createWorkspaceFeedbackStep(feedbackStep: NewWorkspaceFeedbackStep): Promise<WorkspaceFeedbackStep> {
-    const db = this.db.getDb();
-    const [result] = await db.insert(workspaceFeedbackSteps).values(feedbackStep).returning();
-    return result;
-  }
-
-  /**
-   * Get all workspace feedback steps
-   */
-  async getAllWorkspaceFeedbackSteps(): Promise<WorkspaceFeedbackStep[]> {
-    const db = this.db.getDb();
-    return db.select().from(workspaceFeedbackSteps).orderBy(asc(workspaceFeedbackSteps.name));
-  }
-
-  /**
-   * Get workspace feedback step by name
-   */
-  async getWorkspaceFeedbackStepByName(name: string): Promise<WorkspaceFeedbackStep | null> {
-    const db = this.db.getDb();
-    const [result] = await db.select()
-      .from(workspaceFeedbackSteps)
-      .where(eq(workspaceFeedbackSteps.name, name))
-      .limit(1);
-    return result || null;
-  }
-
-  /**
-   * Update workspace feedback step
-   */
-  async updateWorkspaceFeedbackStep(id: string, updates: Partial<Omit<WorkspaceFeedbackStep, 'id' | 'createdAt'>>): Promise<WorkspaceFeedbackStep | null> {
-    const db = this.db.getDb();
-    const [result] = await db.update(workspaceFeedbackSteps)
-      .set({ ...updates, updatedAt: new Date().toISOString() })
-      .where(eq(workspaceFeedbackSteps.id, id))
-      .returning();
-    return result || null;
-  }
-
-  /**
-   * Delete workspace feedback step
-   */
-  async deleteWorkspaceFeedbackStep(id: string): Promise<boolean> {
-    const db = this.db.getDb();
-    const result = await db.delete(workspaceFeedbackSteps).where(eq(workspaceFeedbackSteps.id, id));
-    return result.changes > 0;
-  }
+  // Legacy workspace tool flow & feedback step operations removed (Specly schema migration).
 
   // ========================================
   // UTILITY OPERATIONS

@@ -1,12 +1,9 @@
 import { z } from 'zod';
-import { v4 as uuidv4 } from 'uuid';
-import type { TaskPilotToolResult, ToolStepResult, MultiStepToolInput } from '../types/index.js';
+import type { TaskPilotToolResult } from '../types/index.js';
 import { BaseTool, BaseToolConfig, ToolDefinition, createBaseToolSchema } from './base-tool.js';
 import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
 import { WorkspaceDatabaseService } from '../database/workspace-queries.js';
 import type { NewTask } from '../database/schema/workspace-schema.js';
-import { DatabaseService } from '../services/database-service.js';
-import { ToolFlowExecutor, type StepHandlerMap, type DatabaseDrivenTool } from '../services/tool-flow-executor.js';
 import { ToolNames } from '../constants/tool-names.js';
 
 export const addToolSchema = createBaseToolSchema(ToolNames.ADD, {
@@ -54,99 +51,21 @@ export class AddToolNew extends BaseTool {
   /**
    * Execute taskpilot_add tool with multi-step support using base class validation
    */
-  async execute(input: MultiStepToolInput): Promise<ToolStepResult | TaskPilotToolResult> {
-    try {
-      const { stepId, workspace_path } = input;
-      const { task_description, priority = 'Medium', parent_task_id, title } = input as AddToolInput;
-
-      // Use base class workspace validation
-      const workspaceValidation = await this.validateWorkspace(workspace_path);
-      if (!workspaceValidation.isValid) {
-        return this.createErrorResult(workspaceValidation.error!, { workspace_path });
-      }
-
-      const workspace = workspaceValidation.workspace;
-
-      // Route to appropriate step handler using database-driven flow
-      switch (stepId) {
-        case 'validate':
-          return await this.handleValidationStep(input as AddToolInput, workspace);
-        case 'create':
-          return await this.handleCreationStep(input as AddToolInput, workspace);
-        default:
-          return await this.handleInitialStep(input as AddToolInput, workspace);
-      }
-
-    } catch (error) {
-      const errorMessage = `Error in taskpilot_add: ${error instanceof Error ? error.message : String(error)}`;
-      return this.createErrorResult(errorMessage, { input });
+  async execute(input: any): Promise<TaskPilotToolResult> {
+    const { workspace_path, task_description, priority = 'Medium', parent_task_id, title } = input as AddToolInput & { workspace_path: string };
+    const workspaceValidation = await this.validateWorkspace(workspace_path);
+    if (!workspaceValidation.isValid) {
+      return this.createErrorResult(workspaceValidation.error!, { workspace_path });
     }
+    const workspace = workspaceValidation.workspace;
+    return this.handleCreationStep({ task_description, priority, parent_task_id, title } as AddToolInput, workspace);
   }
 
   /**
    * Initial step - start analytical validation workflow
    */
-  private async handleInitialStep(input: AddToolInput, workspace: any): Promise<TaskPilotToolResult> {
-    const { task_description, priority, parent_task_id } = input;
-
-    // Generate initial prompt using orchestrator
-    const orchestrationResult = await this.orchestrator.orchestratePrompt(
-      ToolNames.ADD,
-      workspace.id,
-      {
-        task_description,
-        priority: priority || 'Medium',
-        parent_task_id,
-        step: 'initial'
-      }
-    );
-
-    const stepResult: ToolStepResult = {
-      isFinalStep: false,
-      nextStepId: 'validate',
-      feedback: `Apply analytical validation to the task description: \"${task_description}\"`,
-      data: { task_description, priority, parent_task_id }
-    };
-
-    return this.createSuccessResult(
-      `${orchestrationResult.prompt_text}\\n\\n**NEXT STEP:** Call taskpilot_add with stepId=\"validate\" after applying analytical validation.`,
-      stepResult
-    );
-  }
-
   /**
-   * Validation step - process analytical feedback
-   */
-  private async handleValidationStep(input: AddToolInput, workspace: any): Promise<TaskPilotToolResult> {
-    const { task_description, priority, parent_task_id } = input;
-
-    // Generate validation-specific prompt
-    const orchestrationResult = await this.orchestrator.orchestratePrompt(
-      ToolNames.ADD,
-      workspace.id,
-      {
-        task_description,
-        priority,
-        parent_task_id,
-        step: 'validation'
-      }
-    );
-
-    const stepResult: ToolStepResult = {
-      isFinalStep: false,
-      nextStepId: 'create',
-      feedback: `Validation complete. Ready to create task.`,
-      data: { task_description, priority, parent_task_id, validated: true }
-    };
-
-    return this.createSuccessResult(
-      `${orchestrationResult.prompt_text}\\n\\n**NEXT STEP:** Call taskpilot_add with stepId=\"create\" to create the validated task.`,
-      stepResult
-    );
-  }
-
-    /**
-   * Handle creation step - create task directly
+   * Handle creation step - create task directly (single-step simplified)
    */
   private async handleCreationStep(input: AddToolInput, workspace: any): Promise<TaskPilotToolResult> {
     const { task_description, priority, parent_task_id, title } = input;
@@ -176,22 +95,8 @@ export class AddToolNew extends BaseTool {
 
       await workspaceDb.createTask(newTask);
 
-      // Generate success prompt
-      const orchestrationResult = await this.orchestrator.orchestratePrompt(
-        ToolNames.ADD,
-        workspace.id,
-        {
-          task_id: taskId,
-          task_title: taskTitle,
-          task_description,
-          priority,
-          parent_task_id,
-          step: 'created'
-        }
-      );
-
       return this.createSuccessResult(
-        orchestrationResult.prompt_text,
+        `Task ${taskId} created successfully`,
         {
           isFinalStep: true,
           feedback: `Task ${taskId} created successfully`,

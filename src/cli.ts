@@ -284,39 +284,17 @@ async function main() {
             console.log(`✅ Tool call succeeded (${endTime - startTime}ms)`);
             console.log('');
 
-            // Handle different result types (ToolStepResult vs TaskPilotToolResult)
-            if ('isFinalStep' in result) {
-                // ToolStepResult (multi-step flow)
-                console.log('📋 Multi-step tool result:');
-                console.log(result.feedback);
-
-                if (!result.isFinalStep && result.nextStepId) {
-                    console.log(`\n🔄 Next step available: ${result.nextStepId}`);
-                }
-
-                if (result.data) {
-                    console.log('\n📊 Step data:', JSON.stringify(result.data, null, 2));
+            if (result.isError) {
+                console.log('⚠️  Tool returned error result:');
+            } else {
+                console.log('📋 Tool result:');
+            }
+            if (Array.isArray(result.content)) {
+                for (const item of result.content) {
+                    if (item.type === 'text') console.log(item.text); else console.log(`[${item.type}]`, item);
                 }
             } else {
-                // TaskPilotToolResult (traditional format)
-                if (result.isError) {
-                    console.log('⚠️  Tool returned error result:');
-                } else {
-                    console.log('📋 Tool result:');
-                }
-
-                // Pretty print the result content
-                if (Array.isArray(result.content)) {
-                    for (const item of result.content) {
-                        if (item.type === 'text') {
-                            console.log(item.text);
-                        } else {
-                            console.log(`[${item.type}]`, item);
-                        }
-                    }
-                } else {
-                    console.log(result);
-                }
+                console.log(result);
             }
 
         } catch (error) {

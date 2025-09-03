@@ -4,8 +4,8 @@ import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
 import { getGlobalDatabase } from '../database/drizzle-connection.js';
 import type { Task } from '../types/index.js';
 import { SeedManager } from './seed-manager.js';
-import { workspaces, sessions, type Workspace, type NewWorkspace, type NewSession } from '../database/schema/global-schema.js';
-import { tasks, workspaceFeedbackSteps, type Task as DrizzleTask, type NewTask, type NewWorkspaceFeedbackStep } from '../database/schema/workspace-schema.js';
+import { workspaces, sessions, workspaceRulesNew, type Workspace, type NewWorkspace, type NewSession } from '../database/schema/global-schema.js';
+import { tasks, type Task as DrizzleTask, type NewTask } from '../database/schema/workspace-schema.js';
 import { eq, and, desc, sql } from 'drizzle-orm';
 
 // Database representation of Task (with JSON fields as strings)
@@ -335,90 +335,19 @@ export class ProjectInitializer {
         throw new Error(`Workspace with ID ${workspaceId} not found`);
       }
 
-      // Use correct workspace database for feedback steps
-      const { initializeWorkspaceDatabase } = await import('../database/drizzle-connection.js');
-      const workspaceDb = await initializeWorkspaceDatabase(workspace.path);
-
-      // Generate tech-stack specific rules
-      let workspaceRulesInstructions = `# Workspace-Specific Development Rules
-
-## Project Guidelines
-- Follow ${techStack} best practices and conventions
-- Maintain consistent code style and formatting
-- Use descriptive naming for variables, functions, and files
-- Write comprehensive tests for all business logic
-
-## Quality Standards
-- Minimum 80% test coverage for core functionality
-- All code must pass linting and formatting checks
-- Use TypeScript strict mode for type safety
-- Document complex algorithms and business logic
-
-## Package Management
-- **Always use bun instead of npm where possible** for faster performance
-- Use \`bun install\` instead of \`npm install\`
-- Use \`bun run\` instead of \`npm run\` for scripts
-- Use \`bun add\` instead of \`npm install <package>\`
-- Only fallback to npm if bun compatibility issues arise
-
-`;
-
-      // Add tech-stack specific rules
-      if (techStack.toLowerCase().includes('typescript')) {
-        workspaceRulesInstructions += `## TypeScript Guidelines
-- Use strict TypeScript configuration
-- Prefer interfaces over types for object shapes
-- Use proper error handling with Result/Either patterns
-- Avoid 'any' type, use specific types or generics
-
-`;
-      }
-
-      if (techStack.toLowerCase().includes('react')) {
-        workspaceRulesInstructions += `## React Development
-- Use functional components with hooks
-- Implement proper prop types and validation
-- Follow component composition patterns
-- Use React Query for data fetching
-
-`;
-      }
-
-      if (techStack.toLowerCase().includes('node')) {
-        workspaceRulesInstructions += `## Node.js Backend
-- Use async/await over Promise chains
-- Implement proper error handling middleware
-- Use environment variables for configuration
-- Follow RESTful API design principles
-
-`;
-      }
-
-      workspaceRulesInstructions += `## Development Workflow
-- Create feature branches for new development
-- Write descriptive commit messages
-- Update documentation with code changes
-- Review code before merging to main branch
-
-*These rules evolve based on project needs and team feedback.*`;
-
-      // Create workspace_rules feedback step using workspace Drizzle connection
-      const feedbackStepData: NewWorkspaceFeedbackStep = {
-        id: uuidv4(),
-        name: 'workspace_rules',
-        description: 'Workspace-specific development rules and guidelines',
-        templateContent: workspaceRulesInstructions,
-        variableSchema: JSON.stringify({
-          category: 'workspace_guidelines',
-          tech_stack: techStack,
-          auto_generated: true
-        }),
+      // Store a summarized rule entry into new workspace_rules table (Specly schema)
+      const ruleId = uuidv4();
+      await globalDb.getDb().insert(workspaceRulesNew).values({
+        id: ruleId,
+        workspaceId: workspace.id,
+        relation: 'always-do',
+        rule: `Adopt ${techStack} best practices and maintain consistent code style.`,
+        originalText: `Auto-generated initial workspace rule set for tech stack: ${techStack}`,
+        confidence: 1,
+        active: true,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      await workspaceDb.getDb().insert(workspaceFeedbackSteps).values(feedbackStepData);
-
+        lastReinforcedAt: new Date().toISOString()
+      });
       return true;
     } catch (error) {
       console.error('Error creating workspace rules:', error);
@@ -485,12 +414,9 @@ export class ProjectInitializer {
       .from(tasks)
       .get();
 
-    const workspaceRules = await workspaceDb.getDb().select()
-      .from(workspaceFeedbackSteps)
-      .where(eq(workspaceFeedbackSteps.name, 'workspace_rules'))
-      .get();
-
-    return (taskCountResult?.count || 0) > 0 && !!workspaceRules;
+    // Determine initialized status by presence of at least one workspace rule in new global workspace_rules table
+    const existingRules = await globalDb.getDb().select().from(workspaceRulesNew).where(eq(workspaceRulesNew.workspaceId, workspace.id));
+    return (taskCountResult?.count || 0) > 0 && existingRules.length > 0;
   }
 
   /**

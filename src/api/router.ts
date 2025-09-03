@@ -7,8 +7,7 @@ import { Router, Request, Response } from 'express';
 import { DatabaseService } from '../services/database-service.js';
 import { WorkspacesController } from './workspaces.js';
 import { TasksController } from './tasks.js';
-import { ToolFlowsController } from './tool-flows.js';
-import { FeedbackStepsController } from './feedback-steps.js';
+// Legacy ToolFlowsController & FeedbackStepsController removed (drastic migration)
 import { 
   errorHandler, 
   notFoundHandler, 
@@ -28,8 +27,7 @@ export function createApiRouter(databaseService: DatabaseService): Router {
   // Initialize controllers
   const workspacesController = new WorkspacesController(databaseService);
   const tasksController = new TasksController(databaseService, workspacesController);
-  const toolFlowsController = new ToolFlowsController(databaseService, workspacesController);
-  const feedbackStepsController = new FeedbackStepsController(databaseService, workspacesController);
+  // Placeholder: future spec/profile controllers will be initialized here.
 
   // Apply middleware
   router.use(corsHandler);
@@ -57,63 +55,17 @@ export function createApiRouter(databaseService: DatabaseService): Router {
     } catch (error) {
       next(error);
     }
-// Get feedback steps for all global tool flows
-router.get(
-  '/workspaces/:workspaceId/tool-flows/global-feedback-steps',
-  readRateLimit,
-  validateWorkspaceId,
-  async (req, res, next) => {
-    try {
-      await toolFlowsController.getGlobalToolFlowFeedbackSteps(req, res);
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-// Delete a global tool flow
-router.delete(
-  '/workspaces/:workspaceId/tool-flows/:flowId',
-  writeRateLimit,
-  validateWorkspaceId,
-  async (req, res, next) => {
-    try {
-      await toolFlowsController.deleteToolFlow(req, res);
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-// Clone a global tool flow to a workspace
-router.post(
-  '/workspaces/:workspaceId/tool-flows/:flowId/clone',
-  writeRateLimit,
-  validateWorkspaceId,
-  async (req, res, next) => {
-    try {
-      await toolFlowsController.cloneToolFlow(req, res);
-    } catch (error) {
-      next(error);
-    }
-  }
-);
+    // Legacy tool-flow / feedback endpoints removed: respond Gone
   });
 
   // 3. GET /api/workspaces/{id}/tool-flows - Get tool flows for workspace
-  router.get('/workspaces/:workspaceId/tool-flows', readRateLimit, validateWorkspaceId, async (req, res, next) => {
-    try {
-      await toolFlowsController.getToolFlows(req, res);
-    } catch (error) {
-      next(error);
-    }
+  router.get('/workspaces/:workspaceId/tool-flows', readRateLimit, validateWorkspaceId, async (req, res) => {
+    res.status(410).json({ error: 'Legacy tool flows removed' });
   });
 
   // 4. GET /api/workspaces/{id}/feedback-steps - Get feedback steps for workspace
-  router.get('/workspaces/:workspaceId/feedback-steps', readRateLimit, validateWorkspaceId, async (req, res, next) => {
-    try {
-      await feedbackStepsController.getFeedbackSteps(req, res);
-    } catch (error) {
-      next(error);
-    }
+  router.get('/workspaces/:workspaceId/feedback-steps', readRateLimit, validateWorkspaceId, async (req, res) => {
+    res.status(410).json({ error: 'Legacy feedback steps removed' });
   });
 
   // 5. POST /api/workspaces/{id}/tasks - Create new task
