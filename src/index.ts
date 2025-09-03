@@ -24,6 +24,7 @@ interface CmdOptions {
   mode?: 'stdio' | 'http';
   port?: number;
   help?: boolean;
+  forceSeed?: boolean;
 }
 
 // Utils
@@ -54,6 +55,7 @@ import { TaskPilotToolResult } from './types/index.js';
 
 // Global variables
 let seedManager: SeedManager;
+let lastSeedSummary: any | null = null;
 let orchestrator: PromptOrchestrator;
 let initTool: InitToolNew;
 let startTool: StartTool;
@@ -102,8 +104,8 @@ async function initializeServer() {
     updateResourcesTool = new UpdateResourcesTool(globalDrizzleManager);
     updateStepsTool = new UpdateStepsTool(globalDrizzleManager);
 
-    // Initialize global seed data using pure TypeScript approach
-    await seedManager.initializeGlobalData();
+  // Initialize global seed data (MCP server mappings etc.)
+  await seedManager.initializeGlobalData();
 
   } catch (error) {
     console.error('Error initializing server:', error);
@@ -410,6 +412,23 @@ function setupGracefulShutdown(): void {
   });
 }
 
+async function ensureSpeclySeed(force: boolean) {
+  // Detect if Specly baseline exists by checking for root profile
+  try {
+    const db = globalDbService.getDrizzleManager().getDb();
+    const rows = await db.all?.("SELECT id FROM profiles WHERE name = 'root-profile' LIMIT 1") || [];
+    const needsSeed = force || rows.length === 0;
+    if (needsSeed) {
+      const result = await seedManager.seedSpecly();
+      lastSeedSummary = { event: 'specly_seed_summary', timestamp: new Date().toISOString(), ...result, forced: force };
+      // Single authoritative summary line
+      console.log(JSON.stringify(lastSeedSummary));
+    }
+  } catch (err) {
+    console.error('Error checking/performing Specly seed:', err);
+  }
+}
+
 async function main() {
   let cliOptions: CmdOptions | undefined;
   try {
@@ -432,8 +451,9 @@ async function main() {
       console.error(`[DEBUG] Starting in mode: ${cliOptions.mode}`);
     }
 
-    // Initialize server
-    await initializeServer();
+  // Initialize server
+  await initializeServer();
+  await ensureSpeclySeed(!!cliOptions.forceSeed);
 
     // Start in appropriate mode
 

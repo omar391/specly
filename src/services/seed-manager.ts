@@ -98,20 +98,7 @@ export class SeedManager {
     }
     const workspaceBindings = targetProfileVersionId ? existingWorkspaces.length : 0;
 
-    if (!isStdioMode()) {
-      const logPayload = {
-        event: 'specly_seed_summary',
-        specsCreated,
-        toolVersionsCreated,
-        profileCreated: profileRes.created,
-        profileVersionsCreated,
-        toolsAttached,
-        workspaceBindings,
-        createdSpecHashes,
-        createdToolVersionHashes
-      };
-      console.log(JSON.stringify(logPayload));
-    }
+    // Logging responsibility lifted to caller (server startup or script) to avoid duplication.
 
     return { specsCreated, toolVersionsCreated, profileCreated: profileRes.created, profileVersionsCreated, toolsAttached, workspaceBindings, createdSpecHashes, createdToolVersionHashes };
   }

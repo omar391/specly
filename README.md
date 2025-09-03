@@ -141,6 +141,32 @@ cd ui && npm run dev
 ```
 
 ### Database
+### Seeding (Specly Baseline)
+
+On startup the server automatically seeds the Specly baseline (specs, tools, root profile, workspace bindings) if it detects the root profile is missing.
+
+Force a re-seed on startup using either:
+
+```bash
+TASKPILOT_FORCE_SEED=1 npm run serve
+# or
+node build/index.js --force-seed
+```
+
+Manual ad-hoc seed (idempotent – creates only what is missing):
+
+```bash
+npm run seed:specly
+```
+
+Successful initial or forced seeding emits a single JSON line:
+
+```json
+{"event":"specly_seed_summary","timestamp":"2025-09-03T00:00:00.000Z","specsCreated":2,"toolVersionsCreated":2,"profileCreated":true,"profileVersionsCreated":1,"toolsAttached":2,"workspaceBindings":1,"createdSpecHashes":["..."],"createdToolVersionHashes":["..."],"forced":false}
+```
+
+Subsequent runs (without force) produce no output unless new workspaces require binding.
+
 
 TaskPilot uses SQLite with Drizzle ORM:
 - **Global Database**: `~/.taskpilot/global.db`

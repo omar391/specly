@@ -52,15 +52,49 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Notes**: Seeding fully implemented and validated. Seed definitions (`SPECLY_SEED_SPECS`, `SPECLY_SEED_TOOLS`, `SPECLY_ROOT_PROFILE`) established in `embedded-seed-data.ts`. `SeedManager.seedSpecly()` now: (1) deterministically orders spec & tool processing, (2) creates specs & tool versions idempotently by hash, (3) creates root profile + initial profile version on first run, (4) attaches latest tool versions, (5) always (re)binds all existing workspaces to latest profile version, (6) returns structured result incl. created hash arrays, (7) emits structured JSON log with stable ordering. Tests: idempotency, profile version existence, and post-creation workspace binding added (`seed-manager.test.ts`) using isolated in-memory GLOBAL DB for deterministic first-run counts. Structured logging & deterministic ordering complete acceptance criteria for logging/reporting. Additional workspaces created after initial seed get bound on subsequent seed run (verified by test). No remaining blockers—SP-004 closure unblocks SP-005 SpecEngine.
 - **Connected File List**: ./src/data/embedded-seed-data.ts, ./src/services/seed-manager.ts, ./src/scripts/seed-specly.ts
 
+### SP-005 Draft Planning Addendum (Pending Formalization)
+Goals:
+- Deterministic spec execution routing (single-step initial scope)
+- Graph validation & ordering abstraction (independent of persistence)
+- Stable canonical hash usage for execution caching (reuse from SP-002)
+
+Core Proposed Interfaces:
+```ts
+interface SpecNode { hash: string; intent: 'human' | 'autonomous'; sideEffect: boolean; }
+interface ToolGraph { entry: string; nodes: Record<string, SpecNode>; edges: Array<{from: string; to: string; priority: number}>; }
+interface ExecutionStep { specHash: string; awaitingHuman: boolean; }
+interface ExecutionPlan { steps: ExecutionStep[]; warnings: string[]; }
+interface ExecutionPlanner {
+	buildPlan(graph: ToolGraph): ExecutionPlan;
+}
+```
+
+Initial Tasks (to become separate Task IDs or folded into SP-005 notes):
+1. Minimal graph extractor from existing toolVersions.graphManifest
+2. Cycle & unreachable detection (warning vs error policy)
+3. Priority-based ordering (stable sort by priority then spec hash)
+4. Awaiting human flag propagation when intent === 'human'
+5. Unit tests: linear chain, branch merge, cycle rejection, unreachable node warn
+
+Open Questions:
+- Should unreachable specs invalidate publish? (Draft: warn only)
+- Multi-entry future possibility? (Out of scope; enforce single entry now)
+
+Assumptions:
+- Tool version manifest already validated for structural integrity (SP-018 will later tighten)
+- No side_effect replay logic until SP-010
+
+Next Action after addendum acceptance: create `spec-engine.ts` scaffold implementing interfaces + failing tests (TDD start).
+
 ## Task ID: SP-005
 - **Title**: Implement SpecEngine Core
 - **Description**: Execution loop per pseudocode (routing, human awaiting, session lease, context merge). Exclude side_effect idempotency (later task). §3 roadmap.
 - **Priority**: High
 - **Dependencies**: SP-003, SP-004
-- **Status**: TBD
-- **Progress**: 0%
+- **Status**: In-Progress
+- **Progress**: 15%
 - **Completed At**: 
-- **Notes**: Include edge selection priority logic and result_code handling.
+- **Notes**: Skeleton `spec-engine.ts` added with BasicExecutionPlanner (topological ordering, cycle detection, priority + hash deterministic ordering, unreachable warnings) and tests (`spec-engine.test.ts`) covering: linear chain, priority branch ordering, cycle rejection, unreachable node warning. Next: integrate planner into forthcoming execute loop (pending SP-006). Remaining for SP-005: session lease integration, awaiting_input state transitions, context merge stub, result_code propagation.
 - **Connected File List**: ./src/services/spec-engine.ts, ./src/types/index.ts
 
 ## Task ID: SP-006

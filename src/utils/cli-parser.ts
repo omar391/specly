@@ -17,6 +17,7 @@ export interface CliOptions {
   dev: boolean;
   help: boolean;
   killExisting: boolean;
+  forceSeed: boolean;
 }
 
 /**
@@ -28,7 +29,8 @@ export function parseCliArgs(args: string[] = process.argv.slice(2)): CliOptions
     mode: 'http', // Default to integrated mode
     dev: false,
     help: false,
-    killExisting: true
+    killExisting: true,
+    forceSeed: process.env.TASKPILOT_FORCE_SEED === '1'
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -82,6 +84,10 @@ export function parseCliArgs(args: string[] = process.argv.slice(2)): CliOptions
         options.dev = true;
         break;
 
+      case '--force-seed':
+        options.forceSeed = true;
+        break;
+
       case '--help':
       case '-h':
         options.help = true;
@@ -122,6 +128,7 @@ OPTIONS:
   --stdio               Run in STDIO mode for MCP clients
   --http                Run in HTTP mode with integrated UI (default)
   --dev                 Enable development mode
+  --force-seed          Force re-run of Specly seeding even if data present (or TASKPILOT_FORCE_SEED=1)
   --no-kill             Don't kill existing TaskPilot instances
   --help, -h            Show this help message
 
