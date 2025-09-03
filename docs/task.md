@@ -34,11 +34,25 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Description**: Add data access classes (CRUD + specialized queries: fetch active tool version via workspace binding, inheritance flatten support). Remove legacy query functions. §2, §1.4.
 - **Priority**: High
 - **Dependencies**: SP-001, SP-002
-- **Status**: TBD
-- **Progress**: 0%
+- **Status**: In-Progress
+- **Progress**: 35%
 - **Completed At**: 
 - **Notes**: Keep methods pure (no business side effects). Return typed DTOs.
-- **Connected File List**: ./src/database/global-queries.ts, ./src/database/workspace-queries.ts, ./src/services/database-service.ts
+- **Connected File List**: ./src/database/global-queries.ts, ./src/database/workspace-queries.ts, ./src/services/database-service.ts, ./src/repositories/spec-repository.ts, ./src/__tests__/repository.test.ts
+	*Progress This Increment*:
+	- Added `src/repositories/spec-repository.ts` with `SpecRepositoryImpl` & `ToolVersionRepositoryImpl`.
+	- Implemented idempotent `createOrGet` for specs using canonical hash (SP-002 utilities).
+	- Implemented tool version creation with implicit tool auto-create and idempotent hash guard.
+	- Added repository test suite `repository.test.ts` validating spec idempotency, tool version creation, duplicate avoidance, and hash consistency.
+	- Extended programmatic global migrations to include Specly core tables (specs, tools, tool_versions, profiles, profile_versions, profile_version_tools, workspace_profile_versions, action_journal, workspace_rules) to satisfy repository operations without pending migration files.
+	*Next Steps*:
+	- Add collision logging & structured return typing (replace `any`).
+	- Introduce profile & profileVersion repositories (inheritance resolution strategy sketch).
+	- Add action journal append + idempotency (specHash + idempotencyKey uniqueness guard) repository.
+	- Expand tests: edge ordering normalization round-trip (graphManifest canonical re-hash), negative mutation case for toolVersion graph.
+	- Update SP-002 once repositories start using cached hash lookups (shared optimization layer).
+	*Notes*:
+	- Progress set to 35% reflecting spec/toolVersion MVP + tests + migration augmentation.
 
 ## Task ID: SP-004
 - **Title**: Spec Seeding & Initial Tool Version Publication
@@ -340,30 +354,6 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Notes**: Provide accessible contrast for status colors.
 - **Connected File List**: ./ui/src/design-system.json, ./ui/tailwind.config.js, ./ui/src/index.css, ./ui/index.html
 
-## Task ID: SP-110
-**Title**: Repository Layer
-**Description**: Add data access classes (CRUD + specialized queries: fetch active tool version via workspace binding, inheritance flatten support). Remove legacy query functions. §2, §1.4.
-**Priority**: High
-**Dependencies**: SP-001, SP-002
-**Status**: TBD
-**Progress**: 35%
-**Completed At**: 
-**Notes**: Keep methods pure (no business side effects). Return typed DTOs.
-**Connected File List**: ./src/database/global-queries.ts, ./src/database/workspace-queries.ts, ./src/services/database-service.ts
-*Progress This Increment*:
-	- Added `src/repositories/spec-repository.ts` with `SpecRepositoryImpl` & `ToolVersionRepositoryImpl`.
-	- Implemented idempotent `createOrGet` for specs using canonical hash (SP-002 utilities).
-	- Implemented tool version creation with implicit tool auto-create and idempotent hash guard.
-	- Added repository test suite `repository.test.ts` validating spec idempotency, tool version creation, duplicate avoidance, and hash consistency.
-	- Extended programmatic global migrations to include Specly core tables (specs, tools, tool_versions, profiles, profile_versions, profile_version_tools, workspace_profile_versions, action_journal, workspace_rules) to satisfy repository operations without pending migration files.
-*Next Steps*:
-	- Add collision logging & structured return typing (expand beyond `any`).
-	- Introduce profile & profileVersion repositories (inheritance resolution strategy sketch).
-	- Add action journal append + idempotency (specHash + idempotencyKey uniqueness guard) repository.
-	- Expand tests: edge ordering normalization round-trip (graphManifest canonical re-hash), negative mutation case for toolVersion graph.
-	- Update SP-002 once repositories start using cached hash lookups (shared optimization layer).
-*Notes*:
-	- Progress set to 35% reflecting spec/toolVersion MVP + tests + migration augmentation.
 
 ---
 ## Cross-Cutting & Documentation
@@ -405,7 +395,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Title**: Migration Completion Report
 - **Description**: Summarize all tasks, metrics, remaining open enhancements; set migration version record.
 - **Priority**: Low
-- **Dependencies**: SP-011, SP-110, SP-201
+- **Dependencies**: SP-011, SP-201
 - **Status**: TBD
 - **Progress**: 0%
 - **Completed At**: 
