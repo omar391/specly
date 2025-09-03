@@ -218,7 +218,7 @@ async function executeToolCall(toolName: string, toolArguments: Record<string, u
         }
         case 'taskpilot_audit': {
             const args = validatedArgs as z.infer<typeof auditToolSchema>;
-            return await tools.taskpilot_audit.execute(args);
+            return await tools.taskpilot_audit.execute(args as any);
         }
         case 'taskpilot_focus': {
             const args = validatedArgs as z.infer<typeof focusToolSchema>;

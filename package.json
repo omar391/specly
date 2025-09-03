@@ -14,6 +14,7 @@
     "build": "npm run build:server && npm run build:ui",
     "build:server": "rsbuild build",
     "build:ui": "cd ui && bun run build",
+    "seed:specly": "tsx src/scripts/seed-specly.ts",
     "dev": "concurrently --names=\"MCP,UI\" --prefix-colors=\"blue,green\" \"npm run dev:server\" \"npm run dev:ui\"",
     "dev:server": "npx tsx --watch src/index.ts",
     "dev:ui": "cd ui && bun run dev",

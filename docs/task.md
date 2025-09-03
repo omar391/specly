@@ -46,10 +46,10 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Description**: Convert legacy in-memory definitions (or seed file) directly into specs & linear tool versions; create root profile + initial profile version; bind all workspaces. After seeding, delete any code referencing legacy flows. §5 step 2.
 - **Priority**: High
 - **Dependencies**: SP-003
-- **Status**: TBD
-- **Progress**: 0%
-- **Completed At**: 
-- **Notes**: Provide script idempotent by hash (skip existing specs). Log counts.
+- **Status**: Done
+- **Progress**: 100%
+- **Completed At**: 2025-09-03T09:05:50Z
+- **Notes**: Seeding fully implemented and validated. Seed definitions (`SPECLY_SEED_SPECS`, `SPECLY_SEED_TOOLS`, `SPECLY_ROOT_PROFILE`) established in `embedded-seed-data.ts`. `SeedManager.seedSpecly()` now: (1) deterministically orders spec & tool processing, (2) creates specs & tool versions idempotently by hash, (3) creates root profile + initial profile version on first run, (4) attaches latest tool versions, (5) always (re)binds all existing workspaces to latest profile version, (6) returns structured result incl. created hash arrays, (7) emits structured JSON log with stable ordering. Tests: idempotency, profile version existence, and post-creation workspace binding added (`seed-manager.test.ts`) using isolated in-memory GLOBAL DB for deterministic first-run counts. Structured logging & deterministic ordering complete acceptance criteria for logging/reporting. Additional workspaces created after initial seed get bound on subsequent seed run (verified by test). No remaining blockers—SP-004 closure unblocks SP-005 SpecEngine.
 - **Connected File List**: ./src/data/embedded-seed-data.ts, ./src/services/seed-manager.ts, ./src/scripts/seed-specly.ts
 
 ## Task ID: SP-005

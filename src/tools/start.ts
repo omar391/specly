@@ -42,11 +42,9 @@ export class StartTool {
       // Create new session
       const session = await this.createSession(workspace.id);
       
-      // Get workspace rules if they exist
-      const workspaceRules = await this.getWorkspaceRules(workspace.id);
-      
-      // Get standard global rules
-      const standardGlobalRules = await this.getStandardGlobalRules();
+  // Rules subsystem removed (legacy feedback steps). Placeholder values.
+  const workspaceRules = null;
+  const standardGlobalRules = null;
       
       // Generate orchestrated prompt with comprehensive context
       const orchestrationResult = await this.orchestrator.orchestratePrompt(
@@ -142,28 +140,7 @@ export class StartTool {
   /**
    * Get workspace-specific rules from feedback steps
    */
-  private async getWorkspaceRules(workspaceId: string): Promise<string | null> {
-    try {
-      const workspaceRulesStep = await this.globalDb.getFeedbackStepByName('workspace_rules', workspaceId);
-      return workspaceRulesStep?.templateContent || null;
-    } catch (error) {
-      console.error('Error fetching workspace rules:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Get standard global rules from feedback steps
-   */
-  private async getStandardGlobalRules(): Promise<string | null> {
-    try {
-      const globalRulesStep = await this.globalDb.getFeedbackStepByName('standard_global_rules');
-      return globalRulesStep?.templateContent || null;
-    } catch (error) {
-      console.error('Error fetching standard global rules:', error);
-      return null;
-    }
-  }
+  // Legacy feedback-step based rule retrieval removed
 
   /**
    * Get tool definition for MCP server

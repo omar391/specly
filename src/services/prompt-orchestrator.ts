@@ -1,18 +1,14 @@
 import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
-import type { PromptOrchestrationResult, ToolFlow, FeedbackStep } from '../types/index.js';
-import { SeedManager } from './seed-manager.js';
-import { NextStepTemplateGenerator } from './next-step-generator.js';
 import { ToolNames } from '../constants/tool-names.js';
 
+// Minimal prompt orchestration result (legacy multi-step removed)
+export interface PromptOrchestrationResult {
+  prompt_text: string;
+  next_tool?: string;
+  session_data: Record<string, any>;
+}
 export class PromptOrchestrator {
-  private seedManager: SeedManager;
-  private nextStepGenerator: NextStepTemplateGenerator;
-
-  constructor(private drizzleDb: DrizzleDatabaseManager) {
-    // Pure TypeScript approach - use DrizzleDatabaseManager directly
-    this.seedManager = new SeedManager(drizzleDb);
-    this.nextStepGenerator = new NextStepTemplateGenerator(drizzleDb);
-  }
+  constructor(private drizzleDb: DrizzleDatabaseManager) {}
 
   /**
    * Orchestrate prompt generation for a tool call
@@ -23,47 +19,11 @@ export class PromptOrchestrator {
     args: Record<string, any> = {}
   ): Promise<PromptOrchestrationResult> {
     try {
-      // Get tool flow (workspace-specific or fallback to global)
-      const toolFlow = await this.seedManager.getToolFlow(toolName, workspaceId);
-      
-      if (!toolFlow) {
-        throw new Error(`Tool flow for '${toolName}' not found`);
-      }
-
-      // Note: Current schema doesn't have flow_steps as a direct property
-      // This may need to be refactored to load steps separately or use relations
-      // For now, treat each tool flow as having basic step information
-      const feedbackStepId = toolFlow.feedbackStepId;
-
-      // Generate basic prompt for the tool
-      let promptText = await this.generateBasicPrompt(toolName, args);
-
-      // If there's a feedback step, include its instructions with context substitution
-      if (feedbackStepId) {
-        const feedbackStep = await this.seedManager.getFeedbackStep(
-          feedbackStepId,
-          workspaceId
-        );
-        
-        if (feedbackStep) {
-          // Replace context variables in feedback step instructions
-          // Note: Using templateContent instead of instructions for new schema
-          const contextualInstructions = this.replaceContextVariables(
-            feedbackStep.templateContent,
-            this.buildContext(args, workspaceId)
-          );
-          
-          promptText += `\n\n**FEEDBACK STEP INSTRUCTIONS:**\n${contextualInstructions}`;
-        }
-      }
-
+      const promptText = await this.generateBasicPrompt(toolName, args);
       return {
         prompt_text: promptText,
-        next_tool: (toolFlow.nextTool && toolFlow.nextTool !== 'end') ? toolFlow.nextTool : undefined,
         session_data: {
           current_tool: toolName,
-          current_step: 1,
-          tool_flow_id: toolFlow.id,
           workspace_id: workspaceId
         }
       };
@@ -168,57 +128,15 @@ export class PromptOrchestrator {
     };
   }
 
-  /**
-   * Generate dynamic next step instructions instead of hardcoded text
-   */
-  async generateNextStepInstructions(
-    toolName: string,
-    currentStepId?: string,
-    workspaceId?: string,
-    context?: string
-  ): Promise<string> {
-    try {
-      const nextStepInstruction = await this.nextStepGenerator.generateNextStepInstructions(
-        toolName,
-        currentStepId,
-        workspaceId,
-        context
-      );
-
-      if (nextStepInstruction) {
-        return nextStepInstruction.instructionText;
-      }
-
-      // Fallback to completion instructions
-      const completionInstruction = await this.nextStepGenerator.generateCompletionInstructions(
-        toolName,
-        workspaceId,
-        context
-      );
-
-      return completionInstruction.instructionText;
-    } catch (error) {
-      console.error('Error generating next step instructions:', error);
-      // Fallback to basic instruction
-      return `Continue with ${toolName} workflow as needed.`;
-    }
+  // Simplified next-step generation (multi-step removed)
+  async generateNextStepInstructions(toolName: string): Promise<string> {
+    return `Continue with ${toolName} workflow as needed.`;
   }
 
   /**
    * Replace {{context.variable}} placeholders with actual values
    */
-  private replaceContextVariables(
-    text: string,
-    context: Record<string, string>
-  ): string {
-    let result = text;
-    
-    // Replace {{context.variable}} patterns
-    for (const [key, value] of Object.entries(context)) {
-      const pattern = new RegExp(`{{context\\.${key}}}`, 'g');
-      result = result.replace(pattern, value);
-    }
-    
-    return result;
+  private replaceContextVariables(text: string, context: Record<string, string>): string {
+    return Object.entries(context).reduce((acc, [key, value]) => acc.replace(new RegExp(`{{context\\.${key}}}`, 'g'), value), text);
   }
 }

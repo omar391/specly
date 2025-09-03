@@ -85,7 +85,7 @@ async function initializeServer() {
 
     // Initialize services with pure Drizzle operations
     seedManager = new SeedManager(globalDrizzleManager);
-    orchestrator = new PromptOrchestrator(globalDrizzleManager);
+  orchestrator = new PromptOrchestrator(globalDrizzleManager);
 
     // Initialize tools with pure Drizzle database manager
     initTool = new InitToolNew(globalDrizzleManager);
@@ -220,7 +220,7 @@ function createMCPToolHandlers(): MCPToolHandlers {
 
           case ToolNames.AUDIT: {
             const input = auditToolSchema.parse(args);
-            const result = await auditTool.execute(input);
+            const result = await auditTool.execute(input as any);
             return result;
           }
 
