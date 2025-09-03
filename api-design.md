@@ -71,95 +71,120 @@ This document defines the minimal REST API endpoints required for TaskPilot UI i
 }
 ```
 
-### 3. GET /api/workspaces/{id}/tool-flows
-**Purpose**: Get tool flows (global and workspace-specific)
-**Used by**: Tool flows page
-**Query params**: `type=global|workspace|all`
-**Response**:
+### 3. POST /api/tools/{tool}/execute
+**Purpose**: Unified execution (run or resume) of a tool version graph via SpecEngine.
+**Query Param**: `mode=run|resume` (default `run`)
+
+#### Run Mode (mode=run)
+Starts a new execution given either an inline `graph` manifest (current) or a `tool_version_id` (future – not yet implemented).
+
+Request Body (run):
 ```json
 {
-  "global_flows": [
-    {
-      "id": "string",
-      "tool_name": "string",
-      "steps": [
-        {
-          "id": "string",
-          "step_order": "number",
-          "system_tool_fn": "string", 
-          "feedback_step": "string|null",
-          "next_tool": "string|null"
-        }
-      ],
-      "created_at": "ISO8601",
-      "updated_at": "ISO8601"
-    }
-  ],
-  "workspace_flows": [
-    {
-      "id": "string",
-      "tool_name": "string",
-      "workspace_id": "string",
-      "steps": [...],
-      "created_at": "ISO8601", 
-      "updated_at": "ISO8601"
-    }
-  ],
-  "available_tools": ["string"],
-  "workspace": {
-    "id": "string",
-    "name": "string",
-    "path": "string"
-  }
+  "graph": {
+    "entry": "specHash",
+    "nodes": {
+      "specHash": { "intent": "human|autonomous", "...": "(additional fields pass-through)" }
+    },
+    "edges": [ { "from": "specHash", "to": "specHash", "result_code": "string?" } ]
+  },
+  "tool_version_id": "uuid(optional – future path)",
+  "session": { "id": "string(optional)", "client_id": "string(optional)", "force": false }
 }
 ```
 
-### 4. GET /api/workspaces/{id}/feedback-steps  
-**Purpose**: Get feedback steps (global and workspace-specific)
-**Used by**: Feedback steps page
-**Query params**: `type=global|workspace|all`
-**Response**:
+Validation Rules:
+- Must supply `graph` OR `tool_version_id` (currently `graph` required; supplying only `tool_version_id` returns 501 Not Implemented)
+- `graph.entry` must exist in `graph.nodes`
+- Minimal structural subset validated; full normalization handled upstream when persisted
+
+Successful Autonomous Completion Response (200):
 ```json
 {
-  "global_steps": [
-    {
-      "id": "string",
-      "name": "string",
-      "instructions": "string",
-      "metadata": "object",
-      "created_at": "ISO8601",
-      "updated_at": "ISO8601"
-    }
-  ],
-  "workspace_steps": [
-    {
-      "id": "string", 
-      "name": "string",
-      "instructions": "string",
-      "metadata": "object",
-      "created_at": "ISO8601",
-      "updated_at": "ISO8601"
-    }
-  ],
-  "workspace_rules": [
-    {
-      "id": "string",
-      "category": "string",
-      "type": "never|always|remember|don't|preference",
-      "content": "string",
-      "confidence": "number",
-      "created_at": "ISO8601"
-    }
-  ],
-  "workspace": {
-    "id": "string",
-    "name": "string",
-    "path": "string"
-  }
+  "status": "completed",
+  "executed": ["specHash1", "specHash2"],
+  "results": { "specHash1": {"status": "completed"}, "specHash2": {"status": "completed"} },
+  "warnings": []
 }
 ```
 
-### 5. POST /api/workspaces/{id}/tasks
+Paused (Awaiting Human) Response (200):
+```json
+{
+  "status": "awaiting_input",
+  "awaitingSpec": "specHashHuman",
+  "resumeToken": "opaque-token",
+  "executed": ["specHash1"],
+  "results": { "specHash1": {"status": "completed"} },
+  "warnings": []
+}
+```
+
+Structural Error (422):
+```json
+{
+  "status": "failed",
+  "error": { "code": "GRAPH_CYCLE", "message": "Graph contains cycle" }
+}
+```
+
+Tool Version Path Not Implemented (501):
+```json
+{ "error": { "message": "tool_version_id resolution not implemented yet; provide graph" } }
+```
+
+#### Resume Mode (mode=resume)
+Continues a paused execution using the prior `resumeToken` and human input for the awaiting spec.
+
+Request Body (resume):
+```json
+{
+  "resumeToken": "opaque-token",
+  "human_input": { "specHash": "specHashHuman", "output": { "text": "User answer" } },
+  "graph": { /* same structure as run - required until persistence added */ },
+  "session": { "id": "string(optional)", "client_id": "string(optional)", "force": false }
+}
+```
+
+Invalid / Missing Token (404):
+```json
+{ "error": { "message": "resumeToken not found" } }
+```
+
+Successful Resume Completion (200):
+```json
+{
+  "status": "completed",
+  "executed": ["specHash1", "specHashHuman", "specHash2"],
+  "results": { /* statuses for each spec */ },
+  "warnings": []
+}
+```
+
+Error Code → HTTP Mapping (current):
+| Engine Error Code | HTTP Status | Notes |
+|-------------------|-------------|-------|
+| GRAPH_CYCLE | 422 | Includes self-loop detection |
+| GRAPH_MISSING_NODE | 422 | Missing referenced spec in edges |
+| LEASE_ACQUIRE_FAILED | 409 | Session ownership conflict (future stricter tests) |
+| (none / runtime) | 500 | EXECUTOR_FAILED and other runtime failures |
+
+Response Envelope Fields:
+- `status`: `completed | awaiting_input | failed`
+- `executed`: ordered list of spec hashes that have run
+- `results`: per-spec execution metadata (subject to expansion)
+- `awaitingSpec`: present only when `status=awaiting_input`
+- `resumeToken`: present only when `status=awaiting_input`
+- `error`: optional `{ code, message }` when failure detected
+
+Planned Enhancements:
+- Persisted `tool_version_id` resolution (removes need to send `graph` on run/resume)
+- Extended error mapping (LEASE_RENEW_FAILED, ROUTE_DEAD_END, RESUME_TOKEN_INVALID)
+- Richer `results` detail (timings, result codes)
+
+Backward Compatibility: Legacy `/tool-flows` and `/feedback-steps` endpoints have been removed (return 404 if accessed). Consumers must migrate to the unified execute model.
+
+### 4. POST /api/workspaces/{id}/tasks
 **Purpose**: Create new task
 **Used by**: Tasks page (new task button)
 **Request body**:
@@ -187,7 +212,7 @@ This document defines the minimal REST API endpoints required for TaskPilot UI i
 }
 ```
 
-### 6. PUT /api/workspaces/{id}/tasks/{taskId}
+### 5. PUT /api/workspaces/{id}/tasks/{taskId}
 **Purpose**: Update task properties
 **Used by**: Tasks page (task updates)
 **Request body**:
@@ -269,6 +294,22 @@ This document defines the minimal REST API endpoints required for TaskPilot UI i
   }
 }
 ```
+
+### SpecEngine Error Codes (Consolidated)
+Central reference for current and planned SpecEngine error codes surfaced via the unified execute endpoint.
+
+| Code | Category | Description | HTTP | Retry Guidance |
+|------|----------|-------------|------|----------------|
+| GRAPH_CYCLE | Structural | Cycle or self-loop detected in provided graph | 422 | Fix graph definition |
+| GRAPH_MISSING_NODE | Structural | Edge references a node not declared in `nodes` | 422 | Fix manifest |
+| EXECUTOR_FAILED | Runtime | Autonomous executor threw an exception | 500 | Investigate / potential future retry |
+| LEASE_ACQUIRE_FAILED | Runtime | Session ownership conflict (another client holds lease) | 409 | Retry with `force` or after releasing |
+| LEASE_RENEW_FAILED* | Runtime | Lease renewal failed mid-run (future) | 500/409* | Re-run after ownership clarification |
+| ROUTE_DEAD_END* | Runtime | Dynamic routing could not find a valid next edge | 500 | Inspect routing conditions |
+| RESUME_TOKEN_INVALID* | Runtime | Resume token stale or mismatched | 404/409* | Fetch latest state and retry |
+
+Legend: * denotes codes defined in engine design but not yet surfaced through HTTP mapping in this iteration; mapping will be finalized alongside SP-019 / SP-010 tasks.
+
 
 ## Status Codes
 - `200` - Success

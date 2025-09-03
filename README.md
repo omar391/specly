@@ -44,8 +44,7 @@ TaskPilot runs as a unified server supporting multiple interaction modes:
 ### 2. REST API
 - **Workspace Management**: `/api/workspaces`
 - **Task Operations**: `/api/workspaces/{id}/tasks`
-- **Tool Flows**: `/api/workspaces/{id}/tool-flows`
-- **Feedback Steps**: `/api/workspaces/{id}/feedback-steps`
+- **Unified Tool Execution**: `POST /api/tools/{tool}/execute?mode=run|resume` (replaces legacy tool-flows & feedback-steps)
 
 ### 3. Web UI
 - **React-based Dashboard**: Modern interface for task management
@@ -284,8 +283,85 @@ rm .task/workspace.db
 | `/workspaces` | GET | List all workspaces |
 | `/workspaces/{id}/tasks` | GET, POST | Manage tasks |
 | `/workspaces/{id}/tasks/{taskId}` | PUT | Update specific task |
-| `/workspaces/{id}/tool-flows` | GET | Get tool flows |
-| `/workspaces/{id}/feedback-steps` | GET | Get feedback steps |
+| `/tools/{tool}/execute?mode=run` | POST | Start execution of a tool graph (inline graph today) |
+| `/tools/{tool}/execute?mode=resume` | POST | Resume paused execution with human input |
+
+Legacy endpoints `/tool-flows` and `/feedback-steps` have been removed (404). Use the unified execute endpoint.
+
+#### Unified Execute Endpoint
+
+Run (start new execution):
+```bash
+curl -X POST "http://localhost:8989/api/tools/specly_execute/execute?mode=run" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "graph": {
+      "entry": "specA",
+      "nodes": {
+        "specA": {"intent": "autonomous"},
+        "specHuman": {"intent": "human"},
+        "specB": {"intent": "autonomous"}
+      },
+      "edges": [
+        {"from": "specA", "to": "specHuman"},
+        {"from": "specHuman", "to": "specB"}
+      ]
+    }
+  }'
+```
+
+Possible Paused Response:
+```json
+{
+  "status": "awaiting_input",
+  "awaitingSpec": "specHuman",
+  "resumeToken": "abc123",
+  "executed": ["specA"],
+  "results": {"specA": {"status": "completed"}}
+}
+```
+
+Resume after providing human output:
+```bash
+curl -X POST "http://localhost:8989/api/tools/specly_execute/execute?mode=resume" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "resumeToken": "abc123",
+    "human_input": {"specHash": "specHuman", "output": {"text": "Ok, proceed"}},
+    "graph": {
+      "entry": "specA",
+      "nodes": {
+        "specA": {"intent": "autonomous"},
+        "specHuman": {"intent": "human"},
+        "specB": {"intent": "autonomous"}
+      },
+      "edges": [
+        {"from": "specA", "to": "specHuman"},
+        {"from": "specHuman", "to": "specB"}
+      ]
+    }
+  }'
+```
+
+Completion Response:
+```json
+{
+  "status": "completed",
+  "executed": ["specA", "specHuman", "specB"],
+  "results": { /* per spec statuses */ }
+}
+```
+
+Error Mapping (current):
+| Error Code | HTTP | Meaning |
+|------------|------|---------|
+| GRAPH_CYCLE | 422 | Cycle or self-loop detected |
+| GRAPH_MISSING_NODE | 422 | Edge references missing node |
+| LEASE_ACQUIRE_FAILED | 409 | Session ownership conflict |
+| (none) | 200 | Completed or awaiting_input (success path) |
+| EXECUTOR_FAILED/other | 500 | Runtime failure |
+
+`tool_version_id` path is reserved; sending only that field returns 501 until persistence lands (SP-014).
 
 ### Tool Schema
 
@@ -348,7 +424,7 @@ npm install
 npm test
 ```
 
-Transitional API Note: Legacy endpoints (tool flows / feedback steps) still appear in this README while tasks SP-005, SP-006, and SP-014 replace them with the unified Spec & Tool execution flow. A full documentation overhaul will occur under task SP-201. Until then, prefer new Specly execution components where available.
+Transitional API Note: Legacy tool-flow & feedback-step endpoints have been removed. This README now reflects the unified execution model; additional spec/tool/profile endpoints will arrive with SP-014/015 tasks. A broader docs overhaul remains scheduled under SP-201.
 
 ## 📄 License
 

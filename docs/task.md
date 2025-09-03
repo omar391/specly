@@ -143,7 +143,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Priority**: High
 - **Dependencies**: SP-005
 - **Status**: In-Progress
-- **Progress**: 70%
+- **Progress**: 80%
 - **Completed At**: 
 - **Notes**: 
 	Implementation Deliverables Achieved:
@@ -154,13 +154,15 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 	- Removed legacy endpoints & stub files (`tool-flows.ts`, `feedback-steps.ts`) and cleaned router numbering.
 	- Added endpoint integration tests (`tools-execute-endpoint.test.ts`): full autonomous completion, human pause + resume, structural cycle error (422), missing graph (400), invalid resume token (404), tool_version_id-only (501).
 	- Enhanced SpecEngine structural validation mapping for `ERR_SELF_LOOP` → `GRAPH_CYCLE` for consistent 422 surface.
+	- Documentation updated: `api-design.md` now documents unified execute endpoint (run & resume modes, schemas, responses, error mapping) and removes legacy tool-flow/feedback endpoints; `README.md` updated with quickstart curl examples and error mapping table.
 	Remaining Scope for SP-006 Completion:
 	1. Documentation: Update README & api-design.md to reflect unified endpoint contract & error codes (Phase 7 docs synergy with SP-005).
 	2. Session/lease integration reinforcement in endpoint path (currently pass-through; add conflict tests after lease provider real enforcement evolves).
 	3. Persisted graph/tool_version path (implement `tool_version_id` resolution) — deferred to SP-014; ensure no breaking contract changes.
 	4. Add negative test for self-loop distinct from cycle (already covered via cycle mapping but explicit test optional).
-	5. Add contract examples (success, pause, resume) to `api-design.md`.
+	5. Extended error code mapping & lease conflict examples once lease enforcement tightened (ties to SP-019).
 	Progress Justification (70%): Core endpoint, validation, abstraction, tests, and legacy cleanup done; remaining items are documentation, extended lease semantics, and persisted tool_version path (deferred) — enough to integrate UI flows.
+	Progress Justification (80% updated): Documentation deliverables (api-design & README) completed; contract examples and error mapping published. Remaining functional scope unchanged (lease enforcement tests, persisted resolution path, optional self-loop explicit test). Documentation portion of SP-006 now complete.
 - **Connected File List**: ./src/api/router.ts, ./src/api/tools-execute.ts, ./src/services/paused-state-store.ts, ./src/__tests__/tools-execute-endpoint.test.ts
 
 ## Task ID: SP-007
