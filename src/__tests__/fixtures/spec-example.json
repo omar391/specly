@@ -1,0 +1,7 @@
+{
+  "name": "example_spec",
+  "intent": "Demonstrate stable canonical hashing",
+  "inputs": { "foo": { "type": "string" }, "bar": { "type": "number" } },
+  "outputs": { "baz": { "type": "boolean" } },
+  "metadata": { "version": 1, "tags": ["demo", "hash"] }
+}

@@ -24,9 +24,9 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Priority**: High
 - **Dependencies**: SP-001
 - **Status**: In-Progress
-- **Progress**: 40%
+- **Progress**: 70%
 - **Completed At**: 
-- **Notes**: Canonical JSON serializer + spec & tool version hashing implemented (`canonicalStringify`, `hashSpec`, `hashToolVersion`, `stableHash`). Initial tests added (object key order insensitivity, edge sorting determinism). Remaining: golden vector fixtures (SP-200), integration into future spec/tool endpoints (SP-014), hash collision guard (log & fail), optional in-memory hash cache. No locale/timezone sensitivity (pure structural). Pending: add negative tests for intentionally reordered ordered_specs to ensure hash variance.
+- **Notes**: Canonical JSON serializer + spec & tool version hashing implemented (`canonicalStringify`, `hashSpec`, `hashToolVersion`, `stableHash`). Golden fixture established (`spec-example.json`) with baseline enforcement in `hash.golden.test.ts`. Added negative test verifying ordered_specs reordering changes hash. Remaining: integrate hashing into spec/tool endpoints (SP-014), collision logging + guard, optional in-memory hash cache, expand golden vectors (SP-200), documentation of update procedure. Low-priority future: deep nested fuzz test.
 - **Connected File List**: ./src/utils/hash.ts, ./src/__tests__/hash.test.ts
 
 ## Task ID: SP-003
