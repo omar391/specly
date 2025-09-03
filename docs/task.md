@@ -61,14 +61,6 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Completed At**: 
 - **Notes**: 
 	Core Goals (initial scope):
-	- Deterministic spec execution routing (single-step initial scope)
-	- Graph validation & ordering abstraction (independent of persistence layer)
-	- Stable canonical hash usage for execution caching (leverages SP-002 hashes)
-
-	Implemented to date:
-	- Skeleton `spec-engine.ts` with `BasicExecutionPlanner` (topological ordering, cycle detection via Kahn variant, priority + hash deterministic ordering, unreachable node warnings)
-	- Interfaces established: `SpecNode`, `ToolGraph`, `ExecutionStep`, `ExecutionPlan`, `ExecutionPlanner`
-	- Tests (`spec-engine.test.ts`) cover linear chain ordering, branch priority resolution, cycle rejection, unreachable node warning path
 	- Added `SpecEngine` execution loop skeleton (autonomous spec sequential execution, pause on first human spec, error context on planning failure) with new tests (`spec-engine-execution.test.ts`) covering: full autonomous completion, human pause, cycle -> error context, dead-end completion behavior.
 
 	Remaining (for full SP-005 completion):
@@ -92,7 +84,37 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 	- No side_effect replay logic until SP-010 introduces action journal integration
 		(Assumptions updated: structural validity now enforced earlier via validator added under SP-018—in planner we assume invariants. Validator now fully implemented and returns normalized manifest used for hashing & planning; planner will rely on normalized edges & priority defaults.)
 
-	Progress Justification (15%): Planner + tests done (foundation); execution + session + state management remain majority of complexity.
+	Forward Completion Plan (Phases 1–8):
+	Phase 1 – Execution State & Context Accumulation
+		Add `ExecutionState` model capturing: plan (ordered steps), current index, per-spec result records `{status: pending|running|completed|failed|awaiting_input, startedAt, endedAt, attempts, resultCode, outputContextDiff}` and aggregated `sessionContext` (deep merge by key with last-writer-wins, deterministic key ordering for test assertions). Implement failure propagation: on autonomous executor error mark spec failed, surface overall `runResult.status = failed` and stop further autonomous specs. Add tests: (a) mixed success chain, (b) executor throws -> failure state snapshot retained, (c) context merge ordering deterministic.
+	Phase 2 – Session Lease Semantics
+		Introduce `LeaseProvider` interface (acquire(sessionId, clientId, force:boolean), renew(leaseId), release(leaseId)). Integrate into `SpecEngine.run()` so each tick validates active lease before executing next autonomous spec. Renewal strategy: renew every N specs or elapsed > threshold (simple counter first). Tests: lease missing -> 409 style error (simulated), force takeover sets new owner, renewal invoked.
+	Phase 3 – Awaiting Input & Resume Path
+		Introduce `awaiting_input` transition: when next planned spec executor_type = human, persist engine state (in-memory stub for now) and return `paused:true` with resume token (state hash or incremental version). Add `resume(runState, input)` entrypoint that rehydrates state, validates not stale (version match), injects human output into context, advances pointer, continues autonomous execution until next human or completion. Tests: (a) pause then resume continues to completion, (b) stale resume token rejection, (c) multiple sequential human pauses.
+	Phase 4 – Error Taxonomy & Result Codes
+		Define internal error codes: PLAN_CYCLE, DEAD_END, EXECUTION_FAILURE, LEASE_CONFLICT, STALE_RESUME, VALIDATION_ERROR. Map to public statuses: completed, paused, failed. Extend planner dead-end detection at runtime (no outgoing edges & not terminal spec) to mark run failed (ties to SP-018 acceptance criterion). Tests: dead-end mid-run -> failed & diagnostic surfaces code.
+	Phase 5 – Journal Seam (No Reuse Yet)
+		Define `ActionJournalAdapter` with methods: `recordAttempt(specHash, idemKey, status, payload)`, `lookup(specHash, idemKey)` (stub returns null). Wire calls around autonomous execution boundary (before & after). Do not implement reuse (reserved for SP-010) but ensure deterministic idemKey placeholder (concat specHash + attemptIndex). Tests: adapter spy receives start & completion calls, failure path records failure entry.
+	Phase 6 – Metrics Seam
+		Add `MetricsCollector` interface (`inc(counterName)`, `observe(histogramName, value)`). Emit counters: specs_started, specs_completed, specs_failed, human_pauses, resumes, lease_renewals. Provide in-memory collector with snapshot for assertions. Tests: run with pause & resume yields expected counter increments.
+	Phase 7 – Documentation & Architecture Sync
+		Update `specly-architecture.md` §3 execution model: state diagram, lease timing, pause/resume lifecycle, error taxonomy table, seams (journal, metrics). Update `migration_roadmap.md` to tick SP-005 sub-items complete. Expand `docs/task.md` SP-005 notes (this section) with achieved phases checklist.
+	Phase 8 – Hardening & Edge Cases
+		Edge tests: concurrent resume attempt mismatch -> conflict, double failure idempotency (second failure does not duplicate journal entries), performance test (plan 1k specs linear) ensures O(n) scheduling, deterministic ordering preserved under interleaved context changes. Refactor: isolate planner vs runtime modules if file >300 LOC per workspace rules.
+
+	Phase Acceptance Criteria Alignment:
+		- Ph1: ExecutionState structure & failure propagation tests pass.
+		- Ph2: Lease tests (acquire, renew, force) in place (partial SP-019 groundwork, not full enforcement yet).
+		- Ph3: Pause/resume multi-step scenarios verified.
+		- Ph4: Dead-end runtime failure test added (satisfies SP-018 remaining item) + error code mapping.
+		- Ph5: Journal seam observable (spy) without reuse logic.
+		- Ph6: Metrics counters + snapshot test.
+		- Ph7: Docs updated & task progress advanced to ≥85%.
+		- Ph8: Large-plan performance smoke test + concurrency edge tests; progress to 100%.
+
+	Implementation Order Justification: Establish stable internal state (Ph1) before external coordination (leases, resume). Error taxonomy depends on runtime semantics clarity (after Ph3). Journal & metrics seams inserted once core control flow steady to avoid rewrite churn. Hardening deferred last to avoid premature micro-optimizations.
+
+	Progress Justification (30%): Ph0 (foundation) complete: planner deterministic ordering + cycle detection, unreachable classification externalized to validator, autonomous execution skeleton & pause boundary implemented with tests. Remaining complexity concentrated in state persistence, lease coordination, error taxonomy, and seam instrumentation (Ph1–Ph6).
 - **Connected File List**: ./src/services/spec-engine.ts, ./src/types/index.ts
 
 ## Task ID: SP-006

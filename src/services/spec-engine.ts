@@ -29,6 +29,27 @@ export interface ExecutionPlanner {
 // Execution result statuses for early skeleton
 export type ExecutionStatus = 'completed' | 'awaiting_input' | 'error';
 
+// Phase 1: Introduce per-spec execution record & aggregate state
+export interface SpecExecutionRecord {
+  specHash: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  attempts: number;
+  startedAt?: number;
+  endedAt?: number;
+  resultCode?: string; // future: success / derived code
+  output?: unknown; // executor output snapshot
+  errorMessage?: string;
+}
+
+export interface ExecutionState {
+  plan: ExecutionPlan;
+  currentIndex: number; // index within plan.steps that is next to process
+  records: Record<string, SpecExecutionRecord>;
+  sessionContext: Record<string, unknown>; // merged outputs (last write wins)
+  failed?: boolean;
+  failureMessage?: string;
+}
+
 export interface ExecutionContext {
   // Placeholder for accumulated results (future: map specHash -> output)
   results: Record<string, unknown>;
@@ -81,34 +102,78 @@ export class SpecEngine {
   async run(graph: ToolGraph): Promise<ExecutionContext> {
     try {
       const plan = this.planner.buildPlan(graph);
+      const state: ExecutionState = {
+        plan,
+        currentIndex: 0,
+        records: {},
+        sessionContext: {}
+      };
+
       const executed: string[] = [];
       const results: Record<string, unknown> = {};
 
-      for (const step of plan.steps) {
+      const finalizeError = (message: string): ExecutionContext => {
+        state.failed = true;
+        state.failureMessage = message;
+        return {
+          status: 'error',
+          executed,
+          results,
+          warnings: plan.warnings,
+          error: { message }
+        };
+      };
+
+      while (state.currentIndex < plan.steps.length) {
+        const step = plan.steps[state.currentIndex];
         const node = graph.nodes[step.specHash];
         if (!node) {
+          return finalizeError(`Missing node during execution: ${step.specHash}`);
+        }
+
+        // Prepare record if not existing
+        if (!state.records[step.specHash]) {
+          state.records[step.specHash] = {
+            specHash: step.specHash,
+            status: 'pending',
+            attempts: 0
+          };
+        }
+        const rec = state.records[step.specHash];
+
+        if (node.intent === 'human') {
           return {
-            status: 'error',
+            status: 'awaiting_input',
             executed,
             results,
             warnings: plan.warnings,
-            error: { message: `Missing node during execution: ${step.specHash}` }
+            awaitingSpec: step.specHash
           };
         }
-        if (node.intent === 'human') {
-          // Pause before executing human spec, exposing awaiting_input state
-            return {
-              status: 'awaiting_input',
-              executed,
-              results,
-              warnings: plan.warnings,
-              awaitingSpec: step.specHash
-            };
+
+        // Autonomous execution
+        rec.status = 'running';
+        rec.attempts += 1;
+        rec.startedAt = rec.startedAt ?? Date.now();
+        try {
+          const output = await this.executor.execute(step.specHash);
+          rec.status = 'completed';
+          rec.endedAt = Date.now();
+          rec.output = output;
+          results[step.specHash] = output;
+          executed.push(step.specHash);
+          // Merge into session context (last write wins). For now shallow assign.
+          if (output && typeof output === 'object') {
+            Object.assign(state.sessionContext, output as Record<string, unknown>);
+          }
+        } catch (err: any) {
+          rec.status = 'failed';
+          rec.endedAt = Date.now();
+            rec.errorMessage = err?.message || 'Autonomous executor error';
+          return finalizeError(`Execution failed at spec ${step.specHash}: ${rec.errorMessage}`);
         }
-        // Autonomous spec: execute
-        const output = await this.executor.execute(step.specHash);
-        results[step.specHash] = output;
-        executed.push(step.specHash);
+
+        state.currentIndex++;
       }
 
       return { status: 'completed', executed, results, warnings: plan.warnings };
