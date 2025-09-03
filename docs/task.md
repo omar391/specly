@@ -38,6 +38,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 **Progress**: 100%
 **Completed At**: 2025-09-03T08:46:30Z
 **Notes**: Repository layer fully implemented and covered by tests (95/95 passing). Added repositories: SpecRepositoryImpl (idempotent hash create), ToolVersionRepositoryImpl (graph manifest hashing + implicit tool ensure), ProfileRepository (profile create, version auto-increment, tool attachment with duplicate guard, workspace binding upsert), WorkspaceRulesRepository (rule add/reinforce confidence increment), ActionJournalRepository (idempotent pending entry on (specHash,idempotencyKey) + status update). Programmatic migrations already include all required tables. Tests extended (`repository.test.ts`) to assert: spec idempotency (stable hash with dynamic metadata), tool version idempotent duplicate, profile version increments (1→2), tool attachment duplicate prevention, workspace binding, workspace rule reinforcement increments confidence, action journal idempotent creation + status update. Adjusted tests to avoid hash collision flakiness by injecting run UUID metadata and unique profile/rule names. This satisfies acceptance criteria for SP-003 (CRUD + integrity guards). Deferred (documented for later tasks): collision logging, stronger DTO typing (replace any), graph manifest round-trip canonicalization test, hash cache optimization (ties into SP-002 future optimization). No legacy query usages remain for these domains.
+**Notes**: Repository layer fully implemented and covered by tests (95/95 passing). Added repositories: SpecRepositoryImpl (idempotent hash create), ToolVersionRepositoryImpl (graph manifest hashing + implicit tool ensure), ProfileRepository (profile create, version auto-increment, tool attachment duplicate guard, workspace binding upsert), WorkspaceRulesRepository (rule add/reinforce confidence increment), ActionJournalRepository (idempotent pending entry + status update). Programmatic migrations include all required tables. Tests assert spec idempotency, tool version duplicate avoidance, profile version increments, tool attachment duplicate prevention, workspace binding, workspace rule reinforcement confidence increment, and action journal idempotent creation + status update. Hash collision flakiness eliminated via run UUID metadata and unique names. Follow-up enhancements tracked under SP-021.
 **Connected File List**: ./src/database/global-queries.ts, ./src/database/workspace-queries.ts, ./src/services/database-service.ts, ./src/repositories/spec-repository.ts, ./src/repositories/profile-repository.ts, ./src/repositories/workspace-rules-repository.ts, ./src/repositories/action-journal-repository.ts, ./src/__tests__/repository.test.ts
 
 ## Task ID: SP-004
@@ -353,6 +354,17 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 
 ---
 ## Cross-Cutting & Documentation
+
+## Task ID: SP-021
+- **Title**: Repository Layer Enhancements & Optimization
+- **Description**: Add collision logging & guard for spec/tool version hashes, replace any with typed DTOs, implement graph manifest round-trip canonicalization test, introduce optional in-memory hash cache (ties to SP-002 optimization), and add negative mutation test for toolVersion graph ordering.
+- **Priority**: Low
+- **Dependencies**: SP-002, SP-003
+- **Status**: TBD
+- **Progress**: 0%
+- **Completed At**: 
+- **Notes**: Non-blocking improvements to robustness and observability; schedule after core execution & API tasks (post SP-006/SP-014) unless a hash collision is observed earlier.
+- **Connected File List**: ./src/utils/hash.ts, ./src/repositories/spec-repository.ts, ./src/repositories/profile-repository.ts, ./src/repositories/workspace-rules-repository.ts, ./src/repositories/action-journal-repository.ts, ./src/__tests__/repository.test.ts
 
 ## Task ID: SP-200
 - **Title**: Golden Hash Fixture Maintenance
