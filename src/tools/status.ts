@@ -11,10 +11,9 @@ export const statusToolSchema = createBaseToolSchema(ToolNames.STATUS, {}, ['wor
 export type StatusToolInput = z.infer<typeof statusToolSchema>;
 
 /**
- * TaskPilot Status Tool - Database-Driven Flow Execution
- * 
- * Uses ToolFlowExecutor for dynamic step routing instead of hardcoded switch statements.
- * Provides comprehensive project status with task analysis and recommendations.
+ * TaskPilot Status Tool (single-step).
+ * Legacy ToolFlowExecutor and multi-step routing removed; now returns a single
+ * consolidated status summary.
  */
 export class StatusToolNew extends BaseTool {
 
@@ -48,10 +47,7 @@ export class StatusToolNew extends BaseTool {
     return ToolNames.STATUS;
   }
 
-  /**
-   * Get map of step handlers for this tool
-   */
-  // Multi-step handlers removed.
+  // Multi-step handlers removed (intentionally not reintroduced).
 
   /**
    * Overview step - provide high-level status summary

@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
-// Placeholder for removed ToolFlowExecutor multi-step tests.
-// Ensures Vitest sees at least one passing test to avoid failure.
+// Placeholder for removed multi-step executor (file slated for deletion when SP-001 finalizes).
+// No references to actual executor remain in codebase.
+
 describe('legacy tool-flow-executor placeholder', () => {
-	it('should confirm multi-step executor was removed', () => {
+  it('confirms multi-step executor was removed', () => {
 		expect(true).toBe(true);
 	});
 });

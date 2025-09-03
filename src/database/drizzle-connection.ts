@@ -119,6 +119,11 @@ export class DrizzleDatabaseManager {
     if (this.dbType === DatabaseType.GLOBAL) {
       // Create global tables
       this.sqlite.exec(`
+        -- Drastic migration cleanup (SP-001): ensure legacy multi-step tables are removed if they still exist
+        DROP TABLE IF EXISTS tool_flow_steps;
+        DROP TABLE IF EXISTS tool_flows;
+        DROP TABLE IF EXISTS feedback_steps;
+
         CREATE TABLE IF NOT EXISTS workspaces (
           id TEXT PRIMARY KEY,
           path TEXT UNIQUE NOT NULL,

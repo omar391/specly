@@ -7,7 +7,6 @@
  */
 
 import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
-import { ToolFlow, ToolFlowStep } from '../types/index.js';
 import { ToolNames } from '../constants/tool-names.js';
 
 export interface NextStepInstruction {
@@ -122,13 +121,14 @@ export class NextStepTemplateGenerator {
 
     // Private helper methods
 
-    private async getToolFlow(toolName: string, workspaceId?: string): Promise<ToolFlow | null> {
+    // Temporary lightweight interface definitions retained locally after multi-step removal
+    // to avoid importing deleted legacy types.
+    private async getToolFlow(toolName: string, workspaceId?: string): Promise<{ flow_steps: Array<{ system_tool_fn: string; step_order: number; next_tool?: string; feedback_step?: boolean }> } | null> {
         try {
             // Get tool flow from embedded seed data or database
             // For now, use a simplified approach that works with the current system
-            
-            // TODO: This is a placeholder implementation - in a real system this would query the database
-            // For the current implementation, we'll use the pattern similar to ToolFlowExecutor
+
+            // TODO: Placeholder implementation - future versions will query new SpecEngine routing metadata.
             
             // Return null for now - this will be implemented when we have proper database integration
             return null;
@@ -138,7 +138,7 @@ export class NextStepTemplateGenerator {
         }
     }
 
-    private async determineNextStep(toolFlow: ToolFlow, currentStepId?: string): Promise<ToolFlowStep | null> {
+    private async determineNextStep(toolFlow: { flow_steps: Array<{ system_tool_fn: string; step_order: number; next_tool?: string; feedback_step?: boolean }> }, currentStepId?: string): Promise<{ system_tool_fn: string; step_order: number; next_tool?: string; feedback_step?: boolean } | null> {
         if (!currentStepId) {
             // Return first step for initial call
             return toolFlow.flow_steps.find(step => step.step_order === 1) || null;
@@ -167,7 +167,7 @@ export class NextStepTemplateGenerator {
         return nextStep || null;
     }
 
-    private buildInstructionText(toolName: string, nextStep: ToolFlowStep, context?: string): NextStepInstruction {
+    private buildInstructionText(toolName: string, nextStep: { system_tool_fn: string; step_order: number; next_tool?: string; feedback_step?: boolean }, context?: string): NextStepInstruction {
         const stepId = this.extractStepId(nextStep.system_tool_fn);
         
         // Template mappings for different step types
