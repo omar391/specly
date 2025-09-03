@@ -129,6 +129,10 @@ SP-###: Concise imperative summary
 - Seed script idempotency mandatory before enabling UI listing pages.
 - Add graph validation before accepting external tool version submissions.
 
+### Test Environment Enforcement
+- Run all backend tests using Node (npm scripts with Vitest). Do NOT use `bun test` until native `better-sqlite3` compatibility is validated (prevents ABI load errors & mocking issues like `vi.mock is not a function`).
+- When total test counts change (files or tests), update the README Testing section in the same PR (maintain accurate public metrics).
+
 ### Error Handling
 - Structured error JSON: `{ error: { code, message, details? } }` for API.
 - Distinguish 409 vs 422 for conflict vs validation.

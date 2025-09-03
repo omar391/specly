@@ -310,7 +310,7 @@ interface ToolResult {
 
 ## 🧪 Testing
 
-TaskPilot includes comprehensive test coverage with **69/69 tests passing (100% success rate)**:
+TaskPilot includes comprehensive test coverage with **114/114 tests passing (100% success rate)** (17 test files):
 
 ```bash
 # Run all tests
@@ -323,11 +323,15 @@ npm run test:coverage
 npm run test:watch
 ```
 
-**Test Suites:**
-- ✅ **CLI Tests**: 19/19 passing - Tool execution, validation, error handling
-- ✅ **Multi-Step Tools**: 10/10 passing - Workflow navigation, stepId support
-- ✅ **Instance Manager**: 23/23 passing - Process management, port handling
-- ✅ **Integration Tests**: 17/17 passing - Complete multi-instance scenarios
+**Test Suites (representative breakdown):**
+- ✅ **Instance Manager Integration**: 23/23 – process management, port conflict handling, multi-instance orchestration
+- ✅ **Spec Engine Planning & Execution**: 8 (planner + execution loop)
+- ✅ **Graph Validation**: 8 – structural invariants & normalization
+- ✅ **Repository & Persistence**: 5 repository + 8 persistence + 3 seed + 2 schema + 2 specly-core schema (multiple files, total 20)
+- ✅ **CLI & Tooling**: 17 cli + 4 base tool + 1 multi-step legacy + 1 tool-flow executor + 8 next-step generator (31) – legacy multi-step slated for removal
+- ✅ **Hashing & Golden Vectors**: 4 hash + 2 golden (6)
+- ✅ **Workspace Schema Investigations**: 3 – introspection & table guarantees
+  (All remaining single-purpose investigative tests included in totals.)
 
 **Test Environment:** Automated in-memory SQLite database with proper environment detection ensures isolated test runs.
 
