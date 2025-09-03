@@ -12,10 +12,10 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Description**: Implement new global + workspace schema (specs, tools, tool_versions, profiles, profile_versions, profile_version_tools, workspace_profile_versions, action_journal, workspace_rules, tasks, task_dependencies, sessions). Remove legacy tool_flows / feedback_steps tables from code (drop tables via migration). See migration_roadmap.md §2, file_changes.md (schema sections).
 - **Priority**: High
 - **Dependencies**: None
-- **Status**: TBD
-- **Progress**: 0%
+- **Status**: In-Progress
+- **Progress**: 35%
 - **Completed At**: 
-- **Notes**: Destructive migration—backup old DB files before applying. Enforce uniqueness indices.
+- **Notes**: Initial migration files added (specly core + legacy table drop) and multi-step runtime (tool flow executor usage & tests) purged in commit ac5e8bb. Legacy test suites replaced with placeholders; executor service file still present pending full removal alongside creation & verification of new spec/profile/version tables. Next steps: (1) Apply and verify new global/workspace tables (specs, tools, tool_versions, profiles, profile_versions, profile_version_tools, workspace_profile_versions, action_journal, workspace_rules, task_dependencies, sessions) in workspace schema tests; (2) Remove unused ToolFlowExecutor service file; (3) Add uniqueness & FK constraint tests for new entities; (4) Expand migrations to include indices & constraints per roadmap. Destructive migration—backup old DB files before applying. Enforce uniqueness indices.
 - **Connected File List**: ./src/database/schema/global-schema.ts, ./src/database/schema/workspace-schema.ts, ./src/database/schema/relations.ts, ./src/database/migrations/*
 
 ## Task ID: SP-002
