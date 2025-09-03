@@ -58,7 +58,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Priority**: High
 - **Dependencies**: SP-003, SP-004
 - **Status**: In-Progress
-- **Progress**: 15%
+- **Progress**: 30%
 - **Completed At**: 
 - **Notes**: 
 	Core Goals (initial scope):
@@ -70,6 +70,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 	- Skeleton `spec-engine.ts` with `BasicExecutionPlanner` (topological ordering, cycle detection via Kahn variant, priority + hash deterministic ordering, unreachable node warnings)
 	- Interfaces established: `SpecNode`, `ToolGraph`, `ExecutionStep`, `ExecutionPlan`, `ExecutionPlanner`
 	- Tests (`spec-engine.test.ts`) cover linear chain ordering, branch priority resolution, cycle rejection, unreachable node warning path
+	- Added `SpecEngine` execution loop skeleton (autonomous spec sequential execution, pause on first human spec, error context on planning failure) with new tests (`spec-engine-execution.test.ts`) covering: full autonomous completion, human pause, cycle -> error context, dead-end completion behavior.
 
 	Remaining (for full SP-005 completion):
 	1. Execution loop integrating planner (iterate plan, route to executor/autonomous vs awaiting human)
@@ -140,13 +141,12 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Connected File List**: ./src/services/profile-service.ts, ./src/api/router.ts, ./src/tools/update.ts
 
 ## Task ID: SP-010
- **Progress**: 30%
+- **Title**: Action Journal & Side-Effect Idempotency
 - **Description**: Add action_journal repository & integrate side_effect idempotency + retry logic into SpecEngine. Implement computeIdemKey.
 - **Priority**: Medium
 - **Dependencies**: SP-005
 - **Status**: TBD
 - **Progress**: 0%
-		- Added `SpecEngine` execution loop skeleton (autonomous spec sequential execution, pause on first human spec, error context on planning failure) with new tests (`spec-engine-execution.test.ts`) covering: full autonomous completion, human pause, cycle -> error context, dead-end completion behavior.
 - **Completed At**: 
 - **Notes**: Journal tests for reuse and retry exhaustion.
 - **Connected File List**: ./src/services/spec-engine.ts, ./src/database/schema/global-schema.ts, ./src/__tests__/action-journal.test.ts

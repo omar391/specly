@@ -331,6 +331,21 @@ npm run test:watch
 
 **Test Environment:** Automated in-memory SQLite database with proper environment detection ensures isolated test runs.
 
+### Test Environment (Specly Migration Note)
+During the ongoing Specly migration some tests rely on the native `better-sqlite3` module. Running the suite with Bun currently triggers an ABI / symbol mismatch (e.g. "Module did not self-register" or similar native load error). Use Node + Vitest via `npm test` until we explicitly add Bun support.
+
+Known symptoms when using Bun (do not open an issue – switch to Node):
+- Native module load failure referencing `better-sqlite3`
+- `vi.mock is not a function` due to mismatched test environment shims
+
+Recommended commands:
+```bash
+npm install
+npm test
+```
+
+Transitional API Note: Legacy endpoints (tool flows / feedback steps) still appear in this README while tasks SP-005, SP-006, and SP-014 replace them with the unified Spec & Tool execution flow. A full documentation overhaul will occur under task SP-201. Until then, prefer new Specly execution components where available.
+
 ## 📄 License
 
 [Add your license information here]
