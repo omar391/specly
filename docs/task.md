@@ -58,11 +58,17 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Priority**: High
 - **Dependencies**: SP-003, SP-004
 - **Status**: In-Progress
-- **Progress**: 30%
+- **Progress**: 75%
 - **Completed At**: 
 - **Notes**: 
 	Core Goals (initial scope):
 	- Added `SpecEngine` execution loop skeleton (autonomous spec sequential execution, pause on first human spec, error context on planning failure) with new tests (`spec-engine-execution.test.ts`) covering: full autonomous completion, human pause, cycle -> error context, dead-end completion behavior.
+
+	Phases Completed:
+	- [x] Phase 1: Execution state & failure propagation (records, context merge basics)
+	- [x] Phase 2: Session lease acquisition / renewal (ClientStateLeaseProvider seam + tests)
+	- [x] Phase 3: Awaiting input + resume (resumeToken, stale token rejection)
+	- [x] Phase 4 (partial): Error taxonomy + structural validation integration (pre-run validator, error codes surfaced) – journal & metrics deferred to later phases
 
 	Remaining (for full SP-005 completion):
 	1. Execution loop integrating planner (iterate plan, route to executor/autonomous vs awaiting human)
@@ -93,7 +99,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 	Phase 3 – Awaiting Input & Resume Path
 		Introduce `awaiting_input` transition: when next planned spec executor_type = human, persist engine state (in-memory stub for now) and return `paused:true` with resume token (state hash or incremental version). Add `resume(runState, input)` entrypoint that rehydrates state, validates not stale (version match), injects human output into context, advances pointer, continues autonomous execution until next human or completion. Tests: (a) pause then resume continues to completion, (b) stale resume token rejection, (c) multiple sequential human pauses.
 	Phase 4 – Error Taxonomy & Result Codes
-		Define internal error codes: PLAN_CYCLE, DEAD_END, EXECUTION_FAILURE, LEASE_CONFLICT, STALE_RESUME, VALIDATION_ERROR. Map to public statuses: completed, paused, failed. Extend planner dead-end detection at runtime (no outgoing edges & not terminal spec) to mark run failed (ties to SP-018 acceptance criterion). Tests: dead-end mid-run -> failed & diagnostic surfaces code.
+		(Updated) Implemented structured codes: PLAN_CYCLE, MISSING_NODE, EXECUTION_FAILURE, LEASE_ACQUIRE, LEASE_RENEW, DEAD_END, STALE_RESUME. Structural validation (SP-018) now invoked at start of run; structural errors short-circuit before planning. Dead-end currently reserved for dynamic routing gap scenarios (future conditional edges). Remaining: add genuine dynamic DEAD_END test when conditional routing semantics land; consider resultCode enrichment for autonomous outputs.
 	Phase 5 – Journal Seam (No Reuse Yet)
 		Define `ActionJournalAdapter` with methods: `recordAttempt(specHash, idemKey, status, payload)`, `lookup(specHash, idemKey)` (stub returns null). Wire calls around autonomous execution boundary (before & after). Do not implement reuse (reserved for SP-010) but ensure deterministic idemKey placeholder (concat specHash + attemptIndex). Tests: adapter spy receives start & completion calls, failure path records failure entry.
 	Phase 6 – Metrics Seam
@@ -115,7 +121,20 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 
 	Implementation Order Justification: Establish stable internal state (Ph1) before external coordination (leases, resume). Error taxonomy depends on runtime semantics clarity (after Ph3). Journal & metrics seams inserted once core control flow steady to avoid rewrite churn. Hardening deferred last to avoid premature micro-optimizations.
 
-	Progress Justification (30%): Ph0 (foundation) complete: planner deterministic ordering + cycle detection, unreachable classification externalized to validator, autonomous execution skeleton & pause boundary implemented with tests. Remaining complexity concentrated in state persistence, lease coordination, error taxonomy, and seam instrumentation (Ph1–Ph6).
+	Error Taxonomy Summary (Updated Phase 4 Enum Names):
+	| Code | Layer | Description | Retry Guidance |
+	| ---- | ----- | ----------- | -------------- |
+	| GRAPH_CYCLE | Structural | Graph has cycle (validator detected) | Fix graph definition |
+	| GRAPH_MISSING_NODE | Structural | Edge references absent spec | Fix manifest or builder |
+	| EXECUTOR_FAILED | Runtime | Autonomous executor threw | Possibly retry (idempotency later) |
+	| LEASE_ACQUIRE_FAILED | Runtime | Could not obtain session lease | Retry with force or release competing client |
+	| LEASE_RENEW_FAILED | Runtime | Lost lease mid-run (renewal failure) | Retry whole run after investigating ownership |
+	| ROUTE_DEAD_END | Runtime | Plan exhausted while current node still has configured outgoing edges (dynamic routing gap) | Investigate routing logic / conditions |
+	| RESUME_TOKEN_INVALID | Runtime | Resume token mismatch or stale | Refresh latest state & resume again |
+
+	Progress Justification (75%): Phases 1–3 fully delivered (state, leases, pause/resume). Phase 4 structural + error code surfacing integrated (validator invoked pre-run). Remaining scope confined to journal seam, metrics seam, documentation polish, and hardening/performance tests (Phases 5–8).
+
+	> Project Rule (Enforced): No backward compatibility shims or legacy translation utilities will be introduced when performing internal refactors (e.g., error code enum migration). All changes are allowed to be drastic; consumers must adapt immediately. This supersedes any prior transitional helper additions.
 - **Connected File List**: ./src/services/spec-engine.ts, ./src/types/index.ts
 
 ## Task ID: SP-006

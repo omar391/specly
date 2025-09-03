@@ -4,6 +4,8 @@
  * Initial scope: deterministic plan derivation only (no side effects or journal integration yet).
  */
 
+import { validateToolGraph, GraphValidationError } from '../utils/graph-validate.js';
+
 export interface SpecNode {
   hash: string;
   intent: 'human' | 'autonomous';
@@ -63,6 +65,21 @@ export interface ExecutionContext {
   error?: { message: string };
     // Phase 3 additions
     resumeToken?: string; // opaque token representing paused state version
+    errorCode?: SpecEngineErrorCode; // Phase 4
+}
+
+// Phase 4: Error taxonomy
+// SpecEngineErrorCode: normalized, program-consumable error surface.
+// Structural (pre-execution) vs Runtime (during execution) delineation helps callers decide retry / remediation strategies.
+// Structural: PLAN_CYCLE, MISSING_NODE. Runtime: EXECUTION_FAILURE, LEASE_ACQUIRE, LEASE_RENEW, DEAD_END, STALE_RESUME.
+export enum SpecEngineErrorCode {
+    GRAPH_CYCLE = 'GRAPH_CYCLE',
+    GRAPH_MISSING_NODE = 'GRAPH_MISSING_NODE',
+    EXECUTOR_FAILED = 'EXECUTOR_FAILED',
+    LEASE_ACQUIRE_FAILED = 'LEASE_ACQUIRE_FAILED',
+    LEASE_RENEW_FAILED = 'LEASE_RENEW_FAILED',
+    ROUTE_DEAD_END = 'ROUTE_DEAD_END',
+    RESUME_TOKEN_INVALID = 'RESUME_TOKEN_INVALID'
 }
 
 export interface SpecExecutor {
@@ -122,6 +139,23 @@ export class SpecEngine {
 
   async run(graph: ToolGraph, runOpts?: { sessionId?: string; clientId?: string; force?: boolean }): Promise<ExecutionContext> {
     try {
+        // Structural validation (SP-018) to catch missing nodes / cycles before planning
+        try {
+            validateToolGraph({
+                ordered_specs: Object.keys(graph.nodes),
+                entry_spec: graph.entry,
+                edges: graph.edges.map(e => ({ from: e.from, to: e.to, condition_type: 'always', priority: e.priority }))
+            });
+        } catch (vErr: any) {
+            if (vErr instanceof GraphValidationError) {
+                let code: SpecEngineErrorCode | undefined;
+                if (vErr.code === 'ERR_UNDECLARED_SPEC') code = SpecEngineErrorCode.GRAPH_MISSING_NODE;
+                if (vErr.code === 'ERR_CYCLE') code = SpecEngineErrorCode.GRAPH_CYCLE;
+                return { status: 'error', executed: [], results: {}, warnings: [], error: { message: vErr.message }, errorCode: code };
+            }
+            throw vErr;
+        }
+
       const plan = this.planner.buildPlan(graph);
       const state: ExecutionState = {
         plan,
@@ -135,7 +169,7 @@ export class SpecEngine {
       let leaseId: string | undefined;
       let specsSinceRenew = 0;
 
-      const finalizeError = (message: string): ExecutionContext => {
+        const finalizeError = (message: string, code?: SpecEngineErrorCode): ExecutionContext => {
         state.failed = true;
         state.failureMessage = message;
         // Best effort release
@@ -147,7 +181,8 @@ export class SpecEngine {
           executed,
           results,
           warnings: plan.warnings,
-          error: { message }
+            error: { message },
+            errorCode: code
         };
       };
 
@@ -157,7 +192,7 @@ export class SpecEngine {
           const lease = await this.leaseProvider.acquire(runOpts.sessionId, runOpts.clientId, runOpts.force);
           leaseId = lease.leaseId;
         } catch (e: any) {
-          return finalizeError(`Lease acquisition failed: ${e?.message || 'unknown'}`);
+            return finalizeError(`Lease acquisition failed: ${e?.message || 'unknown'}`, SpecEngineErrorCode.LEASE_ACQUIRE_FAILED);
         }
       }
 
@@ -165,7 +200,7 @@ export class SpecEngine {
         const step = plan.steps[state.currentIndex];
         const node = graph.nodes[step.specHash];
         if (!node) {
-          return finalizeError(`Missing node during execution: ${step.specHash}`);
+            return finalizeError(`Missing node during execution: ${step.specHash}`, SpecEngineErrorCode.GRAPH_MISSING_NODE);
         }
 
         // Prepare record if not existing
@@ -209,7 +244,7 @@ export class SpecEngine {
           if (leaseId) {
             specsSinceRenew++;
             if (specsSinceRenew >= this.leaseRenewEvery) {
-              try { await this.leaseProvider.renew(leaseId); } catch (e: any) { return finalizeError(`Lease renewal failed: ${e?.message || 'unknown'}`); }
+                try { await this.leaseProvider.renew(leaseId); } catch (e: any) { return finalizeError(`Lease renewal failed: ${e?.message || 'unknown'}`, SpecEngineErrorCode.LEASE_RENEW_FAILED); }
               specsSinceRenew = 0;
             }
           }
@@ -217,10 +252,19 @@ export class SpecEngine {
           rec.status = 'failed';
           rec.endedAt = Date.now();
             rec.errorMessage = err?.message || 'Autonomous executor error';
-          return finalizeError(`Execution failed at spec ${step.specHash}: ${rec.errorMessage}`);
+            return finalizeError(`Execution failed at spec ${step.specHash}: ${rec.errorMessage}`, SpecEngineErrorCode.EXECUTOR_FAILED);
         }
 
         state.currentIndex++;
+
+          // Dead-end detection: if next step does not exist in plan AND we still have unvisited reachable nodes (branching incomplete), treat as dead-end failure
+          if (state.currentIndex >= plan.steps.length) {
+              // Build quick adjacency to see if current node had outgoing edges in original graph; if so and plan ended prematurely -> no_transition
+              const hasOutgoing = graph.edges.some(e => e.from === step.specHash);
+              if (hasOutgoing) {
+                  return finalizeError(`Dead-end reached after spec ${step.specHash}: no valid transition`, SpecEngineErrorCode.ROUTE_DEAD_END);
+              }
+          }
       }
 
       // Release lease on normal completion
@@ -229,13 +273,9 @@ export class SpecEngine {
       }
       return { status: 'completed', executed, results, warnings: plan.warnings };
     } catch (e: any) {
-      return {
-        status: 'error',
-        executed: [],
-        results: {},
-        warnings: [],
-        error: { message: e?.message || 'Unknown error' }
-      };
+        const msg = e?.message || 'Unknown error';
+        const code: SpecEngineErrorCode | undefined = /Cycle detected/.test(msg) ? SpecEngineErrorCode.GRAPH_CYCLE : undefined;
+        return { status: 'error', executed: [], results: {}, warnings: [], error: { message: msg }, errorCode: code };
     }
   }
 
@@ -243,7 +283,7 @@ export class SpecEngine {
     async resume(graph: ToolGraph, serializedState: SerializedPausedState, input: { specHash: string; humanOutput: unknown }, runOpts?: { sessionId?: string; clientId?: string; force?: boolean }): Promise<ExecutionContext> {
         // Basic validation of token/spec alignment
         if (serializedState.awaitingSpec !== input.specHash) {
-            return { status: 'error', executed: serializedState.executed, results: serializedState.results, warnings: serializedState.warnings, error: { message: 'Stale or mismatched resume token' } };
+            return { status: 'error', executed: serializedState.executed, results: serializedState.results, warnings: serializedState.warnings, error: { message: 'Stale or mismatched resume token' }, errorCode: SpecEngineErrorCode.RESUME_TOKEN_INVALID };
         }
         // Reconstruct minimal state (for now we just continue from next index)
         const nextIndex = serializedState.currentIndex; // currentIndex points to human spec position
@@ -266,18 +306,18 @@ export class SpecEngine {
 
         let leaseId: string | undefined;
         let specsSinceRenew = 0;
-        const finalizeError = (message: string): ExecutionContext => {
+        const finalizeError = (message: string, code?: SpecEngineErrorCode): ExecutionContext => {
             if (leaseId) void this.leaseProvider.release(leaseId).catch(() => { });
-            return { status: 'error', executed, results, warnings: plan.warnings, error: { message } };
+            return { status: 'error', executed, results, warnings: plan.warnings, error: { message }, errorCode: code };
         };
 
         if (runOpts?.sessionId && runOpts?.clientId) {
-            try { const lease = await this.leaseProvider.acquire(runOpts.sessionId, runOpts.clientId, runOpts.force); leaseId = lease.leaseId; } catch (e: any) { return finalizeError(`Lease acquisition failed: ${e?.message || 'unknown'}`); }
+            try { const lease = await this.leaseProvider.acquire(runOpts.sessionId, runOpts.clientId, runOpts.force); leaseId = lease.leaseId; } catch (e: any) { return finalizeError(`Lease acquisition failed: ${e?.message || 'unknown'}`, SpecEngineErrorCode.LEASE_ACQUIRE_FAILED); }
         }
 
         for (const step of remainingSteps) {
             const node = graph.nodes[step.specHash];
-            if (!node) return finalizeError(`Missing node during execution: ${step.specHash}`);
+            if (!node) return finalizeError(`Missing node during execution: ${step.specHash}`, SpecEngineErrorCode.GRAPH_MISSING_NODE);
             if (node.intent === 'human') {
                 const resumeToken = this.buildResumeToken({ ...serializedState, currentIndex: nextIndex + executed.length }, step.specHash);
                 if (leaseId) void this.leaseProvider.release(leaseId).catch(() => { });
@@ -291,12 +331,12 @@ export class SpecEngine {
                 if (leaseId) {
                     specsSinceRenew++;
                     if (specsSinceRenew >= (this.leaseRenewEvery)) {
-                        try { await this.leaseProvider.renew(leaseId); } catch (e: any) { return finalizeError(`Lease renewal failed: ${e?.message || 'unknown'}`); }
+                        try { await this.leaseProvider.renew(leaseId); } catch (e: any) { return finalizeError(`Lease renewal failed: ${e?.message || 'unknown'}`, SpecEngineErrorCode.LEASE_RENEW_FAILED); }
                         specsSinceRenew = 0;
                     }
                 }
             } catch (err: any) {
-                return finalizeError(`Execution failed at spec ${step.specHash}: ${err?.message || 'Autonomous executor error'}`);
+                return finalizeError(`Execution failed at spec ${step.specHash}: ${err?.message || 'Autonomous executor error'}`, SpecEngineErrorCode.EXECUTOR_FAILED);
             }
         }
         if (leaseId) void this.leaseProvider.release(leaseId).catch(() => { });

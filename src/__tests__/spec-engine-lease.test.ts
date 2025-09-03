@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { SpecEngine, ToolGraph, ClientStateLeaseProvider, SpecExecutor } from '../services/spec-engine.js';
+import { SpecEngine, ToolGraph, ClientStateLeaseProvider, SpecExecutor, SpecEngineErrorCode } from '../services/spec-engine.js';
+import { buildToolGraph } from '../utils/tool-graph-builder.js';
 
 function node(hash: string, intent: 'human' | 'autonomous' = 'autonomous') {
   return { hash, intent, sideEffect: false };
@@ -19,11 +20,15 @@ describe('SpecEngine Lease Semantics (SP-005 Phase 2)', () => {
   it('acquires and releases lease with renewal cadence', async () => {
     const lease = new CountingLeaseProvider();
     const engine = new SpecEngine({ leaseProvider: lease, leaseRenewEvery: 2, executor: new SimpleExecutor() });
-    const graph: ToolGraph = {
-      entry: 'A',
-      nodes: { A: node('A'), B: node('B'), C: node('C'), D: node('D') },
-      edges: [ { from: 'A', to: 'B' }, { from: 'B', to: 'C' }, { from: 'C', to: 'D' } ]
-    };
+    const graph: ToolGraph = buildToolGraph(b => b
+      .addSpec({ hash: 'A', intent: 'autonomous', entry: true })
+      .addSpec({ hash: 'B', intent: 'autonomous' })
+      .addSpec({ hash: 'C', intent: 'autonomous' })
+      .addSpec({ hash: 'D', intent: 'autonomous' })
+      .addEdge('A', 'B')
+      .addEdge('B', 'C')
+      .addEdge('C', 'D')
+    );
     const ctx = await engine.run(graph, { sessionId: 'S1', clientId: 'client-1' });
     expect(ctx.status).toBe('completed');
     expect(lease.acquire).toHaveBeenCalledTimes(1);
@@ -39,10 +44,13 @@ describe('SpecEngine Lease Semantics (SP-005 Phase 2)', () => {
       release: async () => {}
     };
     const engine = new SpecEngine({ leaseProvider: failingLease });
-    const graph: ToolGraph = { entry: 'A', nodes: { A: node('A') }, edges: [] };
+    const graph: ToolGraph = buildToolGraph(b => b
+      .addSpec({ hash: 'A', intent: 'autonomous', entry: true })
+    );
     const ctx = await engine.run(graph, { sessionId: 'S1', clientId: 'client-X' });
     expect(ctx.status).toBe('error');
     expect(ctx.error?.message).toMatch(/Lease acquisition failed/);
+    expect(ctx.errorCode).toBe(SpecEngineErrorCode.LEASE_ACQUIRE_FAILED);
   });
 
   it('returns error when lease renewal fails mid-run', async () => {
@@ -53,11 +61,11 @@ describe('SpecEngine Lease Semantics (SP-005 Phase 2)', () => {
       release: async () => {}
     };
     // Graph with enough specs to trigger renewal after first spec when leaseRenewEvery=1
-    const graph: ToolGraph = {
-      entry: 'A',
-      nodes: { A: node('A'), B: node('B') },
-      edges: [ { from: 'A', to: 'B' } ]
-    };
+    const graph: ToolGraph = buildToolGraph(b => b
+      .addSpec({ hash: 'A', intent: 'autonomous', entry: true })
+      .addSpec({ hash: 'B', intent: 'autonomous' })
+      .addEdge('A', 'B')
+    );
     const engine = new SpecEngine({ leaseProvider: lease, leaseRenewEvery: 1 });
     const ctx = await engine.run(graph, { sessionId: 'S2', clientId: 'client-Y' });
     // After executing A, renewal fails before B
