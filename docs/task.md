@@ -23,10 +23,10 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Description**: Implement spec canonical JSON hash + tool version hash (ordered specs + sorted edges). Add golden vector tests. §1.3 roadmap.
 - **Priority**: High
 - **Dependencies**: SP-001
-- **Status**: TBD
-- **Progress**: 0%
+- **Status**: In-Progress
+- **Progress**: 40%
 - **Completed At**: 
-- **Notes**: Provide deterministic serializer (no locale variance). Cache optional.
+- **Notes**: Canonical JSON serializer + spec & tool version hashing implemented (`canonicalStringify`, `hashSpec`, `hashToolVersion`, `stableHash`). Initial tests added (object key order insensitivity, edge sorting determinism). Remaining: golden vector fixtures (SP-200), integration into future spec/tool endpoints (SP-014), hash collision guard (log & fail), optional in-memory hash cache. No locale/timezone sensitivity (pure structural). Pending: add negative tests for intentionally reordered ordered_specs to ensure hash variance.
 - **Connected File List**: ./src/utils/hash.ts, ./src/__tests__/hash.test.ts
 
 ## Task ID: SP-003
@@ -70,7 +70,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Status**: TBD
 - **Progress**: 0%
 - **Completed At**: 
-- **Notes**: Validate request shape, return consistent content array.
+- **Notes**: Validate request shape, return consistent content array. Cleanup: remove legacy API controllers & routes (`tool-flows.ts`, `feedback-steps.ts`) and return 410/404 for their former paths. Ensure router no longer mounts these endpoints and tests confirm absence.
 - **Connected File List**: ./src/api/router.ts, ./src/api/middleware.ts, ./src/api/types.ts
 
 ## Task ID: SP-007
