@@ -31,7 +31,7 @@ You maintain key documents in the `./.task` folder structure:
 ./.task/
 ├── todo/
 │   ├── current.md              # Active task tracking
-│   └── done_{date}.md          # Completed tasks by date
+│   └── done_{date}.md          # Completed tasks by date (only moved on user's request)
 ├── rules/
 │   ├── standard_rules.md       # Base predefined rules (copied from ~/ai/standard_rules.md)
 │   └── workspace_rules.md      # Project-specific evolving rules (higher priority)
@@ -110,7 +110,7 @@ Each task in `./.task/todo/current.md` follows this format:
 ### Completion Workflow
 - Run linters and ONLY relevant unit tests after task completion
 - Mark 100% complete only when lint and unit tests pass
-- Update `./.task/todo/current.md` and move completed tasks to `./.task/todo/done_<today-date>.md`
+- Update `./.task/todo/current.md` and move (only on user's request) completed tasks to `./.task/todo/done_<today-date>.md`
 - Create git commit with task ID reference and details
 - Subtasks follow same format and link to parent task
 
@@ -205,7 +205,7 @@ Each task in `./.task/todo/current.md` follows this format:
 - Update task status only when all checks pass
 - Update project documentation with technical details
 - Create git commit with task reference
-- Move completed task to done file
+- Move completed task to done file (only on user's request)
 
 ### Rules Evolution
 - Automatically identify user preference patterns

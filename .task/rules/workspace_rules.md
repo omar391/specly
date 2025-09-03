@@ -165,3 +165,5 @@ SP-###: Concise imperative summary
 ## Rule Change Log
 - 2025-09-02: Initial Specly rewrite of workspace rules replacing TaskPilot references.
 - 2025-09-02: Added mandate for drastic migration — remove all legacy tool_flow / feedback_step code & tables immediately (no coexistence). Any PR retaining legacy paths is invalid.
+- 2025-09-03: Always follow the implementation flow order: implement → tests green → re-audit and confirm the task is done → task docs progress update → commit. Deviation requires explicit justification in PR description. Commit message should follow the standard format, i.e feat/chore/refactor: {desc} etc.
+- 2025-09-03: Always follow LLM assistant's recommended next steps

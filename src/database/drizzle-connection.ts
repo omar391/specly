@@ -154,11 +154,112 @@ export class DrizzleDatabaseManager {
           updated_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
 
+        -- Specly tables (SP-001 core)
+        CREATE TABLE IF NOT EXISTS specs (
+          hash TEXT PRIMARY KEY,
+          executor_type TEXT NOT NULL,
+            executor_version TEXT NOT NULL,
+            intent TEXT NOT NULL CHECK(intent IN ('human','autonomous')),
+            side_effect INTEGER DEFAULT 0,
+            content_template TEXT,
+            static_params TEXT DEFAULT '{}' ,
+            input_schema TEXT,
+            output_schema TEXT,
+            idempotency_key_template TEXT,
+            retry_policy TEXT,
+            show_output INTEGER DEFAULT 1,
+            security TEXT,
+            metadata TEXT DEFAULT '{}',
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS tools (
+          name TEXT PRIMARY KEY,
+          command_alias TEXT UNIQUE,
+          description TEXT,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS tool_versions (
+          hash TEXT PRIMARY KEY,
+          tool_name TEXT NOT NULL,
+          graph_manifest TEXT NOT NULL,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(tool_name) REFERENCES tools(name) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS profiles (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL UNIQUE,
+          description TEXT,
+          parent_profile_id TEXT,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS profile_versions (
+          id TEXT PRIMARY KEY,
+          profile_id TEXT NOT NULL,
+          parent_profile_version_id TEXT,
+          version INTEGER NOT NULL,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS profile_version_tools (
+          id TEXT PRIMARY KEY,
+          profile_version_id TEXT NOT NULL,
+          tool_name TEXT NOT NULL,
+          tool_version_hash TEXT NOT NULL,
+          command_alias TEXT,
+          inherited_from_profile_version_id TEXT,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(tool_version_hash) REFERENCES tool_versions(hash) ON DELETE CASCADE,
+          FOREIGN KEY(tool_name) REFERENCES tools(name) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS workspace_profile_versions (
+          workspace_id TEXT NOT NULL,
+          profile_version_id TEXT NOT NULL,
+          pinned_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY(workspace_id),
+          FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS action_journal (
+          id TEXT PRIMARY KEY,
+          session_id TEXT NOT NULL,
+          spec_hash TEXT NOT NULL,
+          idempotency_key TEXT NOT NULL,
+          status TEXT NOT NULL CHECK(status IN ('pending','success','failed')),
+          attempts INTEGER DEFAULT 0,
+          last_error_code TEXT,
+          result_json TEXT,
+          error_json TEXT,
+          started_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          completed_at TEXT,
+          FOREIGN KEY(spec_hash) REFERENCES specs(hash) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS workspace_rules (
+          id TEXT PRIMARY KEY,
+          workspace_id TEXT NOT NULL,
+          relation TEXT NOT NULL CHECK(relation IN ('always-do','never-do','is-a','has-a')),
+          rule TEXT NOT NULL,
+          original_text TEXT,
+          confidence INTEGER DEFAULT 1,
+          source_session_id TEXT,
+          active INTEGER DEFAULT 1,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          last_reinforced_at TEXT,
+          FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE
+        );
+
         -- Indexes
         CREATE INDEX IF NOT EXISTS idx_sessions_workspace_id ON sessions(workspace_id);
         CREATE INDEX IF NOT EXISTS idx_sessions_is_active ON sessions(is_active);
         CREATE INDEX IF NOT EXISTS idx_mcp_server_mappings_interface_type ON mcp_server_mappings(interface_type);
         CREATE INDEX IF NOT EXISTS idx_mcp_server_mappings_default ON mcp_server_mappings(is_default);
+        CREATE INDEX IF NOT EXISTS idx_tool_versions_tool_name ON tool_versions(tool_name);
+        CREATE INDEX IF NOT EXISTS idx_action_journal_spec_hash ON action_journal(spec_hash);
       `);
     } else {
       // Create workspace tables
