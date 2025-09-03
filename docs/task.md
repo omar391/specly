@@ -140,12 +140,13 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Connected File List**: ./src/services/profile-service.ts, ./src/api/router.ts, ./src/tools/update.ts
 
 ## Task ID: SP-010
-- **Title**: Action Journal & Side Effects
+ **Progress**: 30%
 - **Description**: Add action_journal repository & integrate side_effect idempotency + retry logic into SpecEngine. Implement computeIdemKey.
 - **Priority**: Medium
 - **Dependencies**: SP-005
 - **Status**: TBD
 - **Progress**: 0%
+		- Added `SpecEngine` execution loop skeleton (autonomous spec sequential execution, pause on first human spec, error context on planning failure) with new tests (`spec-engine-execution.test.ts`) covering: full autonomous completion, human pause, cycle -> error context, dead-end completion behavior.
 - **Completed At**: 
 - **Notes**: Journal tests for reuse and retry exhaustion.
 - **Connected File List**: ./src/services/spec-engine.ts, ./src/database/schema/global-schema.ts, ./src/__tests__/action-journal.test.ts

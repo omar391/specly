@@ -26,6 +26,104 @@ export interface ExecutionPlanner {
   buildPlan(graph: ToolGraph): ExecutionPlan;
 }
 
+// Execution result statuses for early skeleton
+export type ExecutionStatus = 'completed' | 'awaiting_input' | 'error';
+
+export interface ExecutionContext {
+  // Placeholder for accumulated results (future: map specHash -> output)
+  results: Record<string, unknown>;
+  // Ordered executed spec hashes
+  executed: string[];
+  // If awaiting human input, the spec hash causing pause
+  awaitingSpec?: string;
+  // Warnings surfaced during planning/validation
+  warnings: string[];
+  status: ExecutionStatus;
+  error?: { message: string };
+}
+
+export interface SpecExecutor {
+  execute(specHash: string): Promise<unknown>; // future: accept input context, return output
+}
+
+/**
+ * Minimal in-memory executor stub.
+ * For autonomous specs returns a trivial success payload; human specs never executed here.
+ */
+export class NoopAutonomousExecutor implements SpecExecutor {
+  async execute(specHash: string): Promise<unknown> {
+    return { ok: true, spec: specHash };
+  }
+}
+
+export interface SpecEngineOptions {
+  planner?: ExecutionPlanner;
+  executor?: SpecExecutor; // handles autonomous specs
+  // future: hooks for session lease, journal, rule injection, metrics
+}
+
+/**
+ * SpecEngine:
+ * - Builds plan (assumes pre-validation via SP-018)
+ * - Executes autonomous specs sequentially until a human spec is encountered or plan exhausted
+ * - Returns execution context with executed list & pause point
+ * - Does NOT persist anything yet (session/journal integration deferred)
+ */
+export class SpecEngine {
+  private planner: ExecutionPlanner;
+  private executor: SpecExecutor;
+
+  constructor(opts: SpecEngineOptions = {}) {
+    this.planner = opts.planner ?? new BasicExecutionPlanner();
+    this.executor = opts.executor ?? new NoopAutonomousExecutor();
+  }
+
+  async run(graph: ToolGraph): Promise<ExecutionContext> {
+    try {
+      const plan = this.planner.buildPlan(graph);
+      const executed: string[] = [];
+      const results: Record<string, unknown> = {};
+
+      for (const step of plan.steps) {
+        const node = graph.nodes[step.specHash];
+        if (!node) {
+          return {
+            status: 'error',
+            executed,
+            results,
+            warnings: plan.warnings,
+            error: { message: `Missing node during execution: ${step.specHash}` }
+          };
+        }
+        if (node.intent === 'human') {
+          // Pause before executing human spec, exposing awaiting_input state
+            return {
+              status: 'awaiting_input',
+              executed,
+              results,
+              warnings: plan.warnings,
+              awaitingSpec: step.specHash
+            };
+        }
+        // Autonomous spec: execute
+        const output = await this.executor.execute(step.specHash);
+        results[step.specHash] = output;
+        executed.push(step.specHash);
+      }
+
+      return { status: 'completed', executed, results, warnings: plan.warnings };
+    } catch (e: any) {
+      return {
+        status: 'error',
+        executed: [],
+        results: {},
+        warnings: [],
+        error: { message: e?.message || 'Unknown error' }
+      };
+    }
+  }
+}
+
 /**
  * BasicExecutionPlanner
  * - Validates single entry presence
