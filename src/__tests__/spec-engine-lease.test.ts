@@ -1,11 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
-import { SpecEngine, ToolGraph, LeaseProvider, SpecExecutor } from '../services/spec-engine.js';
+import { SpecEngine, ToolGraph, ClientStateLeaseProvider, SpecExecutor } from '../services/spec-engine.js';
 
 function node(hash: string, intent: 'human' | 'autonomous' = 'autonomous') {
   return { hash, intent, sideEffect: false };
 }
 
-class CountingLeaseProvider implements LeaseProvider {
+class CountingLeaseProvider implements ClientStateLeaseProvider {
   acquire = vi.fn(async () => ({ leaseId: 'L1' }));
   renew = vi.fn(async () => {});
   release = vi.fn(async () => {});
@@ -33,7 +33,7 @@ describe('SpecEngine Lease Semantics (SP-005 Phase 2)', () => {
   });
 
   it('returns error when lease acquisition fails', async () => {
-    const failingLease: LeaseProvider = {
+  const failingLease: ClientStateLeaseProvider = {
       acquire: async () => { throw new Error('conflict'); },
       renew: async () => {},
       release: async () => {}
@@ -47,7 +47,7 @@ describe('SpecEngine Lease Semantics (SP-005 Phase 2)', () => {
 
   it('returns error when lease renewal fails mid-run', async () => {
     // Fail on second renewal attempt
-    const lease: LeaseProvider = {
+  const lease: ClientStateLeaseProvider = {
       acquire: async () => ({ leaseId: 'L2' }),
       renew: vi.fn(async () => { throw new Error('lost'); }),
       release: async () => {}

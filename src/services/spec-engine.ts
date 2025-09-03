@@ -61,6 +61,8 @@ export interface ExecutionContext {
   warnings: string[];
   status: ExecutionStatus;
   error?: { message: string };
+    // Phase 3 additions
+    resumeToken?: string; // opaque token representing paused state version
 }
 
 export interface SpecExecutor {
@@ -81,18 +83,18 @@ export interface SpecEngineOptions {
   planner?: ExecutionPlanner;
   executor?: SpecExecutor; // handles autonomous specs
   // future: hooks for session lease, journal, rule injection, metrics
-  leaseProvider?: LeaseProvider;
+    leaseProvider?: ClientStateLeaseProvider;
   leaseRenewEvery?: number; // specs per renewal (default 5)
 }
 
 // Phase 2: Lease provider interface (simple)
-export interface LeaseProvider {
+export interface ClientStateLeaseProvider {
   acquire(sessionId: string, clientId: string, force?: boolean): Promise<{ leaseId: string }>; // throws on conflict
   renew(leaseId: string): Promise<void>;
   release(leaseId: string): Promise<void>;
 }
 
-class NoopLeaseProvider implements LeaseProvider {
+class NoopClientStateLeaseProvider implements ClientStateLeaseProvider {
   async acquire(_sessionId: string, _clientId: string, _force?: boolean) { return { leaseId: 'noop' }; }
   async renew(_leaseId: string) { /* noop */ }
   async release(_leaseId: string) { /* noop */ }
@@ -108,13 +110,13 @@ class NoopLeaseProvider implements LeaseProvider {
 export class SpecEngine {
   private planner: ExecutionPlanner;
   private executor: SpecExecutor;
-  private leaseProvider: LeaseProvider;
+    private leaseProvider: ClientStateLeaseProvider;
   private leaseRenewEvery: number;
 
   constructor(opts: SpecEngineOptions = {}) {
     this.planner = opts.planner ?? new BasicExecutionPlanner();
     this.executor = opts.executor ?? new NoopAutonomousExecutor();
-    this.leaseProvider = opts.leaseProvider ?? new NoopLeaseProvider();
+      this.leaseProvider = opts.leaseProvider ?? new NoopClientStateLeaseProvider();
     this.leaseRenewEvery = opts.leaseRenewEvery ?? 5;
   }
 
@@ -177,12 +179,14 @@ export class SpecEngine {
         const rec = state.records[step.specHash];
 
         if (node.intent === 'human') {
+            const resumeToken = this.buildResumeToken(state, step.specHash);
           return {
             status: 'awaiting_input',
             executed,
             results,
             warnings: plan.warnings,
-            awaitingSpec: step.specHash
+              awaitingSpec: step.specHash,
+              resumeToken
           };
         }
 
@@ -234,6 +238,85 @@ export class SpecEngine {
       };
     }
   }
+
+    /** Phase 3: resume execution after a human spec output is provided. */
+    async resume(graph: ToolGraph, serializedState: SerializedPausedState, input: { specHash: string; humanOutput: unknown }, runOpts?: { sessionId?: string; clientId?: string; force?: boolean }): Promise<ExecutionContext> {
+        // Basic validation of token/spec alignment
+        if (serializedState.awaitingSpec !== input.specHash) {
+            return { status: 'error', executed: serializedState.executed, results: serializedState.results, warnings: serializedState.warnings, error: { message: 'Stale or mismatched resume token' } };
+        }
+        // Reconstruct minimal state (for now we just continue from next index)
+        const nextIndex = serializedState.currentIndex; // currentIndex points to human spec position
+        // Inject human output context
+        if (input.humanOutput && typeof input.humanOutput === 'object') {
+            Object.assign(serializedState.sessionContext, input.humanOutput as Record<string, unknown>);
+        }
+        // Mark human spec as completed in results for continuity
+        serializedState.results[input.specHash] = input.humanOutput;
+        serializedState.executed.push(input.specHash);
+
+        // Build a partial plan (reuse previous plan steps)
+        const remainingSteps = serializedState.plan.steps.slice(nextIndex + 1);
+        const plan: ExecutionPlan = { steps: remainingSteps, warnings: serializedState.warnings };
+
+        // Execute remaining autonomous specs using normal loop logic by constructing a temp graph plan.
+        // Simplify: create a mini engine iteration (duplicating small portion to avoid deep refactor now).
+        const executed: string[] = [...serializedState.executed];
+        const results: Record<string, unknown> = { ...serializedState.results };
+
+        let leaseId: string | undefined;
+        let specsSinceRenew = 0;
+        const finalizeError = (message: string): ExecutionContext => {
+            if (leaseId) void this.leaseProvider.release(leaseId).catch(() => { });
+            return { status: 'error', executed, results, warnings: plan.warnings, error: { message } };
+        };
+
+        if (runOpts?.sessionId && runOpts?.clientId) {
+            try { const lease = await this.leaseProvider.acquire(runOpts.sessionId, runOpts.clientId, runOpts.force); leaseId = lease.leaseId; } catch (e: any) { return finalizeError(`Lease acquisition failed: ${e?.message || 'unknown'}`); }
+        }
+
+        for (const step of remainingSteps) {
+            const node = graph.nodes[step.specHash];
+            if (!node) return finalizeError(`Missing node during execution: ${step.specHash}`);
+            if (node.intent === 'human') {
+                const resumeToken = this.buildResumeToken({ ...serializedState, currentIndex: nextIndex + executed.length }, step.specHash);
+                if (leaseId) void this.leaseProvider.release(leaseId).catch(() => { });
+                return { status: 'awaiting_input', executed, results, warnings: plan.warnings, awaitingSpec: step.specHash, resumeToken };
+            }
+            try {
+                const output = await this.executor.execute(step.specHash);
+                results[step.specHash] = output;
+                executed.push(step.specHash);
+                if (output && typeof output === 'object') Object.assign(serializedState.sessionContext, output as Record<string, unknown>);
+                if (leaseId) {
+                    specsSinceRenew++;
+                    if (specsSinceRenew >= (this.leaseRenewEvery)) {
+                        try { await this.leaseProvider.renew(leaseId); } catch (e: any) { return finalizeError(`Lease renewal failed: ${e?.message || 'unknown'}`); }
+                        specsSinceRenew = 0;
+                    }
+                }
+            } catch (err: any) {
+                return finalizeError(`Execution failed at spec ${step.specHash}: ${err?.message || 'Autonomous executor error'}`);
+            }
+        }
+        if (leaseId) void this.leaseProvider.release(leaseId).catch(() => { });
+        return { status: 'completed', executed, results, warnings: plan.warnings };
+    }
+
+    private buildResumeToken(state: { currentIndex: number }, awaitingSpec: string): string {
+        return `${awaitingSpec}:${state.currentIndex}:${Date.now()}`;
+    }
+}
+
+// Serialized form of a paused state (minimal for Phase 3 tests)
+export interface SerializedPausedState {
+    plan: ExecutionPlan;
+    currentIndex: number;
+    executed: string[];
+    results: Record<string, unknown>;
+    warnings: string[];
+    awaitingSpec: string;
+    sessionContext: Record<string, unknown>;
 }
 
 /**
