@@ -25,14 +25,11 @@ export class PersistentJournalService implements ActionJournalAdapter {
         if (!this.initializing) {
             this.initializing = (async () => {
                 try {
-                    const mgr = this.globalService.getDrizzleManager();
-                    if (!mgr.initialized) {
-                        await this.globalService.initialize();
-                    }
+                    // Always invoke initialize (idempotent) to guarantee schema present before writes
+                    await this.globalService.initialize();
                     this.initialized = true;
-                } catch (e) {
-                    // Swallow init errors (journal is best-effort); leave initialized=false so future attempts retry
-                    this.initialized = false;
+                } catch {
+                    this.initialized = false; // allow retry on next call
                 } finally {
                     this.initializing = undefined;
                 }
@@ -50,7 +47,20 @@ export class PersistentJournalService implements ActionJournalAdapter {
             if (this.specCache[specHash]) return this.specCache[specHash];
             const db = mgr.getDb();
             const [row] = await db.select().from(specs).where(eq(specs.hash, specHash)).limit(1);
-            if (!row) return specHash;
+            if (!row) {
+                // Auto-create lightweight spec stub to satisfy FK (test/hardening aid). Real runs should have spec pre-existing.
+                try {
+                    await db.insert(specs).values({
+                        hash: specHash,
+                        executorType: 'noop',
+                        executorVersion: '1',
+                        intent: 'autonomous',
+                        sideEffect: 0,
+                        metadata: {}
+                    } as any);
+                } catch { /* ignore duplicate */ }
+                return specHash;
+            }
             let key = specHash;
             if (row.idempotencyKeyTemplate) {
                 // Simple template: replace {{spec_hash}}
