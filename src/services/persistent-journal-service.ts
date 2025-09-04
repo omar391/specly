@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import type { ActionJournalAdapter } from './spec-engine.js';
+import type { ActionJournalAdapter, MetricsCollector } from './spec-engine.js';
 import { getGlobalDatabaseService } from '../database/global-queries.js';
 import { actionJournal, specs } from '../database/schema/global-schema.js';
 import { eq, and } from 'drizzle-orm';
@@ -17,8 +17,11 @@ export class PersistentJournalService implements ActionJournalAdapter {
     private initialized = false;
     private initializing?: Promise<void>;
     private globalService = getGlobalDatabaseService();
+    private metrics?: MetricsCollector; // optional metrics collector injected externally
 
-    constructor(private sessionId: string = 'default-session') { }
+    constructor(private sessionId: string = 'default-session', opts?: { metrics?: MetricsCollector }) {
+        this.metrics = opts?.metrics;
+    }
 
     private async ensureInitialized() {
         if (this.initialized) return;
@@ -48,17 +51,20 @@ export class PersistentJournalService implements ActionJournalAdapter {
             const db = mgr.getDb();
             const [row] = await db.select().from(specs).where(eq(specs.hash, specHash)).limit(1);
             if (!row) {
-                // Auto-create lightweight spec stub to satisfy FK (test/hardening aid). Real runs should have spec pre-existing.
-                try {
-                    await db.insert(specs).values({
-                        hash: specHash,
-                        executorType: 'noop',
-                        executorVersion: '1',
-                        intent: 'autonomous',
-                        sideEffect: 0,
-                        metadata: {}
-                    } as any);
-                } catch { /* ignore duplicate */ }
+                // Auto-create conditional on env flag (default ON for backward compatibility)
+                const allowAuto = process.env.TASKPILOT_JOURNAL_AUTOCREATE_SPEC !== 'false';
+                if (allowAuto) {
+                    try {
+                        await db.insert(specs).values({
+                            hash: specHash,
+                            executorType: 'noop',
+                            executorVersion: '1',
+                            intent: 'autonomous',
+                            sideEffect: 0,
+                            metadata: {}
+                        } as any);
+                    } catch { /* ignore duplicate */ }
+                }
                 return specHash;
             }
             let key = specHash;
@@ -90,6 +96,7 @@ export class PersistentJournalService implements ActionJournalAdapter {
             }
         } catch {
             // Silent swallow – journal must never surface as unhandled rejection
+            try { this.metrics?.inc('specly_engine_journal_failures_total'); } catch { /* ignore metrics errors */ }
         }
     }
 
@@ -137,6 +144,6 @@ export class PersistentJournalService implements ActionJournalAdapter {
     }
 }
 
-export function createPersistentJournal(sessionId?: string) {
-    return new PersistentJournalService(sessionId);
+export function createPersistentJournal(sessionId?: string, opts?: { metrics?: MetricsCollector }) {
+    return new PersistentJournalService(sessionId, opts);
 }

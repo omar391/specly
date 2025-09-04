@@ -17,7 +17,64 @@ Specly is an MCP server providing deterministic multi-step “spec” workflows 
 | Action Journal | Idempotency + retry ledger for side-effect specs. |
 | Workspace Rules | Stored preference/constraint facts shaping future prompts. |
 
-## 3. Hashing & Determinism
+## 3. Execution Model
+### 3.1 State Machine (Text Diagram)
+```
+┌──────────┐     autonomous spec      ┌─────────────┐
+│ RUNNING  │ ───────────────────────▶ │RUNNING(next)│
+└────┬─────┘                          └────┬────────┘
+  │ human spec encountered              │
+  │                                     │ executor error (no attempts remain)
+  ▼                                     ▼
+┌──────────────┐   resume(token)   ┌────────────┐
+│ AWAITING_INPUT│ ───────────────▶ │ RUNNING     │
+└──────┬────────┘                  └────┬───────┘
+    │ stale/used token               │ plan exhausted
+    ▼                                ▼
+┌──────────┐   dead-end / structural  ┌───────────┐
+│ ERROR    │ ◀─────────────────────── │ COMPLETED │
+└──────────┘                          └───────────┘
+```
+Transitions:
+- RUNNING → AWAITING_INPUT when next planned node intent = human.
+- AWAITING_INPUT → RUNNING when resume invoked with valid unused resumeToken.
+- AWAITING_INPUT → ERROR when resumeToken mismatched/stale (RESUME_TOKEN_INVALID).
+- RUNNING → ERROR on executor failure after exhausting retries (EXECUTOR_FAILED) or lease renewal failure.
+- RUNNING → ERROR on dead-end detection (ROUTE_DEAD_END).
+- RUNNING → COMPLETED when all plan steps consumed and last node has no outgoing edges.
+
+### 3.2 Seams
+| Seam | Purpose | Current Implementation | Future Extension |
+|------|---------|------------------------|------------------|
+| Lease Provider | Session ownership & renewal | In-memory interface (acquire/renew/release) | Persistent / distributed lease with TTL |
+| Journal | Idempotency + retry replay | Single mutable row per (session,spec,idempotency_key) | Immutable attempt history table |
+| Metrics | Operational observability | Counter increments in critical paths | Histograms, labels (tool_name, result_code) |
+| Retry Policy | Controlled reattempt of autonomous failures | maxAttempts + strategy (immediate/exponential logical) | Real delay scheduling / jitter |
+| Resume Token Invalidation | Prevent duplicate progress after human input | In-memory consumed token set | Persisted token versioning & concurrency detection |
+
+### 3.3 Error Taxonomy (Runtime + Structural)
+| Code | Layer | Trigger | Caller Guidance |
+|------|-------|---------|-----------------|
+| GRAPH_CYCLE | Structural | Cycle/self-loop in validation | Fix graph definition |
+| GRAPH_MISSING_NODE | Structural | Edge references absent spec | Correct manifest or builder |
+| EXECUTOR_FAILED | Runtime | Final autonomous attempt failed | Investigate spec executor; maybe increase retries |
+| LEASE_ACQUIRE_FAILED | Runtime | Competing client ownership | Retry with force if appropriate |
+| LEASE_RENEW_FAILED | Runtime | Lost lease mid-run | Re-run from start after resolving ownership |
+| ROUTE_DEAD_END | Runtime | Plan ended while outgoing edges exist (planner gap) | Inspect planner / manifest consistency |
+| RESUME_TOKEN_INVALID | Runtime | Token mismatch or reuse | Obtain fresh state and retry resume |
+
+### 3.4 Determinism Guarantees
+- Topological ordering stable: sorting by incoming edge priority desc then spec hash.
+- Context merge: last-writer-wins with deterministic key insertion order.
+- Side-effect reuse: replay short-circuits executor and maintains execution order invariants.
+- Retry attempts do not reorder subsequent specs; unsuccessful attempts leave no additional plan entries.
+
+### 3.5 Performance Characteristics
+- Planning: O(V+E) (Kahn with priority sorting cost O(V log V) worst-case from ready set sorting).
+- Execution: O(N) over plan steps (each spec executed at most once logically; retries bounded by maxAttempts constant factor).
+- Reuse path: O(1) journal lookup before executor.
+
+## 4. Hashing & Determinism
 - Spec hash = SHA-256(canonical JSON of immutable fields: executor_* / intent / side_effect / template / schemas / params / security / metadata).
 - Tool version hash = SHA-256 of `{ tool_name, ordered_specs[], sorted_edges[] }`.
 - Canonicalization: sort keys recursively, normalize endlines to LF, trim trailing spaces, collapse >2 blank lines to 2, strip null/undefined keys.
@@ -96,7 +153,7 @@ The action journal enforces idempotent execution for side-effect specs and provi
 1. Retry Policy: A spec-level JSON field `retry_policy` supplies `{ maxAttempts, strategy, baseDelayMs }`. The engine attempts execution up to `maxAttempts` times (inclusive of the first attempt). Supported strategies: `immediate` (no delay) and `exponential` (logical backoff value computed; scheduling of actual delays is an implementation detail and may be deferred). `maxAttempts` MUST be ≥ 1.
 2. Attempt Lifecycle: Each attempt (including the first) is journaled: `started` then `succeeded` or `failed`. On failure with remaining budget, the engine proceeds to the next attempt; on failure with no remaining budget it surfaces error code `EXECUTOR_FAILED`.
 3. Collision Semantics: The key space `(session_id, spec_hash, idempotency_key)` yields exactly one mutable journal row. Cross-spec collisions (distinct `spec_hash` producing the same `idempotency_key`) are undefined behavior and SHOULD be prevented by upstream key template design. Future revisions MAY introduce explicit collision detection and a counter `action_journal_collisions_total`.
-4. Metrics: Counters: `specly_engine_reuse_hits_total` (successful replay), `action_journal_retries_total` (each retry beyond the first), `action_journal_retry_exhausted_total` (terminal exhaustion). Additional histograms (e.g. retry backoff distributions) MAY be added without altering semantics.
+4. Metrics: Counters: `specly_engine_reuse_hits_total` (successful replay), `action_journal_retries_total` (each retry beyond the first), `action_journal_retry_exhausted_total` (terminal exhaustion), `specly_engine_journal_failures_total` (journal write/upsert failures swallowed to preserve execution). Additional histograms (e.g. retry backoff distributions) MAY be added without altering semantics.
 5. Audit & Forensics: The aggregate row maintains cumulative attempt count and final outcome. A future extension MAY add an immutable per-attempt history table for detailed auditing without impacting replay performance.
 6. Failure Tolerance: Journal write failures MUST NOT cause executor success paths to abort. Replay therefore provides at-most-once semantics; under transient write failure conditions re-execution MAY occur, preserving correctness over strict duplication avoidance.
 

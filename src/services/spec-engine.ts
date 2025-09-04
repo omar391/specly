@@ -169,6 +169,8 @@ export class SpecEngine {
   private journal: ActionJournalAdapter;
   private metrics: MetricsCollector;
   private retry: RetryPolicy;
+  // Track consumed resume tokens (basic in-memory invalidation). For multi-instance persistence a store would be required.
+  private consumedResumeTokens: Set<string> = new Set();
 
   constructor(opts: SpecEngineOptions = {}) {
     this.planner = opts.planner ?? new BasicExecutionPlanner();
@@ -203,7 +205,8 @@ export class SpecEngine {
       const plan = this.planner.buildPlan(graph);
       // If caller provided sessionId and journal is noop, upgrade to persistent journal
       if (runOpts?.sessionId && this.journal instanceof NoopActionJournalAdapter) {
-        this.journal = new PersistentJournalService(runOpts.sessionId);
+        // Inject metrics collector if available when upgrading to persistent journal
+        this.journal = new PersistentJournalService(runOpts.sessionId, { metrics: this.metrics });
       }
       const state: ExecutionState = {
         plan,
@@ -388,11 +391,17 @@ export class SpecEngine {
   }
 
     /** Phase 3: resume execution after a human spec output is provided. */
-    async resume(graph: ToolGraph, serializedState: SerializedPausedState, input: { specHash: string; humanOutput: unknown }, runOpts?: { sessionId?: string; clientId?: string; force?: boolean }): Promise<ExecutionContext> {
+  async resume(graph: ToolGraph, serializedState: SerializedPausedState, input: { specHash: string; humanOutput: unknown; resumeToken?: string }, runOpts?: { sessionId?: string; clientId?: string; force?: boolean }): Promise<ExecutionContext> {
         // Basic validation of token/spec alignment
         if (serializedState.awaitingSpec !== input.specHash) {
             return { status: 'error', executed: serializedState.executed, results: serializedState.results, warnings: serializedState.warnings, error: { message: 'Stale or mismatched resume token' }, errorCode: SpecEngineErrorCode.RESUME_TOKEN_INVALID };
         }
+    if (input.resumeToken) {
+      if (this.consumedResumeTokens.has(input.resumeToken)) {
+        return { status: 'error', executed: serializedState.executed, results: serializedState.results, warnings: serializedState.warnings, error: { message: 'Resume token already used' }, errorCode: SpecEngineErrorCode.RESUME_TOKEN_INVALID };
+      }
+      this.consumedResumeTokens.add(input.resumeToken);
+    }
         // Reconstruct minimal state (for now we just continue from next index)
         const nextIndex = serializedState.currentIndex; // currentIndex points to human spec position
         // Inject human output context

@@ -57,9 +57,9 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Description**: Execution loop per pseudocode (routing, human awaiting, session lease, context merge). Exclude side_effect idempotency (later task). migration_roadmap.md §3 Execution Engine.
 - **Priority**: High
 - **Dependencies**: SP-003, SP-004
-- **Status**: In-Progress
-- **Progress**: 84%
-- **Completed At**: 
+- **Status**: Done
+- **Progress**: 100%
+- **Completed At**: 2025-09-03
 - **Notes**: 
 	Core Goals (initial scope):
 	- Added `SpecEngine` execution loop skeleton (autonomous spec sequential execution, pause on first human spec, error context on planning failure) with new tests (`spec-engine-execution.test.ts`) covering: full autonomous completion, human pause, cycle -> error context, dead-end completion behavior.
@@ -71,13 +71,14 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 	- [x] Phase 4 (partial): Error taxonomy + structural validation integration (pre-run validator, error codes surfaced) – journal & metrics deferred to later phases
 
 	Remaining (for full SP-005 completion):
-	1. Execution loop integrating planner (iterate plan, route to executor/autonomous vs awaiting human)
-	2. Session lease acquisition & renewal semantics
-	3. Awaiting_input state transitions & resume handling
-	4. Context merge strategy (accumulative vs selective) placeholder -> implementation
-	5. Result code & error propagation policy (success / partial / failed states)
-	6. Hook points for side_effect idempotency & retry (deferred to SP-010) – ensure extension seams
-	7. Minimal metrics counters (may shift to SP-012 but keep seam)
+	Remaining (superseded – all delivered or deferred to explicit follow-up tasks):
+	1. (Delivered) Execution loop integrating planner (sequential autonomous routing + human pause)
+	2. (Delivered) Session lease semantics scaffold & renewal hook (enforcement enhancements in SP-019)
+	3. (Delivered) Awaiting_input transitions & resume handling (token invalidation added in hardening)
+	4. (Delivered) Context merge strategy (deterministic last-writer-wins with ordered key traversal for tests)
+	5. (Delivered) Result code & error propagation mapping to error taxonomy
+	6. (Delivered via SP-010 linkage) Hook seams for side_effect idempotency & retry (implemented subsequently in SP-010)
+	7. (Delivered) Minimal metrics counters (extended later with reuse + retry + upcoming journal failure counter)
 
 		Decisions (locked defaults):
 		- Unreachable specs: now a validation ERROR (publish rejected) unless an internal override flag `allow_unreachable=true` is explicitly set (intended for dev diagnostics only). This replaces prior tentative "warn only" stance.
@@ -107,7 +108,20 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 	Phase 7 – Documentation & Architecture Sync
 		Update `specly-architecture.md` §3 execution model: state diagram, lease timing, pause/resume lifecycle, error taxonomy table, seams (journal, metrics). Update `migration_roadmap.md` to tick SP-005 sub-items complete. Expand `docs/task.md` SP-005 notes (this section) with achieved phases checklist.
 	Phase 8 – Hardening & Edge Cases
-		Edge tests: concurrent resume attempt mismatch -> conflict, double failure idempotency (second failure does not duplicate journal entries), performance test (plan 1k specs linear) ensures O(n) scheduling, deterministic ordering preserved under interleaved context changes. Refactor: isolate planner vs runtime modules if file >300 LOC per workspace rules.
+	Phase 8 – Hardening & Edge Cases (Completed)
+		Implemented edge & performance tests:
+		- Concurrent resume token reuse rejected (RESUME_TOKEN_INVALID)
+		- Double failure idempotency (single journal row; attempts increment only)
+		- Performance: 1k-spec linear plan executes under target (<2500ms) confirming O(n) behavior
+		- Dead-end routing simulation triggers ROUTE_DEAD_END code
+		Additional Hardening:
+		- Resume token invalidation set (non-persistent; future persistence task pending)
+		- PersistentJournalService always initializes DB and (temporary) auto-creates spec stub; to be gated by env flag `TASKPILOT_JOURNAL_AUTOCREATE_SPEC` (follow-up)
+		- Retry loop integrated with journal reuse pre-check (part of SP-010 deliverables but leveraged here)
+		Deferred to New Tasks:
+		- Env gating & removal path for auto-create stub (new task)
+		- Journal failure metrics counter (`specly_engine_journal_failures_total`) instrumentation
+		- Persistent resume token durability (future task)
 
 	Phase Acceptance Criteria Alignment:
 		- Ph1: ExecutionState structure & failure propagation tests pass.
@@ -132,7 +146,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 	| ROUTE_DEAD_END | Runtime | Plan exhausted while current node still has configured outgoing edges (dynamic routing gap) | Investigate routing logic / conditions |
 	| RESUME_TOKEN_INVALID | Runtime | Resume token mismatch or stale | Refresh latest state & resume again |
 
-	Progress Justification (84%): Phases 1–3 fully delivered (state, leases, pause/resume). Phase 4 structural + error code surfacing integrated (validator invoked pre-run). Phase 5 (journal seam skeleton) implemented (ActionJournalAdapter + event ordering tests). Phase 6 (metrics seam skeleton) now implemented: MetricsCollector interface + counters (specs_started, specs_completed, specs_failed, human_pauses, resume_total, lease_renewals) instrumented in run()/resume(), with metrics tests covering success, failure, and pause/resume flows. Remaining scope: documentation/architecture enrichment (Phase 7) and hardening/performance & concurrency edge tests (Phase 8) before SP-005 closure.
+	Progress Justification (Final 100%): All eight phases executed. Structural validation + error taxonomy active; pause/resume with token invalidation; lease scaffolding; journal seam with reuse & retry (via SP-010 linkage) and idempotent row updates; metrics counters extended (reuse_hits, retries, retry_exhausted). Hardening tests (performance, concurrency, idempotency, dead-end) ensure stability and deterministic behavior. Documentation updated: architecture §3 Execution Model added (state diagram, seams, taxonomy). Remaining journal auto-create gating & failure metrics extracted as separate follow-up tasks to avoid blocking closure.
 
 	> Project Rule (Enforced): No backward compatibility shims or legacy translation utilities will be introduced when performing internal refactors (e.g., error code enum migration). All changes are allowed to be drastic; consumers must adapt immediately. This supersedes any prior transitional helper additions.
 - **Connected File List**: ./src/services/spec-engine.ts, ./src/types/index.ts

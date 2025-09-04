@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { SpecEngine, ToolGraph } from '../services/spec-engine.js';
+import { SpecEngine, ToolGraph, SpecEngineErrorCode } from '../services/spec-engine.js';
 
 /**
  * SP-005 Phase 8 (analysis): Concurrency / stale resume token behavior.
@@ -11,8 +11,8 @@ import { SpecEngine, ToolGraph } from '../services/spec-engine.js';
  * and marks expectations for future enhancement (when paused state persistence + token versioning arrive).
  */
 
-describe('SpecEngine resume concurrency (document current gap)', () => {
-  it('allows multiple resume calls with same token (current behavior)', async () => {
+describe('SpecEngine resume concurrency (token invalidation)', () => {
+    it('rejects second resume with same token after first consumption', async () => {
     const graph: ToolGraph = {
       entry: 'h1',
       nodes: {
@@ -29,20 +29,18 @@ describe('SpecEngine resume concurrency (document current gap)', () => {
     const engine = new SpecEngine();
     const firstRun = await engine.run(graph); // should pause at h1
     expect(firstRun.status).toBe('awaiting_input');
-    const token = firstRun.resumeToken!;
+      const token = firstRun.resumeToken!;
 
   // First resume
-    const resumed1 = await engine.resume(graph, { ...firstRun, plan: { steps: [{ specHash: 'h1', awaitingHuman: true }, { specHash: 'a2', awaitingHuman: false }, { specHash: 'a3', awaitingHuman: false }], warnings: firstRun.warnings }, currentIndex: 0, awaitingSpec: 'h1', sessionContext: {} }, { specHash: 'h1', humanOutput: { ok: true } });
+      const resumed1 = await engine.resume(graph, { ...firstRun, plan: { steps: [{ specHash: 'h1', awaitingHuman: true }, { specHash: 'a2', awaitingHuman: false }, { specHash: 'a3', awaitingHuman: false }], warnings: firstRun.warnings }, currentIndex: 0, awaitingSpec: 'h1', sessionContext: {} }, { specHash: 'h1', humanOutput: { ok: true }, resumeToken: token });
     expect(resumed1.status).toBe('completed');
 
     // Second resume attempt with SAME token (simulated duplicate client submit)
     // Current engine has no stale detection: it will re-run autonomous specs again.
     // Accept this for now; future behavior should surface RESUME_TOKEN_INVALID.
     
-    const resumed2 = await engine.resume(graph, { ...firstRun, plan: { steps: [{ specHash: 'h1', awaitingHuman: true }, { specHash: 'a2', awaitingHuman: false }, { specHash: 'a3', awaitingHuman: false }], warnings: firstRun.warnings }, currentIndex: 0, awaitingSpec: 'h1', sessionContext: {} }, { specHash: 'h1', humanOutput: { ok: true, dup: true } });
-    expect(resumed2.status).toBe('completed');
-
-    // Document future expectation (placeholder assertion comment):
-    // FUTURE: expect(resumed2.errorCode).toBe(SpecEngineErrorCode.RESUME_TOKEN_INVALID)
+      const resumed2 = await engine.resume(graph, { ...firstRun, plan: { steps: [{ specHash: 'h1', awaitingHuman: true }, { specHash: 'a2', awaitingHuman: false }, { specHash: 'a3', awaitingHuman: false }], warnings: firstRun.warnings }, currentIndex: 0, awaitingSpec: 'h1', sessionContext: {} }, { specHash: 'h1', humanOutput: { ok: true, dup: true }, resumeToken: token });
+      expect(resumed2.status).toBe('error');
+      expect(resumed2.errorCode).toBe(SpecEngineErrorCode.RESUME_TOKEN_INVALID);
   });
 });
