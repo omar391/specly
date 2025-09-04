@@ -11,6 +11,7 @@
     "build"
   ],
   "scripts": {
+  "pretest": "tsx scripts/ensure-node-test-runtime.ts",
     "build": "npm run build:server && npm run build:ui",
     "build:server": "rsbuild build",
     "build:ui": "cd ui && bun run build",
@@ -28,6 +29,9 @@
     "lint:server": "tsc --noEmit",
     "lint:ui": "cd ui && tsc --noEmit",
     "inspector": "npx @modelcontextprotocol/inspector build/index.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.15.0",

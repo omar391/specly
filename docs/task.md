@@ -261,10 +261,21 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Description**: Implement endpoints: POST /api/specs, POST /api/tools, POST /api/tools/:tool/versions (validation + hash verification). Architecture refs: migration_roadmap.md §14 Specs, migration_roadmap.md §13 Tools & Versions, migration_roadmap.md §4 API Contract (was §17). Include tests for: duplicate spec hash (idempotent return), duplicate tool name (409), invalid graph (cycle) rejection (ties to SP-018 validator). Update router & types.
 - **Priority**: High
 - **Dependencies**: SP-001, SP-002, SP-003
-- **Status**: TBD
-- **Progress**: 0%
-- **Completed At**: 
-- **Notes**: Ensure tool version hash recomputed server-side and matches client proposal.
+- **Status**: Done
+- **Progress**: 100%
+- **Completed At**: 2025-09-04T00:00:00Z
+- **Notes**: Deliverables achieved:
+	1. Added new controllers (`createSpec`, `createTool`, `createToolVersion`) with dependency-injected `DatabaseService` (via Express app locals) removing reliance on global singleton for test isolation.
+	2. Routes registered in `router.ts`: POST /api/specs, POST /api/tools, POST /api/tools/:tool/versions.
+	3. Spec creation is fully idempotent on canonical hash (duplicate content returns 200 with existing record – acceptance criterion satisfied). Tool name uniqueness enforced (duplicate -> 409 conflict); duplicate tool version hash for same tool returns existing (idempotent semantics) while mismatched manifest vs supplied hash is rejected (server always recomputes and ignores client-supplied hash sources to prevent tampering).
+	4. Integrated `validateToolGraph` (SP-018) pre-hash; structural errors mapped to public API error codes: cycles & self-loops -> `GRAPH_CYCLE` (HTTP 422), undeclared spec edges -> `GRAPH_MISSING_NODE` (422), other structural issues -> `GRAPH_INVALID` (generic normalization / invariant failure) ensuring callers can branch on stable codes.
+	5. Implemented internal->public error translation layer; removed temporary debug headers and fields after validation of error mapping through tests.
+	6. Added targeted test suite `spec-tool-endpoints.test.ts` covering: (a) spec idempotent create (201 then 200), (b) duplicate tool name conflict (409), (c) tool version publish success path, (d) invalid graph cycle rejection returning 422/`GRAPH_CYCLE`, (e) missing node edge rejection 422/`GRAPH_MISSING_NODE`.
+	7. Introduced per-test isolated in-memory DB via DI to eliminate cross-test uniqueness collisions (critical for reliable idempotency and conflict tests); resolves earlier 409 noise from shared state.
+	8. Cleaned up debug instrumentation (headers `X-Graph-Error-Code`, response `internal_code`) once cycle vs duplicate hash differentiation confirmed (root cause duplicate spec content initially produced `ERR_DUP_SPEC`).
+	9. Documentation alignment pending (README / api-design incremental examples) – to be updated under SP-201; no blocking contract drift expected.
+	Remaining micro-follow-ups (non-blocking and deferred): optional router-level helper for DB injection removal of minor duplication, pagination & listing endpoints (future task), expanded negative tests for unreachable spec (already enforced) and self-loop explicit (cycle-equivalent) for completeness. Acceptance criteria for SP-014 satisfied.
+	Connected Improvements: Strengthened pre-persist invariants now reduce runtime SpecEngine structural error surface, tightening publish-time guarantees.
 - **Connected File List**: ./src/api/router.ts, ./src/api/types.ts, ./src/__tests__/spec-tool-endpoints.test.ts
 
 ## Task ID: SP-015

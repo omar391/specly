@@ -8,6 +8,7 @@ import { DatabaseService } from '../services/database-service.js';
 import { WorkspacesController } from './workspaces.js';
 import { TasksController } from './tasks.js';
 import { ToolsExecuteController } from './tools-execute.js';
+import { SpecsController, ToolsController } from './specs-tools.js';
 // Legacy ToolFlowsController & FeedbackStepsController removed (drastic migration)
 import { 
   errorHandler, 
@@ -29,7 +30,8 @@ export function createApiRouter(databaseService: DatabaseService): Router {
   const workspacesController = new WorkspacesController(databaseService);
   const tasksController = new TasksController(databaseService, workspacesController);
   const toolsExecuteController = new ToolsExecuteController(undefined, undefined, databaseService);
-  // Placeholder: future spec/profile controllers will be initialized here.
+  const specsController = new SpecsController();
+  const toolsController = new ToolsController();
 
   // Apply middleware
   router.use(corsHandler);
@@ -40,6 +42,10 @@ export function createApiRouter(databaseService: DatabaseService): Router {
   const writeRateLimit = rateLimit(30, 60 * 1000); // 30 requests per minute
 
   // API Routes (register specific routes first)
+  // Spec & Tool Management (SP-014)
+  router.post('/specs', writeRateLimit, async (req, res) => { await specsController.createSpec(req, res); });
+  router.post('/tools', writeRateLimit, async (req, res) => { await toolsController.createTool(req, res); });
+  router.post('/tools/:tool/versions', writeRateLimit, async (req, res) => { await toolsController.createToolVersion(req, res); });
 
   // POST /api/tools/:tool/execute (unified run/resume)
   router.post('/tools/:tool/execute', writeRateLimit, async (req, res) => {
