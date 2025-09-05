@@ -104,6 +104,21 @@ describe('POST /api/tools/:tool/execute', () => {
     const res = await request(app).post('/api/tools/demo/execute').send({ graph });
     expect(res.status).toBe(422);
     expect(res.body.error).toBeDefined();
+    expect(res.body.error.code).toBe('GRAPH_CYCLE');
+  });
+
+  it('returns 422 for structural error (missing node reference)', async () => {
+    const graph: ToolGraph = {
+      entry: 'a',
+      nodes: { a: { hash: 'a', intent: 'autonomous', sideEffect: false } },
+      edges: [{ from: 'a', to: 'b', priority: 100 }] // 'b' not declared
+    };
+    const res = await request(app).post('/api/tools/demo/execute').send({ graph });
+    expect(res.status).toBe(422);
+    expect(res.body.error).toBeDefined();
+    if (res.body.error.code) {
+      expect(['GRAPH_MISSING_NODE', 'GRAPH_CYCLE']).toContain(res.body.error.code);
+    }
   });
 
   it('returns 400 when graph missing', async () => {

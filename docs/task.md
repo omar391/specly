@@ -4,6 +4,15 @@ No backward compatibility. Tasks formatted as execution-ready units with traceab
 
 Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 
+### General Rule (Added 2025-09-03 – elevated)
+After completing each discrete unit task or phase (e.g., journal seam, metrics seam):
+1. Perform an internal PR-style review of the local diff (logic correctness, style adherence, rule compliance, dead code, naming consistency).
+2. Only after review passes, run the full (or appropriately scoped) test suite.
+3. Commit with a message referencing affected Task ID(s) and a concise summary of the change scope.
+4. Push immediately (no batching unrelated tasks) to preserve atomic history and simplify audits.
+
+This rule is mandatory and supersedes any ad-hoc commit practices. (Moved to top for visibility.)
+
 ---
 ## Backend Foundation
 
@@ -156,27 +165,31 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Description**: Add `POST /api/tools/:tool/execute` using SpecEngine. Remove legacy tool-flow & feedback endpoints. Update router + middleware (session ownership). migration_roadmap.md §4 API Contract.
 - **Priority**: High
 - **Dependencies**: SP-005
-- **Status**: In-Progress
-- **Progress**: 80%
-- **Completed At**: 
-- **Notes**: 
+- **Status**: Done
+- **Progress**: 100%
+- **Completed At**: 2025-09-04T17:40:56Z
+- **Notes**:
 	Implementation Deliverables Achieved:
 	- Added `ToolsExecuteController` (initially used query param `mode=run|resume`; refactored to implicit detection via `resumeToken` — query param removed for early simplification).
-	- Zod validation schemas for run & resume requests (graph structural subset + optional `tool_version_id` path). Enforces presence of `graph` or `tool_version_id`; server now resolves stored manifest when only `tool_version_id` provided.
+	- Zod validation schemas for run & resume requests (graph structural subset + optional `tool_version_id` path). Enforces presence of `graph` or `tool_version_id`; server resolves stored manifest when only `tool_version_id` provided.
 	- Introduced `PausedStateStore` abstraction (`InMemoryPausedStateStore`) replacing ad-hoc Map to future-proof persistence (DB-backed store later).
-	- Integrated structural error mapping: cycles & self-loops -> HTTP 422 (SpecEngineErrorCode.GRAPH_CYCLE), missing nodes -> 422, lease conflicts -> 409, runtime executor failures -> 500.
+	- Integrated structural + runtime error mapping:
+		GRAPH_CYCLE / GRAPH_MISSING_NODE -> 422
+		LEASE_ACQUIRE_FAILED / LEASE_RENEW_FAILED -> 409
+		RESUME_TOKEN_INVALID -> 404
+		ROUTE_DEAD_END / EXECUTOR_FAILED -> 500
 	- Removed legacy endpoints & stub files (`tool-flows.ts`, `feedback-steps.ts`) and cleaned router numbering.
-	- Added endpoint integration tests (`tools-execute-endpoint.test.ts`): full autonomous completion, human pause + resume, structural cycle error (422), missing graph (400), invalid resume token (404), tool_version_id autonomous & pause/resume flows.
-	- Enhanced SpecEngine structural validation mapping for `ERR_SELF_LOOP` → `GRAPH_CYCLE` for consistent 422 surface.
-	- Documentation updated: `api-design.md` now documents unified execute endpoint (run & resume modes, schemas, responses, error mapping) and removes legacy tool-flow/feedback endpoints; `README.md` updated with quickstart curl examples and error mapping table.
-	Remaining Scope for SP-006 Completion:
-	1. Documentation: Update README & api-design.md to reflect unified endpoint contract & error codes (Phase 7 docs synergy with SP-005).
-	2. Session/lease integration reinforcement in endpoint path (currently pass-through; add conflict tests after lease provider real enforcement evolves).
-	3. Persisted graph/tool_version path (implement `tool_version_id` resolution) — deferred to SP-014; ensure no breaking contract changes.
-	4. Add negative test for self-loop distinct from cycle (already covered via cycle mapping but explicit test optional).
-	5. Extended error code mapping & lease conflict examples once lease enforcement tightened (ties to SP-019).
-	Progress Justification (70%): Core endpoint, validation, abstraction, tests, and legacy cleanup done; remaining items are documentation, extended lease semantics, and persisted tool_version path (deferred) — enough to integrate UI flows.
-	Progress Justification (80% updated): Documentation deliverables (api-design & README) completed; contract examples and error mapping published. Mode param removed proactively (hardship now) to reduce future API surface churn; implicit run/resume detection validated by updated tests. Remaining functional scope unchanged (lease enforcement tests, persisted resolution path, optional self-loop explicit test). Documentation portion of SP-006 now complete.
+	- Added endpoint integration tests (`tools-execute-endpoint.test.ts`): autonomous completion, human pause + resume, structural cycle (self-loop) 422, missing graph 400, invalid resume token 404, tool_version_id autonomous & pause/resume flows.
+	- Extended HTTP mapping in `tools-execute.ts` to surface LEASE_RENEW_FAILED, RESUME_TOKEN_INVALID, ROUTE_DEAD_END (previously default runtime bucket).
+	- Documentation updated: `api-design.md` & `README.md` error mapping tables now include renewal/resume/dead-end codes (asterisks removed).
+	Completion & Deferrals:
+	- Session/lease enforcement conflict & renewal failure tests deferred to SP-019 (explicit scope transfer).
+	- Advanced persistence optimization (omit graph on resume when using `tool_version_id`) deferred to SP-014 follow-ups (non-blocking).
+	- Optional explicit self-loop test considered redundant (cycle test already covers).
+	Deferrals Logged:
+	- Lease enforcement robustness & conflict examples → SP-019
+	- Advanced persistence (omit graph on resume) → future tool version persistence enhancement (post SP-014 stabilization)
+	Progress Justification (100%): Endpoint feature-complete with extended error taxonomy, integration tests green (targeted suite re-run successful), documentation synchronized. Remaining work moved to dedicated follow-up tasks; no open acceptance criteria.
 - **Connected File List**: ./src/api/router.ts, ./src/api/tools-execute.ts, ./src/services/paused-state-store.ts, ./src/__tests__/tools-execute-endpoint.test.ts
 
 ## Task ID: SP-007
@@ -330,7 +343,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Status**: TBD
 - **Progress**: 0%
 - **Completed At**: 
-- **Notes**: Add negative test for force_start without existing session ownership.
+- **Notes**: Add negative test for force_start without existing session ownership. Deferred from SP-006: explicit lease enforcement conflict tests & lease renewal failure mapping assertions (now in SP-019 scope). Include: (a) acquire conflict 409, (b) lease renewal failure path, (c) conflicting resume attempt 409, (d) awaiting_input state does not advance without active lease.
 - **Connected File List**: ./src/__tests__/session-lease.test.ts, ./src/services/spec-engine.ts
 
 ## Task ID: SP-020
@@ -631,13 +644,5 @@ Rollback (minimal since destructive): backup of pre-migration DB snapshot retain
 
 ## Notes
 Legacy phase-based planning removed 2025-09-02 for clarity under direct cutover approach. Historical phased plan intentionally discarded (no appendix) to prevent drift.
-
-### General Rule (Added 2025-09-03)
-After completing each discrete unit task or phase (e.g., journal seam, metrics seam):
-1. Perform an internal PR-style review of the local diff (logic correctness, style adherence, rule compliance, dead code, naming consistency).
-2. Only after review passes, run the full (or appropriately scoped) test suite.
-3. Commit with a message referencing affected Task ID(s) and a concise summary of the change scope.
-4. Push immediately (no batching unrelated tasks) to preserve atomic history and simplify audits.
-This rule is mandatory and supersedes any ad-hoc commit practices.
 
 This task plan is living; update in PRs referencing Task IDs. All implementers must maintain alignment with `migration_roadmap.md` and `migration_roadmap_ui.md`.

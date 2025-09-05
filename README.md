@@ -357,8 +357,12 @@ Error Mapping (current):
 | GRAPH_CYCLE | 422 | Cycle or self-loop detected |
 | GRAPH_MISSING_NODE | 422 | Edge references missing node |
 | LEASE_ACQUIRE_FAILED | 409 | Session ownership conflict |
+| LEASE_RENEW_FAILED | 409 | Session lease renewal failed |
+| RESUME_TOKEN_INVALID | 404 | Resume token not found or expired |
+| ROUTE_DEAD_END | 500 | No executable path forward (unexpected dead-end) |
+| EXECUTOR_FAILED | 500 | Tool execution runtime failure |
+| (other) | 500 | Unclassified internal error |
 | (none) | 200 | Completed or awaiting_input (success path) |
-| EXECUTOR_FAILED/other | 500 | Runtime failure |
 
 `tool_version_id` path is active: sending only that field (without graph or resumeToken) executes the persisted manifest. If both `graph` and `tool_version_id` are supplied the explicit `graph` wins. Supplying deprecated `mode` query param returns 400.
 

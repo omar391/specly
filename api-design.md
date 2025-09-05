@@ -161,10 +161,13 @@ Successful Resume Completion (200):
 Error Code → HTTP Mapping (current):
 | Engine Error Code | HTTP Status | Notes |
 |-------------------|-------------|-------|
-| GRAPH_CYCLE | 422 | Includes self-loop detection |
+| GRAPH_CYCLE | 422 | Includes self-loop & cycle detection |
 | GRAPH_MISSING_NODE | 422 | Missing referenced spec in edges |
-| LEASE_ACQUIRE_FAILED | 409 | Session ownership conflict (future stricter tests) |
-| (none / runtime) | 500 | EXECUTOR_FAILED and other runtime failures |
+| LEASE_ACQUIRE_FAILED | 409 | Session ownership conflict |
+| LEASE_RENEW_FAILED | 409 | Lost ownership during renewal |
+| RESUME_TOKEN_INVALID | 404 | Stale or already-used resume token |
+| ROUTE_DEAD_END | 500 | Dead-end encountered with remaining outgoing edges |
+| (EXECUTOR_FAILED / other runtime) | 500 | Autonomous executor failure or unspecified runtime error |
 
 Response Envelope Fields:
 - `status`: `completed | awaiting_input | failed`
@@ -299,11 +302,11 @@ Central reference for current and planned SpecEngine error codes surfaced via th
 |------|----------|-------------|------|----------------|
 | GRAPH_CYCLE | Structural | Cycle or self-loop detected in provided graph | 422 | Fix graph definition |
 | GRAPH_MISSING_NODE | Structural | Edge references a node not declared in `nodes` | 422 | Fix manifest |
-| EXECUTOR_FAILED | Runtime | Autonomous executor threw an exception | 500 | Investigate / potential future retry |
+| EXECUTOR_FAILED | Runtime | Autonomous executor threw an exception | 500 | Investigate; retry depends on idempotency |
 | LEASE_ACQUIRE_FAILED | Runtime | Session ownership conflict (another client holds lease) | 409 | Retry with `force` or after releasing |
-| LEASE_RENEW_FAILED* | Runtime | Lease renewal failed mid-run (future) | 500/409* | Re-run after ownership clarification |
-| ROUTE_DEAD_END* | Runtime | Dynamic routing could not find a valid next edge | 500 | Inspect routing conditions |
-| RESUME_TOKEN_INVALID* | Runtime | Resume token stale or mismatched | 404/409* | Fetch latest state and retry |
+| LEASE_RENEW_FAILED | Runtime | Lease renewal failed mid-run | 409 | Re-run after ownership clarification |
+| ROUTE_DEAD_END | Runtime | No valid transition despite outgoing edges | 500 | Inspect routing/graph definition |
+| RESUME_TOKEN_INVALID | Runtime | Resume token stale, mismatched, or reused | 404 | Refetch state & resume again |
 
 Legend: * denotes codes defined in engine design but not yet surfaced through HTTP mapping in this iteration; mapping will be finalized alongside SP-019 / SP-010 tasks.
 

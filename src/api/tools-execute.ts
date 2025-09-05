@@ -13,7 +13,7 @@ export class ToolsExecuteController {
     private engineFactory: () => SpecEngine = () => new SpecEngine(),
     private pausedStore: PausedStateStore = defaultPausedStateStore,
     private db: DatabaseService | null = null
-  ) {}
+  ) { }
 
   async execute(req: Request, res: Response) {
     // Reject deprecated query param early if present
@@ -45,10 +45,10 @@ export class ToolsExecuteController {
           // Fetch spec intents for nodes (fallback to autonomous if missing) – specs may not all exist if seed incomplete
           const specMap = await globalDb.getSpecsByHashes(manifest.ordered_specs);
           const nodes: Record<string, any> = {};
-            for (const h of manifest.ordered_specs) {
-              const spec = (specMap as any)[h];
-              nodes[h] = { hash: h, intent: spec?.intent || 'autonomous', sideEffect: spec?.sideEffect || false };
-            }
+          for (const h of manifest.ordered_specs) {
+            const spec = (specMap as any)[h];
+            nodes[h] = { hash: h, intent: spec?.intent || 'autonomous', sideEffect: spec?.sideEffect || false };
+          }
           resolvedGraph = {
             entry: manifest.entry_spec,
             nodes,
@@ -117,9 +117,14 @@ function mapHttpStatus(code?: SpecEngineErrorCode): number {
     case SpecEngineErrorCode.GRAPH_MISSING_NODE:
       return 422;
     case SpecEngineErrorCode.LEASE_ACQUIRE_FAILED:
+    case SpecEngineErrorCode.LEASE_RENEW_FAILED:
       return 409;
+    case SpecEngineErrorCode.RESUME_TOKEN_INVALID:
+      return 404;
+    case SpecEngineErrorCode.ROUTE_DEAD_END:
+      return 500; // treated as server runtime failure (routing gap)
     default:
-      return 500; // runtime failures for now
+      return 500;
   }
 }
 
