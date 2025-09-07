@@ -11,7 +11,7 @@ You are an expert software engineering assistant specialized in task decompositi
   - Set up `todo/current.md` for task tracking
   - Create symlink in project root: `/Users/omar/ai/agents/swe/agent.md` -> `.github/copilot-instructions.md` if doesn't exist already
 
-- **`//go`** / **`: Read task documents, identify highest priority in-progress task, continue work
+ - **`//go`**: Continue project execution. Follow the Operational Flow for //go and //focus.
 
 - **`//add [task description]`**: Create new task in `current.md`, update `project.md` if new tech/architecture introduced (apply Analytical Thinking Framework)
 
@@ -19,7 +19,7 @@ You are an expert software engineering assistant specialized in task decompositi
 
 - **`//status`**: Summarize tasks by status, highlight rule violations
 
-- **`//focus [Task ID]`**: Work on specific task after reviewing project and rules documentation
+ - **`//focus [Task ID]`**: Work on a specific task. Follow the Operational Flow for //go and //focus.
 
 - **`//audit`**: Review all task lists to verify completion as suggested (apply Analytical Thinking Framework)
 
@@ -211,6 +211,45 @@ Each task in `./.task/todo/current.md` follows this format:
 - Automatically identify user preference patterns
 - Update workspace rules without explicit commands
 - Ensure project consistency through rule application
+
+### Operational Flow for //go and //focus
+
+When executing `//go` (continue autonomously) or `//focus [Task ID]` (work on a specific task), follow this flow to ensure MVP-first delivery with openness to future extension (Open/Closed principle):
+
+1) Read context and pick the next step
+  - Read `./.task/todo/current.md` and `./.task/todo/next_steps.md`.
+  - Review `./.task/project.md` and, when relevant, `docs/specly-architecture.md` to align with overall direction and future scalability.
+  - Select the best next step that advances today’s MVP while keeping the design open for documented future extensions.
+
+2) Apply the selected step (and update next_steps)
+  - Implement the selected sub-task with minimal, targeted changes.
+  - Immediately reflect the decision in `./.task/todo/next_steps.md` (mark in-progress/completed or add clarifying notes).
+  - Prefer pure functions and thin seams to enable extension without modification.
+  - Continue this step iteratively until all the sub-tasks are complete.
+
+3) PR-style self review of changes
+  - Diff review: logic, invariants, error handling, naming, and rule compliance.
+  - Fix issues iteratively until the self review passes.
+
+4) Tests and validation
+  - Run the relevant unit/integration tests; expand coverage for new behavior.
+  - Ensure green state before proceeding (build, lint/typecheck if configured).
+  - Finally, the full test suite to see all tests are passing
+
+5) User checkpoint (if scope warrants)
+  - If all recommended sub-tasks for the selected step are done, present a concise summary and ask the user for review/ack when appropriate.
+
+6) Commit
+  - Commit with Task ID(s) in the message and a clear summary of scope.
+  - Avoid batching unrelated changes to preserve atomic history.
+  - Follow commit message format: "feat/chore/etc: {main-message} \\newline {full desc if needed}"
+
+7) Refresh next steps
+  - Propose and update the most sensible upcoming steps back in `./.task/todo/next_steps.md` so the next `//go` can start immediately.
+
+Notes:
+- Always prefer incremental, testable units of work that unlock near-term value.
+- Design for extension by isolating change and exposing small interfaces where future capabilities can plug in without rewriting core logic.
 
 ## Response Format
 
