@@ -75,6 +75,41 @@ export class ProfileRepository {
 
   async createProfileVersion(input: CreateProfileVersionInput): Promise<{ id: string; version: number; created: boolean }> {
     const db = this.globalDb.getDrizzleManager().getDb();
+    // parent validations
+    if (input.parentProfileVersionId) {
+      const parent = await db
+        .select({ id: profileVersions.id, profileId: profileVersions.profileId, parentId: profileVersions.parentProfileVersionId })
+        .from(profileVersions)
+        .where(eq(profileVersions.id, input.parentProfileVersionId))
+        .limit(1);
+      if (!parent.length) {
+        throw new Error('Parent profile version not found');
+      }
+      if (parent[0].profileId !== input.profileId) {
+        throw new Error('Parent profile version belongs to different profile');
+      }
+      // Cycle detection: walk up parent chain; if we revisit a node, cycle exists
+      const visited = new Set<string>();
+      let cursor: string | null = input.parentProfileVersionId;
+      // Reasonable hard cap to avoid pathological loops; chain cannot exceed 10k realistically
+      let steps = 0;
+      while (cursor) {
+        if (visited.has(cursor)) {
+          throw new Error('Cycle detected in profile version parent chain');
+        }
+        visited.add(cursor);
+        const [row] = await db
+          .select({ parentId: profileVersions.parentProfileVersionId })
+          .from(profileVersions)
+          .where(eq(profileVersions.id, cursor))
+          .limit(1);
+        cursor = (row as any)?.parentId ?? null;
+        steps++;
+        if (steps > 10000) {
+          throw new Error('Cycle detection exceeded max depth');
+        }
+      }
+    }
     // get current max version
     const rows = await db.select().from(profileVersions).where(eq(profileVersions.profileId, input.profileId)).orderBy(desc(profileVersions.version)).limit(1);
     const nextVersion = rows.length === 0 ? 1 : (rows[0].version as number) + 1;
@@ -132,6 +167,16 @@ export class ProfileRepository {
   async listProfileVersions(profileId: string): Promise<any[]> {
     const db = this.globalDb.getDrizzleManager().getDb();
     return db.select().from(profileVersions).where(eq(profileVersions.profileId, profileId)).orderBy(desc(profileVersions.version));
+  }
+
+  async getProfileVersionById(id: string): Promise<{ id: string; profileId: string; parentProfileVersionId: string | null; version: number } | null> {
+    const db = this.globalDb.getDrizzleManager().getDb();
+    const [row] = await db
+      .select({ id: profileVersions.id, profileId: profileVersions.profileId, parentProfileVersionId: profileVersions.parentProfileVersionId, version: profileVersions.version })
+      .from(profileVersions)
+      .where(eq(profileVersions.id, id))
+      .limit(1);
+    return (row as any) || null;
   }
 
   async getProfileVersionByNumber(profileId: string, version: number): Promise<{ id: string; version: number } | null> {

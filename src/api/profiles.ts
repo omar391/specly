@@ -46,8 +46,16 @@ export class ProfilesController {
     const repo = new ProfileRepository(db);
     const profile = await repo.getProfileByName(profileName);
     if (!profile) return res.status(404).json({ error: 'profile not found', profile: profileName });
-    const created = await repo.createProfileVersion({ profileId: profile.id, parentProfileVersionId: parent_profile_version_id ?? null });
-    return res.status(201).json({ id: created.id, version: created.version, created: true });
+    try {
+      const created = await repo.createProfileVersion({ profileId: profile.id, parentProfileVersionId: parent_profile_version_id ?? null });
+      return res.status(201).json({ id: created.id, version: created.version, created: true });
+    } catch (e: any) {
+      const msg = String(e?.message || 'validation failed');
+      if (/not found|different profile|Cycle detected|exceeded max depth/i.test(msg)) {
+        return res.status(422).json({ error: msg });
+      }
+      return res.status(500).json({ error: 'failed to create profile version' });
+    }
   }
 
   /** POST /api/workspaces/:workspaceId/profile/upgrade */

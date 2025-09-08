@@ -18,5 +18,5 @@ Next primary focus candidates:
 
 Upcoming SP-015 steps (incremental):
 1) [Completed] Add explicit profile publish helper (attach tools to a new version) and tests for attachments + duplicate prevention.
-2) Validate parent_profile_id existence and add stronger cycle guard in ProfilesController (ties to SP-009 service logic).
-3) Extend GET /api/workspaces/:id/profile to include resolved profile name and version number via join for UI.
+2) [Completed] Validate parent_profile_version_id existence, enforce same-profile constraint, and add cycle detection (422 mapping in controller). Tests added and green.
+3) [Next] Extend GET /api/workspaces/:id/profile to include resolved profile name and version number via join for UI.

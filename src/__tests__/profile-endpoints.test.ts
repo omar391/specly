@@ -116,4 +116,23 @@ describe('Profile & Workspace Binding Endpoints (SP-015)', () => {
     expect(getAtt.body.attachments.length).toBe(1);
     expect(getAtt.body.attachments[0].toolName).toBe('echo');
   });
+
+  it('rejects creating a profile version with missing parent_profile_version_id', async () => {
+    const { app } = makeApp();
+    await request(app).post('/api/profiles').send({ name: 'p1' });
+    const v1 = await request(app).post('/api/profiles/p1/versions').send({});
+    expect(v1.status).toBe(201);
+    const bad = await request(app).post('/api/profiles/p1/versions').send({ parent_profile_version_id: 'does-not-exist' });
+    expect(bad.status).toBe(422);
+  });
+
+  it('rejects parent_profile_version_id from a different profile', async () => {
+    const { app } = makeApp();
+    await request(app).post('/api/profiles').send({ name: 'a' });
+    await request(app).post('/api/profiles').send({ name: 'b' });
+    const a1 = await request(app).post('/api/profiles/a/versions').send({});
+    expect(a1.status).toBe(201);
+    const bad = await request(app).post('/api/profiles/b/versions').send({ parent_profile_version_id: a1.body.id });
+    expect(bad.status).toBe(422);
+  });
 });
