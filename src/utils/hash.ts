@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import { getOrComputeHash } from './hash-cache.js';
 
 /**
  * Canonical JSON stringifier ensuring:
@@ -36,7 +37,8 @@ export function sha256(content: string): string {
  */
 export function hashSpec(spec: unknown): { hash: string; canonical: string } {
   const canonical = canonicalStringify(spec);
-  return { hash: sha256(canonical), canonical };
+  const hashed = getOrComputeHash(canonical, () => sha256(canonical));
+  return { hash: hashed, canonical };
 }
 
 /**
@@ -54,12 +56,14 @@ export function hashToolVersion(input: { ordered_specs: any[]; edges: any[]; [k:
   });
   const normalized = { ...rest, ordered_specs, edges: sortedEdges };
   const canonical = canonicalStringify(normalized);
-  return { hash: sha256(canonical), canonical };
+  const hashed = getOrComputeHash(canonical, () => sha256(canonical));
+  return { hash: hashed, canonical };
 }
 
 /**
  * Convenience stable hash for arbitrary JSON.
  */
 export function stableHash(value: unknown): string {
-  return sha256(canonicalStringify(value));
+  const canonical = canonicalStringify(value);
+  return getOrComputeHash(canonical, () => sha256(canonical));
 }

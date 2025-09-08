@@ -25,9 +25,9 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Priority**: High
 - **Dependencies**: SP-001
 - **Status**: In-Progress
-- **Progress**: 70%
+- **Progress**: 80%
 - **Completed At**: 
-- **Notes**: Canonical JSON serializer + spec & tool version hashing implemented (`canonicalStringify`, `hashSpec`, `hashToolVersion`, `stableHash`). Golden fixture established (`spec-example.json`) with baseline enforcement in `hash.golden.test.ts`. Added negative test verifying ordered_specs reordering changes hash. Remaining: integrate hashing into spec/tool endpoints (SP-014), collision logging + guard, optional in-memory hash cache, expand golden vectors (SP-200), documentation of update procedure. Low-priority future: deep nested fuzz test.
+- **Notes**: Canonical JSON serializer + spec & tool version hashing implemented (`canonicalStringify`, `hashSpec`, `hashToolVersion`, `stableHash`). Golden fixture established (`spec-example.json`) with baseline enforcement in `hash.golden.test.ts`. Added negative test verifying ordered_specs reordering changes hash. New: in-memory LRU hash cache added and wired into hash helpers with env knob `TASKPILOT_HASH_CACHE_SIZE` (default 500), plus tests for hit/miss and determinism. Remaining: integrate hashing into spec/tool endpoints (SP-014) [done], collision logging + guard, expand golden vectors (SP-200), documentation of update procedure. Low-priority future: deep nested fuzz test.
 - **Connected File List**: ./src/utils/hash.ts, ./src/__tests__/hash.test.ts
 
 ## Task ID: SP-003
@@ -336,8 +336,6 @@ New in this iteration:
 - Documentation updated: specly-architecture.md §13.1 now includes normalization guarantees and validator→public error mapping table; README references that section.
 
 Remaining for SP-018: Endpoint audit completed (no other public surfaces throw validator errors). Consider exposing normalized manifest echo in responses (deferred). Proceed to SP-002 optimization and SP-200 golden maintenance per plan. Instruction docs updated to emphasize autonomous progression without asking user to choose next steps.
-
-## Task ID: SP-019
 - **Title**: Session Lease & Force-Start Enforcement Tests
 - **Description**: Implement rigorous tests around client_state_id leasing, force_start behavior (transfer ownership), and conflict responses (409). Ensure idle transition when awaiting_input and rejection on mismatched resume.
 - **Priority**: Medium

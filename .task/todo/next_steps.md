@@ -1,18 +1,17 @@
 # Next Steps (as of 2025-09-08)
 
-Focus: SP-002 Hashing & Canonicalization Optimization (single-task focus per instructions)
+Focus: SP-002 Hashing & Canonicalization Optimization
 
-1. Implement in-memory LRU cache (~500 entries)
-   - New utility (e.g., `src/utils/hash-cache.ts`) wrapping stable hash functions; bounded size with simple eviction.
+Status: Completed in this cycle
+- Implemented in-memory LRU cache with env knob TASKPILOT_HASH_CACHE_SIZE (default 500)
+- Wired into `stableHash`, `hashSpec`, `hashToolVersion`
+- Added tests verifying hit/miss and determinism (`src/__tests__/hash-cache.test.ts`)
 
-2. Wire cache into hot paths
-   - Integrate with `hashSpec`/`hashToolVersion` usage in repositories/services where repeated hashing occurs.
+Follow-ups (small, optional):
+1. Observability integration:
+   - Plumb `hash_cache_hits/misses` into MetricsCollector and expose via health endpoint (ties to SP-012)
+2. Micro-benchmark script (optional dev-only) to compare cached vs uncached
 
-3. Add tests and micro-benchmark
-   - Unit tests: hit/miss behavior and determinism unchanged; add a tiny benchmark script to compare cached vs uncached.
-
-4. Observability (optional but small)
-   - Add counters (hash_cache_hits/misses) to the in-memory metrics collector; assert basic increments in one test.
-
-5. Docs and flags
-   - Note cache behavior in README/architecture if needed; add env knob for cache size with safe default.
+Next primary focus candidates:
+- SP-007 CLI Refactor (remove stepId; point CLI to unified execute) [Medium]
+- SP-015 Profile & Workspace Binding Endpoints [High]
