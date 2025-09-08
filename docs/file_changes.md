@@ -122,7 +122,7 @@ No dual-run, no shadow mode: legacy execution path is deleted once SpecEngine la
 ### `prompt-orchestrator.ts` [M]
 - Refactor for spec template rendering & side_effect journaling; remove references to feedback steps.
 
-### `remote-interface-manager.ts` [M]
+### `external-task-integrations-manager.ts` [M]
 - Validate that external tool calls operate under spec security constraints.
 
 ### `seed-manager.ts` [M]
@@ -146,7 +146,7 @@ Each tool command updated to call unified execute; delete stepId arguments & mes
 ### `add.ts`, `start.ts`, `audit.ts`, `status.ts`, `update.ts`, `focus.ts`, `rule-update.ts`, `update-resources.ts`, `update-steps.ts`, `task-tool.ts`, `init.ts` [M]
 - Remove stepId handling immediately; implement new execute invocation & session/task flags.
 
-### `github.ts`, `remote-interface.ts` [M]
+### `github.ts`, `external-task-integrations.ts` [M]
 - If they produce dynamic steps, now just display returned `awaiting_input` content.
 
 ### `base-tool.ts` [M]

@@ -163,9 +163,9 @@ export const workspaceRulesNew = sqliteTable('workspace_rules', {
 ```
 
 ### 2.2 Workspace DB Changes
-Replace `tasks` table; introduce `task_dependencies`; new `sessions_ext` overlay or reuse existing `sessions` with added columns.
+Replace `tasks` table; introduce `task_dependencies`; reuse `sessions` with added columns.
 ```ts
-export const tasksNew = sqliteTable('tasks', {
+export const tasks = sqliteTable('tasks', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
   description: text('description'),
@@ -175,6 +175,10 @@ export const tasksNew = sqliteTable('tasks', {
   notes: text('notes'),
   profileVersionId: text('profile_version_id'),
   blockedReason: text('blocked_reason'),
+  assets: text('assets', { mode:'json' }).default([]),
+  externalReferences: text('external_references', { mode:'json' }).default([]),
+  metadata: text('metadata', { mode:'json' }).default({}),
+  tags: text('tags', { mode:'json' }).default([]),
   deletedAt: text('deleted_at'),
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
@@ -182,16 +186,16 @@ export const tasksNew = sqliteTable('tasks', {
 });
 
 export const taskDependencies = sqliteTable('task_dependencies', {
-  taskId: text('task_id').notNull().references(() => tasksNew.id, { onDelete:'cascade' }),
-  dependsOnTaskId: text('depends_on_task_id').notNull().references(() => tasksNew.id, { onDelete:'cascade' })
+  taskId: text('task_id').notNull().references(() => tasks.id, { onDelete:'cascade' }),
+  dependsOnTaskId: text('depends_on_task_id').notNull().references(() => tasks.id, { onDelete:'cascade' })
 }, (t) => ({
   uxTaskDep: uniqueIndex('ux_task_dep').on(t.taskId, t.dependsOnTaskId)
 }));
 
-export const sessionsNew = sqliteTable('sessions', {
+export const sessions = sqliteTable('sessions', {
   id: text('id').primaryKey(),
   workspaceId: text('workspace_id').notNull(),
-  taskId: text('task_id').references(() => tasksNew.id, { onDelete:'set null' }),
+  taskId: text('task_id').references(() => tasks.id, { onDelete:'set null' }),
   profileVersionId: text('profile_version_id'),
   currentSpecHash: text('current_spec_hash'),
   status: text('status', { enum:['active','idle'] }).default('active'),

@@ -16,7 +16,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Status**: Done
 - **Progress**: 100%
 - **Completed At**: 2025-09-03T08:09:25Z
-- **Notes**: Core schema established (global + workspace). Legacy multi-step system fully purged: executor logic neutralized, legacy tables (tool_flows, tool_flow_steps, feedback_steps) dropped via programmatic migration + SQL, references removed from code, placeholder tests ensure no regressions. Added specly-core-schema test verifying presence of new tables and absence of legacy ones (all tests green: 84/84). Deferred items explicitly out of scope for SP-001: renaming tasks_new/sessions_new (handled in later task), adding full uniqueness/FK/indices expansion (future tasks will implement). This completes acceptance criterion #1 for backend cutover.
+- **Notes**: Core schema established (global + workspace). Legacy multi-step system fully purged: executor logic neutralized, legacy tables (tool_flows, tool_flow_steps, feedback_steps) dropped via programmatic migration + SQL, references removed from code, placeholder tests ensure no regressions. Added specly-core-schema test verifying presence of new tables and absence of legacy ones (all tests green: 84/84). Naming normalization applied: workspace tables are `tasks`, `task_dependencies`, and `sessions` (no *_new suffix). This completes acceptance criterion #1 for backend cutover.
 - **Connected File List**: ./src/database/schema/global-schema.ts, ./src/database/schema/workspace-schema.ts, ./src/database/schema/relations.ts, ./src/database/migrations/*
 
 ## Task ID: SP-002
@@ -196,13 +196,19 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 
 ## Task ID: SP-008
 - **Title**: Task & Session Model Upgrade
-- **Description**: Implement new task statuses, dependency table, session columns; update queries & services enforcing transitions. Remove old status mapping logic.
+- **Description**: Cut over API and services to the final Specly task/session model using normalized table names and fields.
+	- Use workspace tables: `tasks`, `task_dependencies`, and `sessions` (no *_new suffixes).
+	- Implement Specly task statuses: `queued|in_progress|awaiting_input|blocked|paused|completed|failed` with validated transitions.
+	- Add task fields end-to-end (DB → services → API): `assets` (JSON array), `external_references` (JSON array), `metadata` (JSON object), `tags` (JSON array).
+	- Update Workspace DB/service layer and controllers to enforce transitions and set/clear `completed_at` appropriately.
+	- Update tests to cover transitions, dependency blocking/unblocking, and new fields in responses.
+	- Drop any legacy task tables/usages post-verification.
 - **Priority**: High
 - **Dependencies**: SP-001, SP-005
 - **Status**: TBD
 - **Progress**: 0%
 - **Completed At**: 
-- **Notes**: Add test coverage for transitions and dependency unlocking.
+- **Notes**: Acceptance: (1) No references to legacy task tables remain; (2) API returns new fields (`assets`, `external_references`, `metadata`, `tags`); (3) Transition rules enforced with negative tests; (4) Full suite green.
 - **Connected File List**: ./src/database/schema/workspace-schema.ts, ./src/services/workspace-registry.ts, ./src/__tests__/task-status-transitions.test.ts
 
 ## Task ID: SP-009

@@ -1,6 +1,6 @@
 # TaskPilot UI Integration API Design
 
-Note: Legacy TaskPilot task schema is deprecated. This document now reflects Specly’s new workspace schema (tasks_new, task_dependencies, sessions_new). Any references to the old `tasks` table are superseded by this design and will be removed during SP-008.
+Note: Legacy TaskPilot task schema is deprecated. This document now reflects Specly’s workspace schema (tasks, task_dependencies, sessions). Any references to the old legacy task schema are superseded by this design.
 
 ## Overview
 This document defines the minimal REST API endpoints required for TaskPilot UI integration, based on analysis of UI pages: home, tasks, tool-flows, and feedback-steps.
@@ -55,6 +55,10 @@ Response:
       "notes": "string|null",
       "blocked_reason": "string|null",
       "profile_version_id": "string|null",
+      "assets": [],
+      "external_references": [],
+      "metadata": {},
+      "tags": [],
       "deleted_at": "ISO8601|null",
       "created_at": "ISO8601",
       "updated_at": "ISO8601",
@@ -271,6 +275,10 @@ Response (200):
     "notes": "string|null",
     "blocked_reason": "string|null",
     "profile_version_id": "string|null",
+    "assets": [],
+    "external_references": [],
+    "metadata": {},
+    "tags": [],
     "deleted_at": "ISO8601|null",
     "created_at": "ISO8601",
     "updated_at": "ISO8601",
@@ -452,7 +460,7 @@ These endpoints may be added during UI integration if needed:
 - `GET /api/workspaces/{id}/github-config` - GitHub integration settings
 - `POST /api/workspaces/{id}/tool-flows` - Create custom tool flow
 - `DELETE /api/workspaces/{id}/tasks/{taskId}` - Delete task
-- `GET /api/workspaces/{id}/remote-interfaces` - Remote integrations
+- `GET /api/workspaces/{id}/external-task-integrations` - External task integrations catalog
 - `POST /api/workspaces/{id}/feedback-steps` - Create workspace feedback step
 - `GET /api/health` - Server health check (already implemented)
 

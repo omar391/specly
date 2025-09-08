@@ -6,8 +6,8 @@ Status: In progress
 - Minimal SP-016 slice shipped: GET single task and PATCH status endpoints implemented with validation and tests; full suite green (172/172).
 
 Immediate next actions:
-1) SP-008: Migrate API to Specly task model (tasks_new)
-   - Switch `WorkspaceDatabaseService` from legacy `tasks` to `tasks_new`
+1) SP-008: Migrate API to Specly task model (tasks)
+   - Switch `WorkspaceDatabaseService` from legacy `tasks` to new `tasks` schema
    - Update `TasksController` to Specly statuses: queued|in_progress|awaiting_input|blocked|paused|completed|failed
    - Ensure completed_at set on transition to completed; clear on revert (if allowed)
    - Update existing tests to new statuses and add minimal negative transition tests
@@ -20,7 +20,7 @@ Immediate next actions:
    - Enforce blocked→in_progress invalid until dependencies resolved
 3) Documentation & cleanup
    - api-design.md stays Specly; remove any stale legacy references encountered
-   - After SP-008 verified, drop legacy `tasks` table in programmatic migration
+   - After SP-008 verified, drop any legacy task tables in programmatic migration
    - Update `.task/todo/current.md` progress as endpoints land
 
 Deferred follow-ups:

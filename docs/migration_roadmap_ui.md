@@ -64,6 +64,7 @@ Update client Task interface accordingly; remove legacy arrays.
 | addTaskDependency | POST /api/tasks/:id/dependencies | |
 | removeTaskDependency | DELETE /api/tasks/:id/dependencies/:depId | |
 | softDeleteTask | PATCH /api/tasks/:id/delete | sets deleted_at |
+| listExternalTaskIntegrations | GET /api/workspaces/:id/external-task-integrations | integrations catalog for task execution context |
 | getWorkspaceProfile | GET /api/workspaces/:id/profile-version | (new) workspace binding |
 
 ## 5. UX Flows
