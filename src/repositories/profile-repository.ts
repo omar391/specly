@@ -133,4 +133,29 @@ export class ProfileRepository {
     const db = this.globalDb.getDrizzleManager().getDb();
     return db.select().from(profileVersions).where(eq(profileVersions.profileId, profileId)).orderBy(desc(profileVersions.version));
   }
+
+  async getProfileVersionByNumber(profileId: string, version: number): Promise<{ id: string; version: number } | null> {
+    const db = this.globalDb.getDrizzleManager().getDb();
+    const [row] = await db
+      .select({ id: profileVersions.id, version: profileVersions.version })
+      .from(profileVersions)
+      .where(and(eq(profileVersions.profileId, profileId), eq(profileVersions.version, version)))
+      .limit(1);
+    return (row as any) || null;
+  }
+
+  async listProfileVersionAttachments(profileVersionId: string): Promise<Array<{ id: string; toolName: string; toolVersionHash: string; commandAlias: string | null; inheritedFromProfileVersionId: string | null }>> {
+    const db = this.globalDb.getDrizzleManager().getDb();
+    const rows = await db
+      .select({
+        id: profileVersionTools.id,
+        toolName: profileVersionTools.toolName,
+        toolVersionHash: profileVersionTools.toolVersionHash,
+        commandAlias: profileVersionTools.commandAlias,
+        inheritedFromProfileVersionId: profileVersionTools.inheritedFromProfileVersionId
+      })
+      .from(profileVersionTools)
+      .where(eq(profileVersionTools.profileVersionId, profileVersionId));
+    return rows as any;
+  }
 }

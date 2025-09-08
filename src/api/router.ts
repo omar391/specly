@@ -52,6 +52,8 @@ export function createApiRouter(databaseService: DatabaseService): Router {
   // Profile & Workspace Binding (SP-015)
   router.post('/profiles', writeRateLimit, async (req, res) => { await profilesController.createProfile(req, res); });
   router.post('/profiles/:profile/versions', writeRateLimit, async (req, res) => { await profilesController.createProfileVersion(req, res); });
+  router.post('/profiles/:profile/versions/:version/attachments', writeRateLimit, async (req, res) => { await profilesController.attachTools(req, res); });
+  router.get('/profiles/:profile/versions/:version/attachments', readRateLimit, async (req, res) => { await profilesController.getAttachments(req, res); });
   router.post('/workspaces/:workspaceId/profile/upgrade', writeRateLimit, validateWorkspaceId, async (req, res) => { await profilesController.upgradeWorkspaceProfile(req, res); });
   router.get('/workspaces/:workspaceId/profile', readRateLimit, validateWorkspaceId, async (req, res) => { await profilesController.getWorkspaceProfile(req, res); });
 

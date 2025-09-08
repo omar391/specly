@@ -60,4 +60,60 @@ describe('Profile & Workspace Binding Endpoints (SP-015)', () => {
     expect(getb.body.workspace_id).toBe('w1');
     expect(getb.body.profile_version_id).toBe(up.body.profile_version_id);
   });
+
+  it('attaches tool versions to a profile version and handles duplicates', async () => {
+    const { app } = makeApp();
+    // Create tool + spec + version
+    const specBody = {
+      executor_type: 'node',
+      executor_version: '1',
+      intent: 'autonomous',
+      side_effect: false,
+      content_template: 'run',
+      static_params: {},
+      input_schema: null,
+      output_schema: null,
+      idempotency_key_template: null,
+      retry_policy: null,
+      show_output: true,
+      security: null,
+      metadata: {}
+    };
+    const spec = await request(app).post('/api/specs').send(specBody);
+    expect([200,201]).toContain(spec.status);
+    const specHash = spec.body.hash;
+    const toolMake = await request(app).post('/api/tools').send({ name: 'echo', description: 'Echo tool' });
+    expect([200,201,409]).toContain(toolMake.status);
+    const tv = await request(app).post('/api/tools/echo/versions').send({ ordered_specs: [specHash], entry_spec: specHash, edges: [] });
+    expect([200,201]).toContain(tv.status);
+    const toolVersionHash = tv.body.hash;
+
+    // Create profile + version
+    await request(app).post('/api/profiles').send({ name: 'pubprof' });
+    const v1 = await request(app).post('/api/profiles/pubprof/versions').send({});
+    expect(v1.status).toBe(201);
+    expect(v1.body.version).toBe(1);
+
+    // Attach tool version
+    const attach1 = await request(app)
+      .post('/api/profiles/pubprof/versions/1/attachments')
+      .send({ attachments: [{ tool_name: 'echo', tool_version_hash: toolVersionHash }] });
+    expect(attach1.status).toBe(201);
+    expect(attach1.body.attachments.length).toBe(1);
+    expect(attach1.body.attachments[0].toolName).toBe('echo');
+
+    // Duplicate attach is a no-op and returns created=false in per-item
+    const attach2 = await request(app)
+      .post('/api/profiles/pubprof/versions/1/attachments')
+      .send({ attachments: [{ tool_name: 'echo', tool_version_hash: toolVersionHash }] });
+    expect(attach2.status).toBe(201);
+    const createdFlags = attach2.body.attached.map((a: any) => a.created);
+    expect(createdFlags).toEqual([false]);
+    // GET attachments
+    const getAtt = await request(app).get('/api/profiles/pubprof/versions/1/attachments');
+    expect(getAtt.status).toBe(200);
+    expect(Array.isArray(getAtt.body.attachments)).toBe(true);
+    expect(getAtt.body.attachments.length).toBe(1);
+    expect(getAtt.body.attachments[0].toolName).toBe('echo');
+  });
 });

@@ -97,4 +97,51 @@ export class ProfilesController {
     if (!binding) return res.status(404).json({ error: 'workspace profile not bound', workspaceId });
     return res.status(200).json({ workspace_id: binding.workspaceId, profile_version_id: binding.profileVersionId, pinned_at: binding.pinnedAt });
   }
+
+  /** POST /api/profiles/:profile/versions/:version/attachments */
+  async attachTools(req: Request, res: Response) {
+    const profileName = req.params.profile;
+    const versionNum = Number(req.params.version);
+    const { attachments } = req.body || {};
+    if (!profileName || Number.isNaN(versionNum)) return res.status(400).json({ error: 'profile and numeric version required' });
+    if (!Array.isArray(attachments) || attachments.length === 0) return res.status(400).json({ error: 'attachments[] required' });
+    const db = resolveDbService(req, this.defaultDb);
+    await db.initialize();
+    const repo = new ProfileRepository(db);
+    const profile = await repo.getProfileByName(profileName);
+    if (!profile) return res.status(404).json({ error: 'profile not found', profile: profileName });
+    const pv = await repo.getProfileVersionByNumber(profile.id, versionNum);
+    if (!pv) return res.status(404).json({ error: 'profile version not found', profile: profileName, version: versionNum });
+    const results: Array<{ tool: string; created: boolean } > = [];
+    for (const item of attachments) {
+      const { tool_name, tool_version_hash, command_alias } = item || {};
+      if (!tool_name || !tool_version_hash) {
+        return res.status(400).json({ error: 'tool_name and tool_version_hash required for each attachment' });
+      }
+      try {
+        const r = await repo.attachToolToProfileVersion({ profileVersionId: pv.id, toolName: tool_name, toolVersionHash: tool_version_hash, commandAlias: command_alias ?? null });
+        results.push({ tool: tool_name, created: r.created });
+      } catch (e: any) {
+        return res.status(422).json({ error: e?.message || 'attach failed', tool_name });
+      }
+    }
+    const list = await repo.listProfileVersionAttachments(pv.id);
+    return res.status(201).json({ profile: profileName, version: versionNum, attached: results, attachments: list });
+  }
+
+  /** GET /api/profiles/:profile/versions/:version/attachments */
+  async getAttachments(req: Request, res: Response) {
+    const profileName = req.params.profile;
+    const versionNum = Number(req.params.version);
+    if (!profileName || Number.isNaN(versionNum)) return res.status(400).json({ error: 'profile and numeric version required' });
+    const db = resolveDbService(req, this.defaultDb);
+    await db.initialize();
+    const repo = new ProfileRepository(db);
+    const profile = await repo.getProfileByName(profileName);
+    if (!profile) return res.status(404).json({ error: 'profile not found', profile: profileName });
+    const pv = await repo.getProfileVersionByNumber(profile.id, versionNum);
+    if (!pv) return res.status(404).json({ error: 'profile version not found', profile: profileName, version: versionNum });
+    const list = await repo.listProfileVersionAttachments(pv.id);
+    return res.status(200).json({ profile: profileName, version: versionNum, attachments: list });
+  }
 }

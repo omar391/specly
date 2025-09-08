@@ -288,9 +288,9 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Priority**: High
 - **Dependencies**: SP-009, SP-014
 - **Status**: In-Progress
-- **Progress**: 35%
+- **Progress**: 55%
 - **Completed At**: 
-- **Notes**: Implemented initial endpoints and tests: POST /api/profiles (409 on duplicate), POST /api/profiles/:profile/versions (auto-increment version), POST /api/workspaces/:id/profile/upgrade (binds latest or specific version), GET /api/workspaces/:id/profile (returns binding). Backed by ProfileRepository and request-level DB injection for test isolation. Deferred for next slice: explicit publish for tool attachments within a profile version and inheritance cycle validation (ties to SP-009). All tests green (167/167).
+- **Notes**: Implemented initial endpoints and tests: POST /api/profiles (409 on duplicate), POST /api/profiles/:profile/versions (auto-increment version), POST /api/profiles/:profile/versions/:version/attachments (attach tool versions with duplicate guard) + GET attachments, POST /api/workspaces/:id/profile/upgrade (binds latest or specific version), GET /api/workspaces/:id/profile (returns binding). Backed by ProfileRepository and request-level DB injection for test isolation. Next slices: inheritance validation (parent existence + cycle guard), enriched workspace profile GET with profile name/version number for UI. All tests green (suite updated).
 - **Connected File List**: ./src/api/router.ts, ./src/api/profiles.ts, ./src/__tests__/profile-endpoints.test.ts
 
 ## Task ID: SP-016
