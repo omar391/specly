@@ -287,12 +287,10 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Description**: Implement: POST /api/profiles, POST /api/profiles/:profile/versions, POST /api/profiles/:profile/versions/:version/publish, POST /api/workspaces/:id/profile/upgrade, GET /api/workspaces/:id/profile. Architecture refs: specly-architecture.md §4 Profile Inheritance & specly-architecture.md §12 Profiles & Versions Data Model, migration_roadmap.md §4 API Contract (was §17). Tests: duplicate profile name (409), inheritance cycle rejection, publish increments version_number, upgrade pins workspace binding.
 - **Priority**: High
 - **Dependencies**: SP-009, SP-014
-- **Status**: In-Progress
-- **Progress**: 80%
-- **Completed At**: 
-- **Notes**: Implemented initial endpoints and tests: POST /api/profiles (409 on duplicate), POST /api/profiles/:profile/versions (auto-increment version), POST /api/profiles/:profile/versions/:version/attachments (attach tool versions with duplicate guard) + GET attachments, POST /api/workspaces/:id/profile/upgrade (binds latest or specific version), GET /api/workspaces/:id/profile (returns binding). Backed by ProfileRepository and request-level DB injection for test isolation.
-
-	New in this step: inheritance validation completed for profile versions — repository now enforces parent_profile_version_id existence, same-profile constraint, and cycle detection with depth guard; controller maps validation errors to HTTP 422. Tests added for missing parent and cross-profile parent both pass. Enriched GET /api/workspaces/:id/profile now includes profile_name and version (via repository join) with tests in place. Also added POST /api/profiles/:profile/versions/:version/publish (validation-only publish); route wired, controller implemented, and integration tests are passing.
+- **Status**: Done
+- **Progress**: 100%
+- **Completed At**: 2025-09-08T20:37:40Z
+- **Notes**: Implemented endpoints and tests: POST /api/profiles (409 on duplicate), POST /api/profiles/:profile/versions (auto-increment version), POST /api/profiles/:profile/versions/:version/attachments (attach tool versions with duplicate guard) + GET attachments, POST /api/workspaces/:id/profile/upgrade (binds latest or specific version), GET /api/workspaces/:id/profile (enriched with profile_name and version), and POST /api/profiles/:profile/versions/:version/publish (validation-only). Inheritance validation completed for profile versions (existence, same-profile constraint, cycle detection). All tests green and API examples added to api-design.md.
 - **Connected File List**: ./src/api/router.ts, ./src/api/profiles.ts, ./src/__tests__/profile-endpoints.test.ts
 
 ## Task ID: SP-016
@@ -300,11 +298,11 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Description**: Implement: POST /api/tasks, PATCH /api/tasks/:id/status, POST/DELETE dependencies endpoints, GET /api/tasks/:id, GET /api/sessions?workspace_id=&task_id?. Architecture refs: specly-architecture.md §5 Status Model, specly-architecture.md §6 Dependency Management, migration_roadmap.md §4 API Contract (was §17), specly-architecture.md §15 Task & Session Tables. Tests: dependency cycle rejection, blocked→in_progress invalid, queued→paused invalid, status updates reflect dependency resolution.
 - **Priority**: High
 - **Dependencies**: SP-008, SP-006
-- **Status**: TBD
-- **Progress**: 0%
+- **Status**: In-Progress
+- **Progress**: 45%
 - **Completed At**: 
-- **Notes**: Provide consistent error codes (422 validation, 409 conflict).
-- **Connected File List**: ./src/api/router.ts, ./src/services/workspace-registry.ts, ./src/__tests__/task-endpoints.test.ts
+- **Notes**: Minimal slice delivered: added GET /api/workspaces/:workspaceId/tasks/:taskId and PATCH /api/workspaces/:workspaceId/tasks/:taskId/status with validation for allowed transitions. Status transition backlog→in-progress→done path covered; invalid backlog→done rejected with 422. Mapper introduced to normalize DB camelCase fields to API snake_case (including completed_at). Integration test `task-endpoints.test.ts` passes; full suite green (172/172). Next: implement dependency CRUD endpoints and additional transition constraints.
+- **Connected File List**: ./src/api/router.ts, ./src/api/tasks.ts, ./src/__tests__/task-endpoints.test.ts, ./src/services/workspace-registry.ts
 
 ## Task ID: SP-017
 - **Title**: Workspace Rules Reinforcement & Prompt Injection

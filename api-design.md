@@ -1,5 +1,7 @@
 # TaskPilot UI Integration API Design
 
+Note: Legacy TaskPilot task schema is deprecated. This document now reflects Specly’s new workspace schema (tasks_new, task_dependencies, sessions_new). Any references to the old `tasks` table are superseded by this design and will be removed during SP-008.
+
 ## Overview
 This document defines the minimal REST API endpoints required for TaskPilot UI integration, based on analysis of UI pages: home, tasks, tool-flows, and feedback-steps.
 
@@ -36,26 +38,24 @@ This document defines the minimal REST API endpoints required for TaskPilot UI i
 ```
 
 ### 2. GET /api/workspaces/{id}/tasks
-**Purpose**: Get all tasks for a workspace with filtering
-**Used by**: Tasks page
-**Query params**: `status=current|history`, `limit`, `offset`
-**Response**:
+Purpose: Get all tasks for a workspace with filtering (Specly status model)
+Used by: Tasks page
+Query params: `status=current|history`, `limit`, `offset`
+Response:
 ```json
 {
   "tasks": [
     {
       "id": "string",
       "title": "string",
-      "description": "string", 
-      "priority": "High|Medium|Low",
-      "status": "Backlog|In-Progress|Blocked|Review|Done|Dropped",
+      "description": "string|null",
+      "priority": "high|medium|low",
+      "status": "queued|in_progress|awaiting_input|blocked|paused|completed|failed",
       "progress": "number",
-      "parent_task_id": "string|null",
-      "blocked_by_task_id": "string|null",
-      "connected_files": ["string"],
       "notes": "string|null",
-      "github_issue_number": "number|null",
-      "github_url": "string|null",
+      "blocked_reason": "string|null",
+      "profile_version_id": "string|null",
+      "deleted_at": "ISO8601|null",
       "created_at": "ISO8601",
       "updated_at": "ISO8601",
       "completed_at": "ISO8601|null"
@@ -63,7 +63,7 @@ This document defines the minimal REST API endpoints required for TaskPilot UI i
   ],
   "workspace": {
     "id": "string",
-    "name": "string", 
+    "name": "string",
     "path": "string"
   },
   "total": "number",
@@ -227,32 +227,91 @@ Notes:
 - There is no persisted publish state yet; this endpoint serves as a validation gate and future hook. It ensures the target profile/version exist.
 
 ### 4. POST /api/workspaces/{id}/tasks
-**Purpose**: Create new task
-**Used by**: Tasks page (new task button)
-**Request body**:
+Purpose: Create new task (Specly model)
+Used by: Tasks page (new task button)
+Request body:
 ```json
 {
   "title": "string",
   "description": "string",
-  "priority": "High|Medium|Low",
-  "parent_task_id": "string|null"
+  "priority": "high|medium|low",
+  "profile_version_id": "string(optional)"
 }
 ```
-**Response**:
+Response:
 ```json
 {
   "task": {
     "id": "string",
-    "title": "string", 
+    "title": "string",
     "description": "string",
-    "priority": "High|Medium|Low",
-    "status": "Backlog",
+    "priority": "high|medium|low",
+    "status": "queued",
     "progress": 0,
     "created_at": "ISO8601",
     "updated_at": "ISO8601"
   }
 }
 ```
+
+### 4a. GET /api/workspaces/{id}/tasks/{taskId}
+Purpose: Fetch a single task by id within a workspace (Specly model)
+Used by: Task details view / drill-in
+
+Response (200):
+```json
+{
+  "task": {
+    "id": "string",
+    "title": "string",
+    "description": "string|null",
+    "priority": "high|medium|low",
+    "status": "queued|in_progress|awaiting_input|blocked|paused|completed|failed",
+    "progress": 0,
+    "notes": "string|null",
+    "blocked_reason": "string|null",
+    "profile_version_id": "string|null",
+    "deleted_at": "ISO8601|null",
+    "created_at": "ISO8601",
+    "updated_at": "ISO8601",
+    "completed_at": "ISO8601|null"
+  }
+}
+```
+
+Errors:
+- 404 when task not found in workspace: `{ "error": "task not found", "taskId": "TP-xyz" }`
+
+### 4b. PATCH /api/workspaces/{id}/tasks/{taskId}/status
+Purpose: Update only the task status (Specly model). Enforces allowed transitions and sets completed_at on completion.
+Used by: Status dropdown in Tasks page
+
+Request body:
+```json
+{ "status": "queued|in_progress|awaiting_input|blocked|paused|completed|failed" }
+```
+
+Response (200):
+```json
+{
+  "task": { "id": "string", "status": "in_progress", "updated_at": "ISO8601", "completed_at": null }
+}
+```
+
+Validation rules (Specly model outline):
+- Example allowed transitions (finalized under SP-008):
+  - queued → in_progress | blocked | paused
+  - in_progress → awaiting_input | blocked | paused | completed | failed
+  - awaiting_input → in_progress | paused
+  - blocked → in_progress | paused
+  - paused → in_progress | blocked
+  - completed → (no forward transitions)
+  - failed → (optional) queued | in_progress
+- Setting `completed` sets `completed_at` to now; other transitions update `updated_at` only. Reverting from `completed` clears `completed_at` if allowed.
+
+Errors:
+- 422 on invalid transition with message: `Invalid status transition: {from} -> {to}`
+- 404 when task not found.
 
 ### 5. PUT /api/workspaces/{id}/tasks/{taskId}
 **Purpose**: Update task properties

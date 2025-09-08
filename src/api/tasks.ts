@@ -18,6 +18,36 @@ export class TasksController {
     private workspacesController: WorkspacesController
   ) {}
 
+  // Private helper to map DB task row (camelCase from Drizzle) to API Task shape (snake_case)
+  private mapTaskDbToApi(task: any): Task {
+    // Support both camelCase (Drizzle) and snake_case (raw) just in case
+    const get = (camel: string, snake: string) => task?.[camel] ?? task?.[snake] ?? null;
+    const parseJson = (value: any) => {
+      if (Array.isArray(value)) return value;
+      if (typeof value === 'string') {
+        try { return JSON.parse(value); } catch { return []; }
+      }
+      return value ?? [];
+    };
+    return {
+      id: task.id,
+      title: task.title,
+      description: get('description', 'description') ?? '',
+      priority: get('priority', 'priority') ?? 'medium',
+      status: get('status', 'status') ?? 'backlog',
+      progress: get('progress', 'progress') ?? 0,
+      parent_task_id: get('parentTaskId', 'parent_task_id'),
+      blocked_by_task_id: get('blockedByTaskId', 'blocked_by_task_id'),
+      connected_files: parseJson(get('connectedFiles', 'connected_files')),
+      notes: get('notes', 'notes'),
+      github_issue_number: get('githubIssueNumber', 'github_issue_number'),
+      github_url: get('githubUrl', 'github_url'),
+      created_at: get('createdAt', 'created_at'),
+      updated_at: get('updatedAt', 'updated_at'),
+      completed_at: get('completedAt', 'completed_at'),
+    } as Task;
+  }
+
   /**
    * GET /api/workspaces/{workspaceId}/tasks
    * Get all tasks for a workspace with optional filtering
@@ -36,23 +66,7 @@ export class TasksController {
       const workspaceDb = await this.databaseService.getWorkspace(workspace.path);
       const tasks = await workspaceDb.getTasksPaginated(query.status, limit, offset);
       const total = await workspaceDb.countTasks(query.status);
-      const transformedTasks: Task[] = tasks.map((task: any) => ({
-        id: task.id,
-        title: task.title,
-        description: task.description,
-        priority: task.priority,
-        status: task.status,
-        progress: task.progress,
-        parent_task_id: task.parent_task_id,
-        blocked_by_task_id: task.blocked_by_task_id,
-        connected_files: task.connected_files ? JSON.parse(task.connected_files) : [],
-        notes: task.notes,
-        github_issue_number: task.github_issue_number,
-        github_url: task.github_url,
-        created_at: task.created_at,
-        updated_at: task.updated_at,
-        completed_at: task.completed_at
-      }));
+      const transformedTasks: Task[] = tasks.map((task: any) => this.mapTaskDbToApi(task));
 
       // Transform tasks (parse connected_files JSON)
 
@@ -141,30 +155,81 @@ export class TasksController {
       }
 
       // Map DB result to camelCase for API response
-      function mapTaskDbToApi(task: any): Task {
-        return {
-          id: task.id,
-          title: task.title,
-          description: task.description ?? '',
-          priority: task.priority ?? 'medium',
-          status: task.status ?? 'backlog',
-          progress: task.progress ?? 0,
-          parent_task_id: task.parent_task_id ?? null,
-          blocked_by_task_id: task.blocked_by_task_id ?? null,
-          connected_files: task.connected_files ? JSON.parse(task.connected_files) : [],
-          notes: task.notes ?? null,
-          github_issue_number: task.github_issue_number ?? null,
-          github_url: task.github_url ?? null,
-          created_at: task.created_at ?? null,
-          updated_at: task.updated_at ?? null,
-          completed_at: task.completed_at ?? null,
-        };
-      }
-      const responseTask: Task = mapTaskDbToApi(createdTask);
+      const responseTask: Task = this.mapTaskDbToApi(createdTask);
 
       res.status(201).json(createSuccessResponse({ task: responseTask }));
     } catch (error) {
       console.error('Error creating task:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * GET /api/workspaces/{workspaceId}/tasks/{taskId}
+   * Fetch a single task
+   */
+  async getTask(req: Request, res: Response): Promise<void> {
+    try {
+      const { workspaceId, taskId } = req.params as { workspaceId: string; taskId: string };
+      // Verify workspace exists
+      const workspace = await this.workspacesController.getWorkspaceById(workspaceId);
+      const workspaceDb = await this.databaseService.getWorkspace(workspace.path);
+      const task = await workspaceDb.getTask(taskId);
+      if (!task) {
+        throw new NotFoundError(`Task not found: ${taskId}`);
+      }
+      res.json(createSuccessResponse({ task: this.mapTaskDbToApi(task) }));
+    } catch (error) {
+      console.error('Error fetching task:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * PATCH /api/workspaces/{workspaceId}/tasks/{taskId}/status
+   * Update task status with simple allowed transitions
+   */
+  async patchTaskStatus(req: Request, res: Response): Promise<void> {
+    try {
+      const { workspaceId, taskId } = req.params as { workspaceId: string; taskId: string };
+      const { status } = req.body as { status?: string };
+      if (!status || typeof status !== 'string') {
+        throw new ValidationError('Status is required');
+      }
+      const allowedStatuses = ['backlog', 'in-progress', 'blocked', 'review', 'done', 'dropped'];
+      if (!allowedStatuses.includes(status)) {
+        throw new ValidationError(`Invalid status value: ${status}`);
+      }
+      // Verify workspace & task
+      const workspace = await this.workspacesController.getWorkspaceById(workspaceId);
+      const workspaceDb = await this.databaseService.getWorkspace(workspace.path);
+      const existingTask = await workspaceDb.getTask(taskId);
+      if (!existingTask) {
+        throw new NotFoundError(`Task not found: ${taskId}`);
+      }
+      const from: string = existingTask.status ?? 'backlog';
+      // Define minimal allowed transitions
+      const canTransition: Record<string, string[]> = {
+        'backlog': ['in-progress', 'dropped'],
+        'in-progress': ['blocked', 'review', 'done', 'dropped'],
+        'blocked': ['in-progress', 'dropped'],
+        'review': ['in-progress', 'done', 'dropped'],
+        'done': [],
+        'dropped': []
+      };
+      if (!canTransition[from] || !canTransition[from].includes(status)) {
+        throw new ValidationError(`Invalid status transition: ${from} -> ${status}`);
+      }
+      const now = new Date().toISOString();
+      const updates: any = { status, updatedAt: now };
+      if (status === 'done') {
+        updates.completedAt = now;
+      }
+      await workspaceDb.updateTask(taskId, updates);
+      const updatedTask = await workspaceDb.getTask(taskId);
+      res.json(createSuccessResponse({ task: this.mapTaskDbToApi(updatedTask) }));
+    } catch (error) {
+      console.error('Error updating task status:', error);
       throw error;
     }
   }

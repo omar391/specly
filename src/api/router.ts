@@ -80,6 +80,14 @@ export function createApiRouter(databaseService: DatabaseService): Router {
       next(error);
     }
   });
+  // 2a. GET /api/workspaces/{id}/tasks/{taskId} - Get a single task
+  router.get('/workspaces/:workspaceId/tasks/:taskId', readRateLimit, validateWorkspaceId, validateTaskId, async (req, res, next) => {
+    try {
+      await tasksController.getTask(req, res);
+    } catch (error) {
+      next(error);
+    }
+  });
   // 3. POST /api/workspaces/{id}/tasks - Create new task
   router.post('/workspaces/:workspaceId/tasks', writeRateLimit, validateWorkspaceId, async (req, res, next) => {
     try {
@@ -93,6 +101,14 @@ export function createApiRouter(databaseService: DatabaseService): Router {
   router.put('/workspaces/:workspaceId/tasks/:taskId', writeRateLimit, validateWorkspaceId, validateTaskId, async (req, res, next) => {
     try {
       await tasksController.updateTask(req, res);
+    } catch (error) {
+      next(error);
+    }
+  });
+  // 4a. PATCH /api/workspaces/{id}/tasks/{taskId}/status - Update task status
+  router.patch('/workspaces/:workspaceId/tasks/:taskId/status', writeRateLimit, validateWorkspaceId, validateTaskId, async (req, res, next) => {
+    try {
+      await tasksController.patchTaskStatus(req, res);
     } catch (error) {
       next(error);
     }

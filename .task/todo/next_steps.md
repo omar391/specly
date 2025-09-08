@@ -1,23 +1,26 @@
 # Next Steps (as of 2025-09-08)
 
-Focus: SP-002 Hashing & Canonicalization Optimization
+Focus: SP-016 Task & Dependency API Endpoints (minimal slice complete; continue with dependencies)
 
-Status: Completed in this cycle
-- Implemented in-memory LRU cache with env knob TASKPILOT_HASH_CACHE_SIZE (default 500)
-- Wired into `stableHash`, `hashSpec`, `hashToolVersion`
-- Added tests verifying hit/miss and determinism (`src/__tests__/hash-cache.test.ts`)
+Status: In progress
+- Minimal slice shipped: GET single task and PATCH task status endpoints implemented with validation and tests; full suite green (172/172).
 
-Follow-ups (small, optional):
-1. Observability integration:
-   - Plumb `hash_cache_hits/misses` into MetricsCollector and expose via health endpoint (ties to SP-012)
-2. Micro-benchmark script (optional dev-only) to compare cached vs uncached
+Immediate next actions:
+1) Implement dependencies endpoints
+   - POST /api/workspaces/:id/tasks/:taskId/dependencies { depends_on: string }
+   - DELETE /api/workspaces/:id/tasks/:taskId/dependencies/:dependsOn
+   - Enforce: no self-dependency, no cycles, idempotent add, 404 on missing tasks
+   - Tests: create chain A->B->C, reject A->A, reject cycle C->A, delete dependency
+2) Extend status validation
+   - Blocked transitions: blocked→in_progress invalid until dependencies resolved
+   - Ensure done sets completed_at, reverting from done clears completed_at (if allowed)
+   - Add tests for negative transitions and timestamp behavior
+3) Documentation
+   - Update api-design.md with GET single task and PATCH status sections (added now), and add dependencies endpoints once implemented
+4) Tracker & docs hygiene
+   - Update .task/todo/current.md progress as endpoints land
+   - Keep examples in api-design.md synced
 
-Next primary focus candidates:
-- SP-007 CLI Refactor (remove stepId; point CLI to unified execute) [Medium]
-- SP-015 Profile & Workspace Binding Endpoints [High]
-
-Upcoming SP-015 steps (incremental):
-1) [Completed] Add explicit profile publish helper (attach tools to a new version) and tests for attachments + duplicate prevention.
-2) [Completed] Validate parent_profile_version_id existence, enforce same-profile constraint, and add cycle detection (422 mapping in controller). Tests added and green.
-3) [Completed] Extend GET /api/workspaces/:id/profile to include resolved profile name and version number via join for UI.
-4) [Completed] Add POST /api/profiles/:profile/versions/:version/publish (validation-only publish). Route wired, controller added, integration tests passing.
+Deferred follow-ups:
+- Sessions listing endpoint under SP-016 scope
+- Pagination and filtering for tasks list
