@@ -36,6 +36,11 @@ export interface WorkspaceProfileBindingResult {
   pinnedAt: string | null;
 }
 
+export interface WorkspaceProfileBindingDetails extends WorkspaceProfileBindingResult {
+  profileName: string;
+  profileVersion: number;
+}
+
 export class ProfileRepository {
   constructor(private globalDb: GlobalDatabaseService) {}
 
@@ -162,6 +167,29 @@ export class ProfileRepository {
     const db = this.globalDb.getDrizzleManager().getDb();
     const [row] = await db.select().from(workspaceProfileVersions).where(eq(workspaceProfileVersions.workspaceId, workspaceId)).limit(1);
     return (row as any) || null;
+  }
+
+  /**
+   * Returns workspace binding enriched with profile name and version number.
+   */
+  async getWorkspaceBindingDetails(workspaceId: string): Promise<WorkspaceProfileBindingDetails | null> {
+    const db = this.globalDb.getDrizzleManager().getDb();
+    const rows = await db
+      .select({
+        workspaceId: workspaceProfileVersions.workspaceId,
+        profileVersionId: workspaceProfileVersions.profileVersionId,
+        pinnedAt: workspaceProfileVersions.pinnedAt,
+        profileName: profiles.name,
+        profileVersion: profileVersions.version,
+      })
+      .from(workspaceProfileVersions)
+      .innerJoin(profileVersions, eq(profileVersions.id, workspaceProfileVersions.profileVersionId))
+      .innerJoin(profiles, eq(profiles.id, profileVersions.profileId))
+      .where(eq(workspaceProfileVersions.workspaceId, workspaceId))
+      .limit(1);
+    const row = rows[0];
+    if (!row) return null;
+    return row as any;
   }
 
   async listProfileVersions(profileId: string): Promise<any[]> {

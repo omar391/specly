@@ -59,6 +59,9 @@ describe('Profile & Workspace Binding Endpoints (SP-015)', () => {
     expect(getb.status).toBe(200);
     expect(getb.body.workspace_id).toBe('w1');
     expect(getb.body.profile_version_id).toBe(up.body.profile_version_id);
+    // Enriched fields present
+    expect(getb.body.profile_name).toBe('bindprof');
+    expect(getb.body.version).toBe(2);
   });
 
   it('attaches tool versions to a profile version and handles duplicates', async () => {

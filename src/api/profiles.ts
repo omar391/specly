@@ -101,9 +101,16 @@ export class ProfilesController {
     const db = resolveDbService(req, this.defaultDb);
     await db.initialize();
     const repo = new ProfileRepository(db);
-    const binding = await repo.getWorkspaceBinding(workspaceId);
+    // Prefer enriched details for UI
+    const binding = await repo.getWorkspaceBindingDetails(workspaceId);
     if (!binding) return res.status(404).json({ error: 'workspace profile not bound', workspaceId });
-    return res.status(200).json({ workspace_id: binding.workspaceId, profile_version_id: binding.profileVersionId, pinned_at: binding.pinnedAt });
+    return res.status(200).json({
+      workspace_id: binding.workspaceId,
+      profile_version_id: binding.profileVersionId,
+      pinned_at: binding.pinnedAt,
+      profile_name: (binding as any).profileName,
+      version: (binding as any).profileVersion,
+    });
   }
 
   /** POST /api/profiles/:profile/versions/:version/attachments */
