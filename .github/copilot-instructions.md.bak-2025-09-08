@@ -171,7 +171,7 @@ Each task in `./.task/todo/current.md` follows this format:
 - Present a concise summary and proposed diffs to the user and obtain explicit approval before committing any changes (mandatory human-in-the-loop gate)
 - Run linters and ONLY relevant unit tests after task completion
 - Mark 100% complete only when lint and unit tests pass
-- Update `./.task/todo/current.md`. Do NOT move completed tasks out of `current.md` automatically; only move to `./.task/todo/done_<today-date>.md` when the user explicitly requests it.
+- Update `./.task/todo/current.md` and move (only on user's request) completed tasks to `./.task/todo/done_<today-date>.md`
 - Run the Documentation Integrity Checklist (below) prior to requesting approval and before committing
 - Create git commit with task ID reference and details (only after explicit user approval)
 - Subtasks follow same format and link to parent task

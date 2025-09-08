@@ -9,6 +9,7 @@ import { WorkspacesController } from './workspaces.js';
 import { TasksController } from './tasks.js';
 import { ToolsExecuteController } from './tools-execute.js';
 import { SpecsController, ToolsController } from './specs-tools.js';
+import { ProfilesController } from './profiles.js';
 // Legacy ToolFlowsController & FeedbackStepsController removed (drastic migration)
 import { 
   errorHandler, 
@@ -32,6 +33,7 @@ export function createApiRouter(databaseService: DatabaseService): Router {
   const toolsExecuteController = new ToolsExecuteController(undefined, undefined, databaseService);
   const specsController = new SpecsController();
   const toolsController = new ToolsController();
+  const profilesController = new ProfilesController();
 
   // Apply middleware
   router.use(corsHandler);
@@ -46,6 +48,12 @@ export function createApiRouter(databaseService: DatabaseService): Router {
   router.post('/specs', writeRateLimit, async (req, res) => { await specsController.createSpec(req, res); });
   router.post('/tools', writeRateLimit, async (req, res) => { await toolsController.createTool(req, res); });
   router.post('/tools/:tool/versions', writeRateLimit, async (req, res) => { await toolsController.createToolVersion(req, res); });
+
+  // Profile & Workspace Binding (SP-015)
+  router.post('/profiles', writeRateLimit, async (req, res) => { await profilesController.createProfile(req, res); });
+  router.post('/profiles/:profile/versions', writeRateLimit, async (req, res) => { await profilesController.createProfileVersion(req, res); });
+  router.post('/workspaces/:workspaceId/profile/upgrade', writeRateLimit, validateWorkspaceId, async (req, res) => { await profilesController.upgradeWorkspaceProfile(req, res); });
+  router.get('/workspaces/:workspaceId/profile', readRateLimit, validateWorkspaceId, async (req, res) => { await profilesController.getWorkspaceProfile(req, res); });
 
   // POST /api/tools/:tool/execute (unified run/resume)
   router.post('/tools/:tool/execute', writeRateLimit, async (req, res) => {

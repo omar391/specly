@@ -287,11 +287,11 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Description**: Implement: POST /api/profiles, POST /api/profiles/:profile/versions, POST /api/profiles/:profile/versions/:version/publish, POST /api/workspaces/:id/profile/upgrade, GET /api/workspaces/:id/profile. Architecture refs: specly-architecture.md §4 Profile Inheritance & specly-architecture.md §12 Profiles & Versions Data Model, migration_roadmap.md §4 API Contract (was §17). Tests: duplicate profile name (409), inheritance cycle rejection, publish increments version_number, upgrade pins workspace binding.
 - **Priority**: High
 - **Dependencies**: SP-009, SP-014
-- **Status**: TBD
-- **Progress**: 0%
+- **Status**: In-Progress
+- **Progress**: 35%
 - **Completed At**: 
-- **Notes**: Use transaction for publish + active_version_id set.
-- **Connected File List**: ./src/api/router.ts, ./src/services/profile-service.ts, ./src/__tests__/profile-endpoints.test.ts
+- **Notes**: Implemented initial endpoints and tests: POST /api/profiles (409 on duplicate), POST /api/profiles/:profile/versions (auto-increment version), POST /api/workspaces/:id/profile/upgrade (binds latest or specific version), GET /api/workspaces/:id/profile (returns binding). Backed by ProfileRepository and request-level DB injection for test isolation. Deferred for next slice: explicit publish for tool attachments within a profile version and inheritance cycle validation (ties to SP-009). All tests green (167/167).
+- **Connected File List**: ./src/api/router.ts, ./src/api/profiles.ts, ./src/__tests__/profile-endpoints.test.ts
 
 ## Task ID: SP-016
 - **Title**: Task & Dependency API Endpoints

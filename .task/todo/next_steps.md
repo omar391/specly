@@ -15,3 +15,8 @@ Follow-ups (small, optional):
 Next primary focus candidates:
 - SP-007 CLI Refactor (remove stepId; point CLI to unified execute) [Medium]
 - SP-015 Profile & Workspace Binding Endpoints [High]
+
+Upcoming SP-015 steps (incremental):
+1) Add explicit profile publish helper (attach tools to a new version) and tests for attachments + duplicate prevention.
+2) Validate parent_profile_id existence and add stronger cycle guard in ProfilesController (ties to SP-009 service logic).
+3) Extend GET /api/workspaces/:id/profile to include resolved profile name and version number via join for UI.
