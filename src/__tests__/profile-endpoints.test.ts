@@ -138,4 +138,16 @@ describe('Profile & Workspace Binding Endpoints (SP-015)', () => {
     const bad = await request(app).post('/api/profiles/b/versions').send({ parent_profile_version_id: a1.body.id });
     expect(bad.status).toBe(422);
   });
+
+    it('publishes a profile version (validation-only) and 404s on missing version', async () => {
+        const { app } = makeApp();
+        await request(app).post('/api/profiles').send({ name: 'pub' });
+        const v1 = await request(app).post('/api/profiles/pub/versions').send({});
+        expect(v1.status).toBe(201);
+        const ok = await request(app).post('/api/profiles/pub/versions/1/publish').send({});
+        expect(ok.status).toBe(200);
+        expect(ok.body.published).toBe(true);
+        const missing = await request(app).post('/api/profiles/pub/versions/99/publish').send({});
+        expect(missing.status).toBe(404);
+    });
 });

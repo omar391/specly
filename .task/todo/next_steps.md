@@ -20,3 +20,4 @@ Upcoming SP-015 steps (incremental):
 1) [Completed] Add explicit profile publish helper (attach tools to a new version) and tests for attachments + duplicate prevention.
 2) [Completed] Validate parent_profile_version_id existence, enforce same-profile constraint, and add cycle detection (422 mapping in controller). Tests added and green.
 3) [Completed] Extend GET /api/workspaces/:id/profile to include resolved profile name and version number via join for UI.
+4) [Completed] Add POST /api/profiles/:profile/versions/:version/publish (validation-only publish). Route wired, controller added, integration tests passing.

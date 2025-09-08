@@ -159,4 +159,22 @@ export class ProfilesController {
     const list = await repo.listProfileVersionAttachments(pv.id);
     return res.status(200).json({ profile: profileName, version: versionNum, attachments: list });
   }
+
+    /** POST /api/profiles/:profile/versions/:version/publish */
+    async publishProfileVersion(req: Request, res: Response) {
+        const profileName = req.params.profile;
+        const versionNum = Number(req.params.version);
+        if (!profileName || Number.isNaN(versionNum)) {
+            return res.status(400).json({ error: 'profile and numeric version required' });
+        }
+        const db = resolveDbService(req, this.defaultDb);
+        await db.initialize();
+        const repo = new ProfileRepository(db);
+        const profile = await repo.getProfileByName(profileName);
+        if (!profile) return res.status(404).json({ error: 'profile not found', profile: profileName });
+        const pv = await repo.getProfileVersionByNumber(profile.id, versionNum);
+        if (!pv) return res.status(404).json({ error: 'profile version not found', profile: profileName, version: versionNum });
+        // Current model has no additional publish state; treat as validation-only "publish".
+        return res.status(200).json({ profile: profileName, version: versionNum, published: true });
+    }
 }
