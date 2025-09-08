@@ -4,6 +4,7 @@ import { DatabaseService } from '../services/database-service.js';
 import { specs, tools, toolVersions } from '../database/schema/global-schema.js';
 import { hashSpec, hashToolVersion } from '../utils/hash.js';
 import { validateToolGraph, GraphValidationError } from '../utils/graph-validate.js';
+import { mapGraphValidationToPublicError } from '../utils/graph-error-map.js';
 import { eq } from 'drizzle-orm';
 
 // Minimal Zod-like manual validation (avoid new dep): trust shapes; rely on DB + validator for safety.
@@ -118,17 +119,8 @@ export class ToolsController {
             validateToolGraph({ ordered_specs, entry_spec, edges: edges.map((e: any) => ({ from: e.from, to: e.to, condition_type: e.condition_type || 'always', condition_value: e.condition_value, priority: e.priority })) });
         } catch (e: any) {
             if (e instanceof GraphValidationError) {
-                // Map internal validator codes to public API graph codes
-                // Cycle-related
-                if (e.code === 'ERR_CYCLE' || e.code === 'ERR_SELF_LOOP') {
-                    return res.status(422).json({ error: e.message, code: 'GRAPH_CYCLE' });
-                }
-                // Missing / undeclared spec references
-                if (e.code === 'ERR_UNDECLARED_SPEC' || e.code === 'ERR_ENTRY_NOT_DECLARED') {
-                    return res.status(422).json({ error: e.message, code: 'GRAPH_MISSING_NODE' });
-                }
-                // Duplicate spec or priority invalid etc -> generic invalid
-                return res.status(422).json({ error: e.message, code: 'GRAPH_INVALID' });
+                const pub = mapGraphValidationToPublicError(e);
+                return res.status(422).json({ error: e.message, code: pub.code });
             }
             return res.status(500).json({ error: 'validation failure', detail: e?.message });
         }

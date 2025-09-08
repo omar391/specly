@@ -5,8 +5,8 @@ import { DatabaseService } from '../services/database-service.js';
 import { v4 as uuid } from 'uuid';
 import { SpecEngine, ToolGraph } from '../services/spec-engine.js';
 import { ToolsExecuteController } from '../api/tools-execute.js';
-import { InMemoryPausedStateStore } from '../services/paused-state-store.js';
 import { describe, it, expect, beforeAll } from 'vitest';
+import { SpecEngineErrorCode } from '../services/spec-engine.js';
 
 // Minimal database service stub (router expects real instance; we stub required methods)
 // Lightweight mock database service to avoid native better-sqlite3 usage for these endpoint tests
@@ -130,6 +130,27 @@ describe('POST /api/tools/:tool/execute', () => {
     const graph = basicGraph('second');
     const res = await request(app).post('/api/tools/demo/execute').send({ resumeToken: 'bogus', human_input: { specHash: 'c' }, graph });
     expect(res.status).toBe(404);
+  });
+
+  it('returns 500 for runtime dead-end (ROUTE_DEAD_END)', async () => {
+    // Build a graph where planner will schedule only the first node, but graph has outgoing edge -> simulate dead-end via truncated plan
+    // We can approximate by constructing a graph with two nodes and an edge, then mock a custom engine with a planner that omits the second node.
+    class TruncatedPlanner {
+      buildPlan(_graph: ToolGraph) { return { steps: [{ specHash: 'x1', awaitingHuman: false }], warnings: [] }; }
+    }
+    // Build an app with a controller using custom engine factory
+    const db = new MockDatabaseService() as unknown as DatabaseService;
+    const app2 = express();
+    app2.use(express.json());
+  const router = express.Router();
+  const controller = new ToolsExecuteController(() => new SpecEngine({ planner: new TruncatedPlanner() }));
+  const handler: any = (req: any, res: any) => controller.execute(req, res);
+  router.post('/tools/demo/execute', handler);
+    app2.use('/api', router);
+    const graph: ToolGraph = { entry: 'x1', nodes: { x1: { hash: 'x1', intent: 'autonomous', sideEffect: false }, x2: { hash: 'x2', intent: 'autonomous', sideEffect: false } }, edges: [ { from: 'x1', to: 'x2', priority: 100 } ] };
+    const res = await request(app2).post('/api/tools/demo/execute').send({ graph });
+    expect(res.status).toBe(500);
+    expect(res.body.error?.code).toBe(SpecEngineErrorCode.ROUTE_DEAD_END);
   });
 
   it('runs using only tool_version_id (autonomous)', async () => {

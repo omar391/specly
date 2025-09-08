@@ -55,6 +55,11 @@ SP-###: Concise imperative summary
 - Run all tests and linters
 - Update task status after merge
 
+### Human-in-the-Loop Commit Gate
+- The assistant must present a concise summary and proposed diffs and obtain explicit user approval before committing any changes.
+- No commits without prior approval, even if tests are green.
+- Run linters/tests, re-check Documentation Integrity, then After approval commit with Task ID reference in the details if necessary.
+
 ## Testing Requirements
 
 ### Coverage Expectations
@@ -144,6 +149,7 @@ SP-###: Concise imperative summary
 - Add/update golden hash fixtures instructions in `docs/task.md` (SP-200 scope).
 - README quickstart path: create spec → publish tool version → create profile version → execute.
 - Document breaking changes in CHANGELOG.md and reference SP task.
+ - Follow the Documentation Integrity Checklist defined in `.github/copilot-instructions.md` before committing.
 
 ## Technology Stack Constraints
 - **Backend**: Node.js 18+, TypeScript 5+, Express, Drizzle ORM, SQLite3
@@ -161,7 +167,7 @@ SP-###: Concise imperative summary
 ## Specly-Specific Invariants
 - Hash canonicalization must be stable across OS/locale.
 - Exactly one entry_spec per tool version; reject if missing or multiple.
-- No cycles in tool version graph; unreachable specs produce warning (log) but allowed initially.
+- No cycles in tool version graph; unreachable specs are a validation ERROR (publish rejected) unless an internal `allow_unreachable=true` flag is set for diagnostics.
 - Profile version flatten ensures no runtime union operations.
 - Action journal ensures at most one side-effect execution per (spec_hash, session_id, idempotency_key) tuple.
 - Lease ownership changes only via `force_start` with prior lease mismatch.

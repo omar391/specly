@@ -203,6 +203,18 @@ Before hashing & persisting a tool version, the validator enforces:
 
 Validator returns a normalized manifest (filled priorities, sorted edges). Failure produces typed error codes: `ERR_MULTI_ENTRY`, `ERR_UNDECLARED_SPEC`, `ERR_SELF_LOOP`, `ERR_CYCLE`, `ERR_UNREACHABLE`, `ERR_PRIORITY_INVALID`.
 
+Normalization & Hashing Guarantees:
+- Missing `priority` is normalized to `100` before hashing.
+- Edge list is deterministically sorted by `(from, to, condition_type, condition_value, priority, insertion_index)` ensuring stable tool version hashes regardless of input order.
+- Changing an explicitly provided `priority` that differs from the default affects the hash, as expected.
+
+Public API Error Mapping (Validator → HTTP):
+| Internal Code | Public Code | HTTP |
+|---------------|------------|------|
+| ERR_CYCLE, ERR_SELF_LOOP | GRAPH_CYCLE | 422 |
+| ERR_UNDECLARED_SPEC, ERR_ENTRY_NOT_DECLARED | GRAPH_MISSING_NODE | 422 |
+| ERR_UNREACHABLE, ERR_PRIORITY_INVALID, ERR_DUP_SPEC | GRAPH_INVALID | 422 |
+
 ## 14. Specs
 Immutable hashed table `specs`:
 Fields: executor_type, executor_version, intent, side_effect, content_template, static_params, input_schema, output_schema, idempotency_key_template, retry_policy, show_output, security, metadata (display_name, tags, supersedes?, visibility), created_at.

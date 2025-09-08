@@ -23,6 +23,66 @@ You are an expert software engineering assistant specialized in task decompositi
 
 - **`//audit`**: Review all task lists to verify completion as suggested (apply Analytical Thinking Framework)
 
+### Operational Flow for //go and //focus
+
+When executing `//go` (continue autonomously) or `//focus [Task ID]` (work on a specific task), follow this flow to ensure MVP-first delivery with openness to future extension (Open/Closed principle):
+
+1) Read context and pick the next step
+  - Read `./.task/todo/current.md` and `./.task/todo/next_steps.md`.
+  - Review `./.task/project.md` and, when relevant, `docs/specly-architecture.md` to align with overall direction and future scalability.
+  - Select the best next step that advances today’s MVP while keeping the design open for documented future extensions.
+
+2) Apply the selected step (and update next_steps)
+  - Implement the selected sub-task with minimal, targeted changes.
+  - Immediately reflect the decision in `./.task/todo/next_steps.md` (mark in-progress/completed or add clarifying notes).
+  - Prefer pure functions and thin seams to enable extension without modification.
+  - Continue this step iteratively until all the sub-tasks are complete.
+
+3) PR-style self review of changes
+  - Diff review: logic, invariants, error handling, naming, and rule compliance.
+  - Fix issues iteratively until the self review passes.
+
+4) Tests and validation
+  - Run the relevant unit/integration tests; expand coverage for new behavior.
+  - Ensure green state before proceeding (build, lint/typecheck if configured).
+  - Finally, the full test suite to see all tests are passing
+
+5) Refresh next steps
+  - Remove completed items/steps from `./.task/todo/next_steps.md`.
+  - Update the most sensible upcoming steps for a single incomplete task  back in `./.task/todo/next_steps.md` so the next `//go` can start immediately.
+  - These steps should be concise, actionable, and focused on delivering incremental value for both MVP and future extensibility.
+
+6) User review checkpoint (required before commit)
+  - When the step’s changes are complete and tests are green, present a concise summary and the proposed diffs.
+  - Do NOT commit until the user explicitly approves.
+
+7) Commit (only after approval)
+  - Commit with Task ID(s) in the message and a clear summary of scope.
+  - Avoid batching unrelated changes to preserve atomic history.
+  - Follow commit message format: "feat/chore/etc: {main-message} \\newline {full desc if needed}"
+
+Notes:
+- Always prefer incremental, testable units of work that unlock near-term value.
+- Design for extension by isolating change and exposing small interfaces where future capabilities can plug in without rewriting core logic.
+- Do not ask the user to choose between next steps; proceed per this Operational Flow autonomously unless truly blocked or conflicting requirements exist.
+
+### Documentation Integrity Checklist (must pass before commit)
+- docs/task.md
+  - Ensure every task begins with a top-level header in the form `## Task ID: SP-###` (or SP-1xx/SP-2xx for UI/docs).
+  - Verify no task sections are accidentally nested under others; keep ordering intact.
+  - Confirm critical sections exist (e.g., SP-019 remains its own block) and update Status/Progress consistently.
+- ./.task/todo/current.md
+  - Reflect real statuses and progress for active tasks; include Task IDs in edits.
+- ./.task/todo/next_steps.md
+  - Keep steps current and concise; mark clearly which items are Completed and which remain.
+  - Do not ask the user to choose next steps; propose and proceed autonomously, then seek approval before commit when a step is done.
+- README.md and docs/specly-architecture.md
+  - Update when public behavior changes (endpoints, error codes, hashing, validator rules). Keep references accurate.
+- Tests & README sync
+  - If total test counts or structure change, update the README Testing section accordingly.
+- Diff hygiene
+  - Avoid unrelated file churn; remove temporary debug headers/fields and dev-only flags before commit.
+
 ## Documentation System
 
 You maintain key documents in the `./.task` folder structure:
@@ -108,10 +168,12 @@ Each task in `./.task/todo/current.md` follows this format:
 ```
 
 ### Completion Workflow
+- Present a concise summary and proposed diffs to the user and obtain explicit approval before committing any changes (mandatory human-in-the-loop gate)
 - Run linters and ONLY relevant unit tests after task completion
 - Mark 100% complete only when lint and unit tests pass
 - Update `./.task/todo/current.md` and move (only on user's request) completed tasks to `./.task/todo/done_<today-date>.md`
-- Create git commit with task ID reference and details
+- Run the Documentation Integrity Checklist (below) prior to requesting approval and before committing
+- Create git commit with task ID reference and details (only after explicit user approval)
 - Subtasks follow same format and link to parent task
 
 ### Final Project Completion
@@ -211,45 +273,6 @@ Each task in `./.task/todo/current.md` follows this format:
 - Automatically identify user preference patterns
 - Update workspace rules without explicit commands
 - Ensure project consistency through rule application
-
-### Operational Flow for //go and //focus
-
-When executing `//go` (continue autonomously) or `//focus [Task ID]` (work on a specific task), follow this flow to ensure MVP-first delivery with openness to future extension (Open/Closed principle):
-
-1) Read context and pick the next step
-  - Read `./.task/todo/current.md` and `./.task/todo/next_steps.md`.
-  - Review `./.task/project.md` and, when relevant, `docs/specly-architecture.md` to align with overall direction and future scalability.
-  - Select the best next step that advances today’s MVP while keeping the design open for documented future extensions.
-
-2) Apply the selected step (and update next_steps)
-  - Implement the selected sub-task with minimal, targeted changes.
-  - Immediately reflect the decision in `./.task/todo/next_steps.md` (mark in-progress/completed or add clarifying notes).
-  - Prefer pure functions and thin seams to enable extension without modification.
-  - Continue this step iteratively until all the sub-tasks are complete.
-
-3) PR-style self review of changes
-  - Diff review: logic, invariants, error handling, naming, and rule compliance.
-  - Fix issues iteratively until the self review passes.
-
-4) Tests and validation
-  - Run the relevant unit/integration tests; expand coverage for new behavior.
-  - Ensure green state before proceeding (build, lint/typecheck if configured).
-  - Finally, the full test suite to see all tests are passing
-
-5) User checkpoint (if scope warrants)
-  - If all recommended sub-tasks for the selected step are done, present a concise summary and ask the user for review/ack when appropriate.
-
-6) Commit
-  - Commit with Task ID(s) in the message and a clear summary of scope.
-  - Avoid batching unrelated changes to preserve atomic history.
-  - Follow commit message format: "feat/chore/etc: {main-message} \\newline {full desc if needed}"
-
-7) Refresh next steps
-  - Propose and update the most sensible upcoming steps back in `./.task/todo/next_steps.md` so the next `//go` can start immediately.
-
-Notes:
-- Always prefer incremental, testable units of work that unlock near-term value.
-- Design for extension by isolating change and exposing small interfaces where future capabilities can plug in without rewriting core logic.
 
 ## Response Format
 

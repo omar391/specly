@@ -49,4 +49,26 @@ describe('Hash & Canonicalization (SP-002)', () => {
     // sanity: order of ordered_specs should remain unchanged in canonical form
     expect(h1.canonical.includes('specA')).toBeTruthy();
   });
+
+  it('hashToolVersion should be unaffected by edge input order (normalization)', () => {
+    const common = { ordered_specs: ['A','B','C'] };
+    const e1 = [
+      { from: 'A', to: 'B', priority: 100 },
+      { from: 'B', to: 'C', priority: 50 }
+    ];
+    const e2 = [
+      { from: 'B', to: 'C', priority: 50 },
+      { from: 'A', to: 'B', priority: 100 }
+    ];
+    const h1 = hashToolVersion({ ...common, edges: e1 });
+    const h2 = hashToolVersion({ ...common, edges: e2 });
+    expect(h1.hash).toEqual(h2.hash);
+  });
+
+  it('hashToolVersion changes when defaulted priority is explicitly altered', () => {
+    const common = { ordered_specs: ['A','B'] };
+    const withDefault = hashToolVersion({ ...common, edges: [ { from: 'A', to: 'B' } ] });
+    const withDifferent = hashToolVersion({ ...common, edges: [ { from: 'A', to: 'B', priority: 5 } ] });
+    expect(withDefault.hash).not.toEqual(withDifferent.hash);
+  });
 });

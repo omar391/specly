@@ -366,6 +366,10 @@ Error Mapping (current):
 
 `tool_version_id` path is active: sending only that field (without graph or resumeToken) executes the persisted manifest. If both `graph` and `tool_version_id` are supplied the explicit `graph` wins. Supplying deprecated `mode` query param returns 400.
 
+Graph validation and error mapping
+- Tool version publishing performs strict graph validation and normalization before hashing. See `docs/specly-architecture.md` §13.1 for invariants and normalized hashing guarantees.
+- Public validation errors are surfaced as HTTP 422 with codes: `GRAPH_CYCLE`, `GRAPH_MISSING_NODE`, or `GRAPH_INVALID`.
+
 ### Tool Schema
 
 All tools accept JSON parameters and return structured responses:

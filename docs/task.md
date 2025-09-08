@@ -4,15 +4,6 @@ No backward compatibility. Tasks formatted as execution-ready units with traceab
 
 Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 
-### General Rule (Added 2025-09-03 – elevated)
-After completing each discrete unit task or phase (e.g., journal seam, metrics seam):
-1. Perform an internal PR-style review of the local diff (logic correctness, style adherence, rule compliance, dead code, naming consistency).
-2. Only after review passes, run the full (or appropriately scoped) test suite.
-3. Commit with a message referencing affected Task ID(s) and a concise summary of the change scope.
-4. Push immediately (no batching unrelated tasks) to preserve atomic history and simplify audits.
-
-This rule is mandatory and supersedes any ad-hoc commit practices. (Moved to top for visibility.)
-
 ---
 ## Backend Foundation
 
@@ -332,8 +323,19 @@ This rule is mandatory and supersedes any ad-hoc commit practices. (Moved to top
 - **Status**: In-Progress
 - **Progress**: 30%
 - **Completed At**: 
-- **Notes**: Validator implemented (`validateToolGraph`) returning normalized manifest (integer priority fill default=100, deterministic edge ordering by `from_spec, priority asc, result_code specificity (specific before always), target spec hash`), and throws `GraphValidationError` with typed codes (ERR_MULTI_ENTRY, ERR_CYCLE, ERR_UNREACHABLE, ERR_SELF_LOOP, ERR_NEGATIVE_PRIORITY, ERR_DUPLICATE_ORDERED_SPEC, ERR_UNDECLARED_SPEC). Kahn-based topological pass derives reachability + cycle detection in O(V+E). Unreachable specs now hard error unless `allowUnreachable=true` (internal). Tests cover: happy path normalization (edge sort + priority fill), cycle, unreachable (error), unreachable (allowed), self-loop, negative priority, duplicate ordered_specs, undeclared spec edge. Integrated into planned tool version publication flow (SP-014) pre-hash; planner (SP-005) now assumes validator invariants and will not re-check structural errors—only runtime execution states. Remaining for SP-018: integrate with upcoming API endpoints (SP-014), add dead-end mid-run failure classification test, expose minimal public error -> 422 mapping utility, and documentation snippet in architecture §7 & §13 referencing normalization guarantees.
-- **Connected File List**: ./src/utils/graph-validate.ts, ./src/__tests__/graph-validate.test.ts
+**Status**: In-Progress
+**Progress**: 80%
+
+**Notes**: Validator implemented (`validateToolGraph`) returning normalized manifest (priority fill default=100; deterministic edge ordering by `(from, to, condition_type, condition_value, priority, insertion)`), with typed codes (ERR_MULTI_ENTRY, ERR_CYCLE, ERR_UNREACHABLE, ERR_SELF_LOOP, ERR_PRIORITY_INVALID, ERR_DUP_SPEC, ERR_UNDECLARED_SPEC). Kahn-based topological pass derives reachability + cycle detection in O(V+E). Unreachable specs now hard error unless `allowUnreachable=true` (internal). Tests cover: happy path normalization, cycle, unreachable (error), unreachable (allowed), self-loop, negative priority, duplicate ordered_specs, undeclared spec edge. 
+
+New in this iteration:
+- Added public mapping utility `mapGraphValidationToPublicError` (src/utils/graph-error-map.ts) with unit tests.
+- Refactored tool version publish endpoint to use the mapping for consistent 422 codes (GRAPH_CYCLE, GRAPH_MISSING_NODE, GRAPH_INVALID).
+- Extended hashing tests to assert edge order normalization (input order agnostic) and default-priority behavior impacts hash as expected.
+- Verified runtime dead-end classification: existing SpecEngine test asserts ROUTE_DEAD_END; added endpoint-level test that returns HTTP 500 with error.code=ROUTE_DEAD_END.
+- Documentation updated: specly-architecture.md §13.1 now includes normalization guarantees and validator→public error mapping table; README references that section.
+
+Remaining for SP-018: Endpoint audit completed (no other public surfaces throw validator errors). Consider exposing normalized manifest echo in responses (deferred). Proceed to SP-002 optimization and SP-200 golden maintenance per plan. Instruction docs updated to emphasize autonomous progression without asking user to choose next steps.
 
 ## Task ID: SP-019
 - **Title**: Session Lease & Force-Start Enforcement Tests
@@ -343,7 +345,7 @@ This rule is mandatory and supersedes any ad-hoc commit practices. (Moved to top
 - **Status**: TBD
 - **Progress**: 0%
 - **Completed At**: 
-- **Notes**: Add negative test for force_start without existing session ownership. Deferred from SP-006: explicit lease enforcement conflict tests & lease renewal failure mapping assertions (now in SP-019 scope). Include: (a) acquire conflict 409, (b) lease renewal failure path, (c) conflicting resume attempt 409, (d) awaiting_input state does not advance without active lease.
+- **Notes**: Add negative test for force_start without existing session ownership.
 - **Connected File List**: ./src/__tests__/session-lease.test.ts, ./src/services/spec-engine.ts
 
 ## Task ID: SP-020
@@ -644,5 +646,13 @@ Rollback (minimal since destructive): backup of pre-migration DB snapshot retain
 
 ## Notes
 Legacy phase-based planning removed 2025-09-02 for clarity under direct cutover approach. Historical phased plan intentionally discarded (no appendix) to prevent drift.
+
+### General Rule (Added 2025-09-03)
+After completing each discrete unit task or phase (e.g., journal seam, metrics seam):
+1. Perform an internal PR-style review of the local diff (logic correctness, style adherence, rule compliance, dead code, naming consistency).
+2. Only after review passes, run the full (or appropriately scoped) test suite.
+3. Commit with a message referencing affected Task ID(s) and a concise summary of the change scope.
+4. Push immediately (no batching unrelated tasks) to preserve atomic history and simplify audits.
+This rule is mandatory and supersedes any ad-hoc commit practices.
 
 This task plan is living; update in PRs referencing Task IDs. All implementers must maintain alignment with `migration_roadmap.md` and `migration_roadmap_ui.md`.
