@@ -184,6 +184,48 @@ Planned Enhancements:
 
 Backward Compatibility: Legacy `/tool-flows` and `/feedback-steps` endpoints have been removed (404). Previous `mode` parameter removed—clients updated to rely on `resumeToken` presence.
 
+### 3a. GET /api/workspaces/{id}/profile
+Purpose: Fetch the workspace's currently bound profile version (enriched for UI)
+Used by: Profile badge/info in UI
+
+Response (200):
+```json
+{
+  "workspace_id": "w1",
+  "profile_version_id": "pv_123",
+  "pinned_at": "2025-09-08T18:10:00.000Z",
+  "profile_name": "bindprof",
+  "version": 2
+}
+```
+
+Errors:
+- 404 when the workspace has no bound profile: `{ "error": "workspace profile not bound", "workspaceId": "w1" }`
+
+Notes:
+- `profile_name` and `version` are included for UI convenience via a join; no extra round-trip needed.
+
+### 3b. POST /api/profiles/{profile}/versions/{version}/publish
+Purpose: Validate and finalize a profile version for use (validation-only in current model)
+Used by: Admin/Publishing UI
+
+Request Body:
+```json
+{}
+```
+
+Response (200):
+```json
+{ "profile": "pub", "version": 1, "published": true }
+```
+
+Errors:
+- 404 when profile or version not found: `{ "error": "profile version not found", "profile": "pub", "version": 99 }`
+- 400 when path params invalid: `{ "error": "profile and numeric version required" }`
+
+Notes:
+- There is no persisted publish state yet; this endpoint serves as a validation gate and future hook. It ensures the target profile/version exist.
+
 ### 4. POST /api/workspaces/{id}/tasks
 **Purpose**: Create new task
 **Used by**: Tasks page (new task button)
