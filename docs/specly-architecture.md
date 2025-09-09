@@ -99,6 +99,12 @@ Session statuses:
 `active | idle`  
 Rationale: task may be deliberately paused; a session is idle when not executing (waiting on input, blocked, or paused task).
 
+### 5.1 Status Transitions & Dependency Guard
+- Centralized transition rules enforce allowed moves between task statuses. Illegal transitions (e.g., queued → completed) return HTTP 422.
+- Dependency-aware guard: transitioning into `in_progress` or `completed` is rejected (HTTP 422) if any declared dependency is unresolved (not `completed` or `failed`).
+- Completing a task sets `completed_at` timestamp exactly once; subsequent non-terminal transitions are disallowed.
+- `blocked` may be set explicitly with an optional `blocked_reason`; when all dependencies resolve, tasks can move back to `queued` (if never started) or `in_progress` via explicit API calls.
+
 ## 6. Dependency Management
 `task_dependencies (task_id, depends_on_task_id)` (unique pair).  
 A task is `blocked` if any dependency not in `completed` or `failed`. An optional inline `blocked_reason` can force `blocked`. On resolution, status transitions to `queued` (if not started) or `in_progress`.
@@ -226,6 +232,11 @@ Tasks:
 - session_id (if attached)
 - blocked_reason
 - deleted_at (soft delete)
+ - assets JSON
+ - external_references JSON
+ - metadata JSON
+ - tags JSON
+ - completed_at (nullable)
 Sessions:
 - status ENUM('active','idle')
 - current_spec_hash
@@ -236,6 +247,12 @@ Sessions:
 - deleted_at (nullable)
 Dependencies:
 - `task_dependencies (task_id, depends_on_task_id, created_at)` unique pair.
+
+### 15.1 JSON Column Rationale (Tasks)
+- assets: arbitrary structured pointers to artifacts produced/consumed by tasks (e.g., URLs, object descriptors).
+- external_references: stable links or IDs in external systems (issue trackers, PRs), deliberately kept outside `metadata` for first-class filtering and future indexing.
+- metadata: unstructured, extensible key/value bag for UI or orchestration hints not used for primary filtering.
+- tags: simple array/object for lightweight classification; separate from metadata for consistent querying.
 
 ## 16. GC & Retention
 - Transient session GC: `task_id IS NULL` & `last_active_at < now - 24h` → hard delete.
