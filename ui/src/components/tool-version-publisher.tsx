@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { apiClient } from "@/lib/api-client"
-import { detectCycles, detectSelfLoops } from "@/components/tool-graph-canvas"
+import { detectCycles, detectSelfLoops } from "./tool-graph-canvas"
 
 type PublishResult = { success: boolean; message?: string; hash?: string }
 
@@ -170,6 +170,8 @@ export default function ToolVersionPublisher({ initialManifest, onPublish }: Too
           {validationErrors.map((m, i) => <div key={i}>{m}</div>)}
         </div>
       )}
+
+      {parseError && <div role="alert" className="text-sm text-red-600">Parse error: {parseError}</div>}
 
       {successMsg && <div role="status" className="text-sm text-green-600">{successMsg}</div>}
     </div>

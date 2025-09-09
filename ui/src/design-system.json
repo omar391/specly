@@ -1,6 +1,7 @@
 {
     "designLanguage": {
-    "name": "Specly Design System",
+        "name": "Specly Design System",
+        "brandName": "Specly",
         "version": "1.1.0",
         "spacing": {
             "xs": "0.25rem",
@@ -19,6 +20,7 @@
             "2xl": "1.5rem"
         },
         "colors": {
+            "brand": "#0B5FFF",
             "primary": {
                 "blue": "#3b82f6",
                 "green": "#10b981",
@@ -34,6 +36,12 @@
                 "blue": "#3b82f6",
                 "gradientBlueGreen": "linear-gradient(135deg, #3b82f6, #10b981)",
                 "gradientBlueGreenFaded": "linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(16, 185, 129, 0.1))"
+            },
+            "session": {
+                "awaiting_input": "#F59E0B",
+                "running": "#0EA5E9",
+                "completed": "#10B981",
+                "failed": "#EF4444"
             },
             "neutral": {
                 "50": "#f9fafb",

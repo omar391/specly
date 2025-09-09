@@ -1,4 +1,4 @@
-import React, { useMemo } from "react"
+import { useMemo } from "react"
 
 export type Node = { id: string; label?: string }
 export type Edge = { from: string; to: string; label?: string }

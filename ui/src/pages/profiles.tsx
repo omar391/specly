@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from "react"
+import { useEffect, useState } from "react"
 import { apiClient } from "@/lib/api-client"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import ProfileVersionCreator from "@/components/profile-version-creator"
+import ProfileVersionCreator from "../components/profile-version-creator"
 
 interface ProfileItem {
   name: string

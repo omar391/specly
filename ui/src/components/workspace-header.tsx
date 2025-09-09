@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from '@tanstack/react-router';
+import { brandName } from '@/lib/design-system'
 
 interface WorkspaceHeaderProps {
   workspaceName?: string;
@@ -25,7 +26,7 @@ export function WorkspaceHeader({
           {/* Header */}
           <div className="text-center">
             <Link to="/" className="inline-block hover:opacity-80 transition-opacity">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">Specly</h1>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">{brandName}</h1>
             </Link>
             <p className="text-gray-600">
               Model Context Protocol Task Manager
