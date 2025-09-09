@@ -10,7 +10,7 @@ import { DatabaseService } from '../services/database-service.js';
 import { TasksResponse, Task, CreateTaskRequest, UpdateTaskRequest, TasksQueryParams } from './types.js';
 import { createSuccessResponse, createErrorResponse, NotFoundError, ValidationError } from './middleware.js';
 import { WorkspacesController } from './workspaces.js';
-import { v4 as uuidv4 } from 'uuid';
+import { assertValidStatus, canTransition } from '../utils/task-status.js';
 
 export class TasksController {
   constructor(
@@ -151,7 +151,6 @@ export class TasksController {
   async getTask(req: Request, res: Response): Promise<void> {
     try {
       const { workspaceId, taskId } = req.params as { workspaceId: string; taskId: string };
-      // Verify workspace exists
       const workspace = await this.workspacesController.getWorkspaceById(workspaceId);
       const workspaceDb = await this.databaseService.getWorkspace(workspace.path);
       const task = await workspaceDb.getTask(taskId);
@@ -167,7 +166,7 @@ export class TasksController {
 
   /**
    * PATCH /api/workspaces/{workspaceId}/tasks/{taskId}/status
-   * Update task status with simple allowed transitions
+   * Update task status with validation and dependency guardrails
    */
   async patchTaskStatus(req: Request, res: Response): Promise<void> {
     try {
@@ -176,11 +175,11 @@ export class TasksController {
       if (!status || typeof status !== 'string') {
         throw new ValidationError('Status is required');
       }
-      const allowedStatusesSpecly = ['queued', 'in_progress', 'awaiting_input', 'blocked', 'paused', 'completed', 'failed'];
-      if (!allowedStatusesSpecly.includes(status)) {
-        throw new ValidationError(`Invalid status value: ${status}`);
+      try {
+        assertValidStatus(status);
+      } catch (e: any) {
+        throw new ValidationError(e?.message || 'Invalid status value');
       }
-      // Verify workspace & task
       const workspace = await this.workspacesController.getWorkspaceById(workspaceId);
       const workspaceDb = await this.databaseService.getWorkspace(workspace.path);
       const existingTask = await workspaceDb.getTask(taskId);
@@ -188,17 +187,20 @@ export class TasksController {
         throw new NotFoundError(`Task not found: ${taskId}`);
       }
       const fromSpecly: string = (existingTask.status as string) ?? 'queued';
-      const canTransitionSpecly: Record<string, string[]> = {
-        'queued': ['in_progress', 'blocked', 'paused', 'failed'],
-        'in_progress': ['awaiting_input', 'blocked', 'paused', 'completed', 'failed'],
-        'awaiting_input': ['in_progress', 'paused', 'failed'],
-        'blocked': ['in_progress', 'paused', 'failed'],
-        'paused': ['in_progress', 'blocked', 'failed'],
-        'completed': [],
-        'failed': []
-      };
-      if (!canTransitionSpecly[fromSpecly] || !canTransitionSpecly[fromSpecly].includes(status)) {
-        throw new ValidationError(`Invalid status transition: ${fromSpecly} -> ${status}`);
+      const deps = await workspaceDb.listTaskDependencies(taskId);
+      let hasUnresolvedDeps = false;
+      if (Array.isArray(deps) && deps.length > 0) {
+        for (const d of deps) {
+          const depTask = await workspaceDb.getTask(d.depends_on_task_id);
+          if (!depTask || depTask.status !== 'completed') {
+            hasUnresolvedDeps = true;
+            break;
+          }
+        }
+      }
+      const check = canTransition(fromSpecly as any, status as any, { hasUnresolvedDependencies: hasUnresolvedDeps });
+      if (!check.ok) {
+        throw new ValidationError(check.reason || `Invalid status transition: ${fromSpecly} -> ${status}`);
       }
       const now = new Date().toISOString();
       const updates: any = { status, updatedAt: now };
@@ -210,6 +212,75 @@ export class TasksController {
       res.json(createSuccessResponse({ task: this.mapTaskDbToApi(updatedTask) }));
     } catch (error) {
       console.error('Error updating task status:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * POST /api/workspaces/{workspaceId}/tasks/{taskId}/dependencies
+   */
+  async addDependency(req: Request, res: Response): Promise<void> {
+    try {
+      const { workspaceId, taskId } = req.params as { workspaceId: string; taskId: string };
+      const { depends_on } = req.body as { depends_on?: string };
+      if (!depends_on) { throw new ValidationError('depends_on is required'); }
+      if (depends_on === taskId) { throw new ValidationError('Task cannot depend on itself'); }
+      const workspace = await this.workspacesController.getWorkspaceById(workspaceId);
+      const workspaceDb = await this.databaseService.getWorkspace(workspace.path);
+      // Ensure both tasks exist
+      const t1 = await workspaceDb.getTask(taskId);
+      const t2 = await workspaceDb.getTask(depends_on);
+      if (!t1) { throw new NotFoundError(`Task not found: ${taskId}`); }
+      if (!t2) { throw new NotFoundError(`Task not found: ${depends_on}`); }
+      // Cycle detection: check if there is a path from depends_on to taskId
+      const seen = new Set<string>();
+      const stack = [depends_on];
+      while (stack.length) {
+        const cur = stack.pop()!;
+        if (cur === taskId) {
+          throw new ValidationError('Dependency would create a cycle');
+        }
+        if (seen.has(cur)) continue;
+        seen.add(cur);
+        const edges = await workspaceDb.listTaskDependencies(cur);
+        for (const e of edges) stack.push(e.depends_on_task_id);
+      }
+      await workspaceDb.addTaskDependency(taskId, depends_on);
+      res.status(201).json(createSuccessResponse({ task_id: taskId, depends_on }));
+    } catch (error) {
+      console.error('Error adding dependency:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * DELETE /api/workspaces/{workspaceId}/tasks/{taskId}/dependencies/:dependsOn
+   */
+  async removeDependency(req: Request, res: Response): Promise<void> {
+    try {
+      const { workspaceId, taskId, dependsOn } = req.params as { workspaceId: string; taskId: string; dependsOn: string };
+      const workspace = await this.workspacesController.getWorkspaceById(workspaceId);
+      const workspaceDb = await this.databaseService.getWorkspace(workspace.path);
+      await workspaceDb.removeTaskDependency(taskId, dependsOn);
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error removing dependency:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * GET /api/workspaces/{workspaceId}/tasks/{taskId}/dependencies
+   */
+  async listDependencies(req: Request, res: Response): Promise<void> {
+    try {
+      const { workspaceId, taskId } = req.params as { workspaceId: string; taskId: string };
+      const workspace = await this.workspacesController.getWorkspaceById(workspaceId);
+      const workspaceDb = await this.databaseService.getWorkspace(workspace.path);
+      const deps = await workspaceDb.listTaskDependencies(taskId);
+      res.json(createSuccessResponse({ task_id: taskId, dependencies: deps }));
+    } catch (error) {
+      console.error('Error listing dependencies:', error);
       throw error;
     }
   }

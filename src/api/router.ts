@@ -114,6 +114,32 @@ export function createApiRouter(databaseService: DatabaseService): Router {
     }
   });
 
+  // 4b. Task dependency endpoints
+  // POST add dependency
+  router.post('/workspaces/:workspaceId/tasks/:taskId/dependencies', writeRateLimit, validateWorkspaceId, validateTaskId, async (req, res, next) => {
+    try {
+      await tasksController.addDependency(req, res);
+    } catch (error) {
+      next(error);
+    }
+  });
+  // DELETE remove dependency
+  router.delete('/workspaces/:workspaceId/tasks/:taskId/dependencies/:dependsOn', writeRateLimit, validateWorkspaceId, validateTaskId, async (req, res, next) => {
+    try {
+      await tasksController.removeDependency(req, res);
+    } catch (error) {
+      next(error);
+    }
+  });
+  // GET list dependencies
+  router.get('/workspaces/:workspaceId/tasks/:taskId/dependencies', readRateLimit, validateWorkspaceId, validateTaskId, async (req, res, next) => {
+    try {
+      await tasksController.listDependencies(req, res);
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // Error handling middleware
   router.use(notFoundHandler);
   router.use(errorHandler);
