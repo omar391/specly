@@ -1,30 +1,12 @@
 import { v4 as uuidv4 } from 'uuid';
-import type { DatabaseManager } from '../database/connection.js';
 import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
 import { getGlobalDatabase } from '../database/drizzle-connection.js';
-import type { Task } from '../types/index.js';
 import { SeedManager } from './seed-manager.js';
 import { workspaces, sessions, workspaceRulesNew, type Workspace, type NewWorkspace, type NewSession } from '../database/schema/global-schema.js';
-import { tasks, type Task as DrizzleTask, type NewTask } from '../database/schema/workspace-schema.js';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { tasks } from '../database/schema/workspace-schema.js';
+import { eq, sql } from 'drizzle-orm';
 
-// Database representation of Task (with JSON fields as strings)
-interface DatabaseTask {
-  id: string;
-  title: string;
-  description?: string;
-  priority: 'High' | 'Medium' | 'Low';
-  status: 'Backlog' | 'In-Progress' | 'Blocked' | 'Review' | 'Done' | 'Dropped';
-  progress: number;
-  parent_task_id?: string;
-  blocked_by_task_id?: string;
-  connected_files: string; // JSON string in database
-  notes?: string;
-  workspace_id: string;
-  created_at: string;
-  updated_at: string;
-  completed_at?: string;
-}
+// Remove legacy DB Task representation; initializer will not create legacy-shaped tasks
 
 export interface ProjectInitializationInput {
   workspace_path: string;
@@ -39,7 +21,6 @@ export interface ProjectInitializationResult {
     path: string;
     name: string;
   };
-  initialTasks: Task[];
   workspaceRulesCreated: boolean;
   isEmpty?: boolean;
 }
@@ -85,7 +66,6 @@ export class ProjectInitializer {
           path: workspace.path,
           name: workspace.name
         },
-        initialTasks: [], // No initial tasks created during init
         workspaceRulesCreated: false, // Will be handled by init_feedback flow
         isEmpty
       };
@@ -182,142 +162,6 @@ export class ProjectInitializer {
     return workspace!;
   }
 
-  /**
-   * Create initial project tasks based on requirements and tech stack
-   */
-  private async createInitialTasks(workspaceId: string, requirements: string, techStack: string): Promise<Task[]> {
-    // CRITICAL FIX: Get workspace from global DB to get the workspace path
-    const globalDb = getGlobalDatabase();
-    const workspace = await globalDb.getDb().select()
-      .from(workspaces)
-      .where(eq(workspaces.id, workspaceId))
-      .get();
-
-    if (!workspace) {
-      throw new Error(`Workspace with ID ${workspaceId} not found`);
-    }
-
-    // Import and initialize the workspace database service for the correct workspace
-    const { getWorkspaceDatabase, initializeWorkspaceDatabase } = await import('../database/drizzle-connection.js');
-    const workspaceDb = await initializeWorkspaceDatabase(workspace.path);
-
-    const initialTasks: Partial<DatabaseTask>[] = [
-      {
-        id: this.generateTaskId(),
-        title: 'Project Setup and Configuration',
-        description: `Set up initial project structure and configuration for ${techStack} development environment. Includes package management with bun, build tools, and development dependencies setup.`,
-        priority: 'High',
-        status: 'Backlog',
-        progress: 0,
-        workspace_id: workspaceId,
-        connected_files: JSON.stringify(['package.json', 'bun.lockb', 'tsconfig.json', '.gitignore', 'README.md']),
-        notes: 'Foundation task for project initialization - use bun for package management'
-      },
-      {
-        id: this.generateTaskId(),
-        title: 'Requirements Analysis and Documentation',
-        description: `Analyze and document project requirements: ${requirements}. Create detailed specifications and architectural decisions.`,
-        priority: 'High',
-        status: 'Backlog',
-        progress: 0,
-        workspace_id: workspaceId,
-        connected_files: JSON.stringify(['docs/requirements.md', 'docs/architecture.md']),
-        notes: 'Critical for project planning and scope definition'
-      },
-      {
-        id: this.generateTaskId(),
-        title: 'Development Environment Setup',
-        description: `Configure development environment for ${techStack}. Set up linting, formatting, testing frameworks, and development workflows.`,
-        priority: 'Medium',
-        status: 'Backlog',
-        progress: 0,
-        workspace_id: workspaceId,
-        connected_files: JSON.stringify(['.eslintrc.js', '.prettierrc', 'jest.config.js']),
-        notes: 'Ensures consistent development practices'
-      }
-    ];
-
-    // Add tech-stack specific tasks
-    if (techStack.toLowerCase().includes('react')) {
-      initialTasks.push({
-        id: this.generateTaskId(),
-        title: 'React Application Structure',
-        description: 'Set up React application structure with components, routing, and state management.',
-        priority: 'Medium',
-        status: 'Backlog',
-        progress: 0,
-        workspace_id: workspaceId,
-        connected_files: JSON.stringify(['src/App.tsx', 'src/components/', 'src/pages/']),
-        notes: 'React-specific setup'
-      });
-    }
-
-    if (techStack.toLowerCase().includes('node') || techStack.toLowerCase().includes('typescript')) {
-      initialTasks.push({
-        id: this.generateTaskId(),
-        title: 'Node.js/TypeScript Backend Setup',
-        description: 'Configure Node.js backend with TypeScript, Express/Fastify, and database connections.',
-        priority: 'Medium',
-        status: 'Backlog',
-        progress: 0,
-        workspace_id: workspaceId,
-        connected_files: JSON.stringify(['src/index.ts', 'src/routes/', 'src/services/']),
-        notes: 'Backend foundation'
-      });
-    }
-
-    // Insert tasks into WORKSPACE database using correct Drizzle connection
-    const createdTasks: Task[] = [];
-    for (const task of initialTasks) {
-      const taskData: NewTask = {
-        id: task.id!,
-        title: task.title!,
-        description: task.description,
-        priority: (task.priority as 'High' | 'Medium' | 'Low')?.toLowerCase() as 'high' | 'medium' | 'low' || 'medium',
-        status: (task.status as 'Backlog' | 'In-Progress' | 'Blocked' | 'Review' | 'Done' | 'Dropped')?.toLowerCase().replace('-', '-') as 'backlog' | 'in-progress' | 'blocked' | 'review' | 'done' | 'dropped' || 'backlog',
-        progress: task.progress || 0,
-        dependencies: JSON.stringify([]),
-        notes: task.notes,
-        connectedFiles: JSON.stringify(task.connected_files ? JSON.parse(task.connected_files) : []),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        completedAt: null
-      };
-
-      await workspaceDb.getDb().insert(tasks).values(taskData);
-
-      // Fetch the created task from workspace database
-      const dbTask = await workspaceDb.getDb().select()
-        .from(tasks)
-        .where(eq(tasks.id, task.id!))
-        .get();
-      
-      if (dbTask) {
-        // Convert database task to API task format - mapping Drizzle types to legacy API types
-        const apiTask: Task = {
-          id: dbTask.id,
-          title: dbTask.title,
-          description: dbTask.description || undefined,
-          priority: (dbTask.priority ?
-            (dbTask.priority.charAt(0).toUpperCase() + dbTask.priority.slice(1)) as 'High' | 'Medium' | 'Low'
-            : 'Medium'),
-          status: (dbTask.status ?
-            dbTask.status.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join('-') as 'Backlog' | 'In-Progress' | 'Blocked' | 'Review' | 'Done' | 'Dropped'
-            : 'Backlog'),
-          progress: dbTask.progress || 0,
-          connected_files: Array.isArray(dbTask.connectedFiles) ? dbTask.connectedFiles : [],
-          notes: dbTask.notes || undefined,
-          workspace_id: workspaceId, // Add workspace_id from method parameter
-          created_at: dbTask.createdAt || new Date().toISOString(),
-          updated_at: dbTask.updatedAt || new Date().toISOString(),
-          completed_at: dbTask.completedAt || undefined
-        };
-        createdTasks.push(apiTask);
-      }
-    }
-
-    return createdTasks;
-  }
 
   /**
    * Create workspace-specific rules based on tech stack
@@ -382,16 +226,6 @@ export class ProjectInitializer {
   }
 
   /**
-   * Generate task ID with TP prefix
-   */
-  private generateTaskId(): string {
-    // Generate a simple incremental ID (in production, this could be more sophisticated)
-    const timestamp = Date.now().toString().slice(-6);
-    const random = Math.floor(Math.random() * 900) + 100;
-    return `TP-${timestamp}${random}`;
-  }
-
-  /**
    * Check if workspace is already initialized
    */
   async isWorkspaceInitialized(workspacePath: string): Promise<boolean> {
@@ -438,33 +272,8 @@ export class ProjectInitializer {
     const { initializeWorkspaceDatabase } = await import('../database/drizzle-connection.js');
     const workspaceDb = await initializeWorkspaceDatabase(workspace.path);
 
-    // Preserve existing tasks if requested
-    let existingTasks: Task[] = [];
-    if (preserveTasks) {
-      const dbTasks = await workspaceDb.getDb().select()
-        .from(tasks)
-        .all();
-      
-      // Convert database tasks to API format
-      existingTasks = dbTasks.map((dbTask: DrizzleTask) => ({
-        id: dbTask.id,
-        title: dbTask.title,
-        description: dbTask.description || undefined,
-        priority: (dbTask.priority ?
-          (dbTask.priority.charAt(0).toUpperCase() + dbTask.priority.slice(1)) as 'High' | 'Medium' | 'Low'
-          : 'Medium'),
-        status: (dbTask.status ?
-          dbTask.status.split('-').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join('-') as 'Backlog' | 'In-Progress' | 'Blocked' | 'Review' | 'Done' | 'Dropped'
-          : 'Backlog'),
-        progress: dbTask.progress || 0,
-        connected_files: Array.isArray(dbTask.connectedFiles) ? dbTask.connectedFiles : [],
-        notes: dbTask.notes || undefined,
-        workspace_id: workspace.id,
-        created_at: dbTask.createdAt || new Date().toISOString(),
-        updated_at: dbTask.updatedAt || new Date().toISOString(),
-        completed_at: dbTask.completedAt || undefined
-      }));
-    } else {
+    // Preserve existing tasks branch removed; initializer no longer returns tasks
+    if (!preserveTasks) {
       // Clear existing tasks from workspace database
       await workspaceDb.getDb().delete(tasks);
     }
@@ -481,7 +290,7 @@ export class ProjectInitializer {
         path: workspace.path,
         name: workspace.name
       },
-      initialTasks: existingTasks,
+      // No task list returned; Specly-only initializer concerns workspaces/rules/sessions
       workspaceRulesCreated
     };
   }

@@ -80,7 +80,7 @@ export class UpdateToolNew extends BaseTool {
           updatedTask.priority = value.toLowerCase();
           break;
         case 'status':
-          updatedTask.status = value;
+          updatedTask.status = value as any;
           break;
         case 'progress':
           updatedTask.progress = Number(value);
@@ -89,10 +89,11 @@ export class UpdateToolNew extends BaseTool {
           updatedTask.notes = (updatedTask.notes || '') + '\n' + value;
           break;
         case 'connected_files':
-          updatedTask.connectedFiles = value.split(',').map((v: string) => v.trim());
+          updatedTask.assets = value.split(',').map((v: string) => v.trim());
           break;
         case 'blocked_by':
-          updatedTask.dependencies = value.split(',').map((v: string) => v.trim());
+          // store as externalReferences metadata note for now
+          updatedTask.metadata = { ...(updatedTask.metadata || {}), blocked_by: value.split(',').map((v: string) => v.trim()) };
           break;
       }
       updatedTask.updatedAt = new Date().toISOString();

@@ -52,19 +52,22 @@ describe('Workspace Schema Investigation', () => {
 
             // Try to insert a test task
             try {
+                const now = new Date().toISOString();
                 const insertResult = await workspaceDb.createTask({
                     id: 'test-task-1',
                     title: 'Test Task',
                     description: 'Test description',
-                    status: 'backlog',
+                    status: 'queued',
                     priority: 'medium',
                     progress: 0,
-                    dependencies: '[]',
                     notes: '',
-                    connectedFiles: '[]',
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString()
-                });
+                    assets: [],
+                    externalReferences: [],
+                    metadata: {},
+                    tags: [],
+                    createdAt: now,
+                    updatedAt: now
+                } as any);
                 console.log('Successfully inserted test task:', insertResult.id);
 
                 // Try to query it back

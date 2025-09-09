@@ -262,20 +262,23 @@ export class DrizzleDatabaseManager {
         CREATE INDEX IF NOT EXISTS idx_action_journal_spec_hash ON action_journal(spec_hash);
       `);
     } else {
-      // Create workspace tables
+      // Create workspace tables (final Specly schema)
       this.sqlite.exec(`
         CREATE TABLE IF NOT EXISTS tasks (
           id TEXT PRIMARY KEY,
           title TEXT NOT NULL,
           description TEXT,
-          status TEXT DEFAULT 'backlog' CHECK(status IN ('backlog', 'in-progress', 'blocked', 'review', 'done', 'dropped')),
-          priority TEXT DEFAULT 'medium' CHECK(priority IN ('high', 'medium', 'low')),
+          status TEXT DEFAULT 'queued' CHECK(status IN ('queued','in_progress','awaiting_input','blocked','paused','completed','failed')),
+          priority TEXT DEFAULT 'medium' CHECK(priority IN ('high','medium','low')),
           progress INTEGER DEFAULT 0 CHECK(progress >= 0 AND progress <= 100),
-          dependencies TEXT DEFAULT '[]',
           notes TEXT,
-          connected_files TEXT DEFAULT '[]',
-          github_issue_number INTEGER,
-          github_url TEXT,
+          assets TEXT DEFAULT '[]',
+          external_references TEXT DEFAULT '[]',
+          metadata TEXT DEFAULT '{}',
+          tags TEXT DEFAULT '[]',
+          profile_version_id TEXT,
+          blocked_reason TEXT,
+          deleted_at TEXT,
           created_at TEXT DEFAULT CURRENT_TIMESTAMP,
           updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
           completed_at TEXT
@@ -312,9 +315,139 @@ export class DrizzleDatabaseManager {
         -- Indexes
         CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
         CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
-        CREATE INDEX IF NOT EXISTS idx_tasks_github_issue_number ON tasks(github_issue_number);
         CREATE INDEX IF NOT EXISTS idx_remote_interfaces_type ON remote_interfaces(interface_type);
+
+        CREATE TABLE IF NOT EXISTS task_dependencies (
+          task_id TEXT NOT NULL,
+          depends_on_task_id TEXT NOT NULL,
+          PRIMARY KEY(task_id, depends_on_task_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS sessions (
+          id TEXT PRIMARY KEY,
+          workspace_id TEXT NOT NULL,
+          task_id TEXT,
+          profile_version_id TEXT,
+          current_spec_hash TEXT,
+          status TEXT DEFAULT 'active' CHECK(status IN ('active','idle')),
+          client_state_id TEXT,
+          last_active_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          context TEXT DEFAULT '{}',
+          last_result_code TEXT,
+          human_blocking INTEGER DEFAULT 0,
+          deleted_at TEXT,
+          created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+        
+        -- Indexes for tables
+        CREATE INDEX IF NOT EXISTS idx_task_dependencies_task ON task_dependencies(task_id);
+        CREATE INDEX IF NOT EXISTS idx_task_dependencies_depends ON task_dependencies(depends_on_task_id);
       `);
+
+      // Detect and migrate legacy tasks table (with backlog/in-progress/etc) to Specly schema
+      try {
+        const row = this.sqlite.prepare(`SELECT sql FROM sqlite_master WHERE type='table' AND name='tasks'`).get() as { sql?: string } | undefined;
+        const sqlDef = row?.sql || '';
+        if (/CHECK\s*\(status\s+IN\s*\('backlog'\s*,\s*'in-progress'/i.test(sqlDef)) {
+          // Perform table rebuild with data migration
+          this.sqlite.exec(`
+            BEGIN TRANSACTION;
+            CREATE TABLE tasks_migrated (
+              id TEXT PRIMARY KEY,
+              title TEXT NOT NULL,
+              description TEXT,
+              status TEXT DEFAULT 'queued' CHECK(status IN ('queued','in_progress','awaiting_input','blocked','paused','completed','failed')),
+              priority TEXT DEFAULT 'medium' CHECK(priority IN ('high','medium','low')),
+              progress INTEGER DEFAULT 0 CHECK(progress >= 0 AND progress <= 100),
+              notes TEXT,
+              assets TEXT DEFAULT '[]',
+              external_references TEXT DEFAULT '[]',
+              metadata TEXT DEFAULT '{}',
+              tags TEXT DEFAULT '[]',
+              profile_version_id TEXT,
+              blocked_reason TEXT,
+              deleted_at TEXT,
+              created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+              updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+              completed_at TEXT
+            );
+            INSERT INTO tasks_migrated (
+              id, title, description, status, priority, progress, notes,
+              assets, external_references, metadata, tags,
+              profile_version_id, blocked_reason, deleted_at,
+              created_at, updated_at, completed_at
+            )
+            SELECT
+              id,
+              title,
+              description,
+              CASE status
+                WHEN 'backlog' THEN 'queued'
+                WHEN 'in-progress' THEN 'in_progress'
+                WHEN 'blocked' THEN 'blocked'
+                WHEN 'review' THEN 'awaiting_input'
+                WHEN 'done' THEN 'completed'
+                WHEN 'dropped' THEN 'failed'
+                ELSE 'queued'
+              END AS status,
+              CASE LOWER(priority)
+                WHEN 'high' THEN 'high'
+                WHEN 'low' THEN 'low'
+                ELSE 'medium'
+              END AS priority,
+              COALESCE(progress, 0) AS progress,
+              notes,
+              '[]' AS assets,
+              '[]' AS external_references,
+              '{}' AS metadata,
+              '[]' AS tags,
+              NULL AS profile_version_id,
+              NULL AS blocked_reason,
+              NULL AS deleted_at,
+              created_at,
+              updated_at,
+              completed_at
+            FROM tasks;
+            DROP TABLE tasks;
+            ALTER TABLE tasks_migrated RENAME TO tasks;
+            COMMIT;
+          `);
+          // Recreate indexes dropped with old table
+          this.sqlite.exec(`
+            CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);
+            CREATE INDEX IF NOT EXISTS idx_tasks_priority ON tasks(priority);
+          `);
+        }
+      } catch (e) {
+        console.warn('Legacy tasks table migration check failed:', e);
+      }
+
+      // Backfill: if an older 'tasks' table exists without new Specly columns, try to add them.
+      // SQLite doesn't support IF NOT EXISTS for columns, so run each in try/catch and ignore duplicate errors.
+      const alterStatements = [
+        "ALTER TABLE tasks ADD COLUMN profile_version_id TEXT",
+        "ALTER TABLE tasks ADD COLUMN blocked_reason TEXT",
+        "ALTER TABLE tasks ADD COLUMN deleted_at TEXT",
+        "ALTER TABLE tasks ADD COLUMN assets TEXT DEFAULT '[]'",
+        "ALTER TABLE tasks ADD COLUMN external_references TEXT DEFAULT '[]'",
+        "ALTER TABLE tasks ADD COLUMN metadata TEXT DEFAULT '{}'",
+        "ALTER TABLE tasks ADD COLUMN tags TEXT DEFAULT '[]'",
+        "ALTER TABLE tasks ADD COLUMN completed_at TEXT",
+        "ALTER TABLE tasks ADD COLUMN notes TEXT"
+      ];
+      for (const stmt of alterStatements) {
+        try {
+          this.sqlite.exec(stmt);
+        } catch (e: any) {
+          // Ignore if column already exists
+          const msg = String(e?.message || e);
+          if (!/duplicate column name/i.test(msg)) {
+            // For other errors, log for visibility but do not fail initialization
+            console.warn(`Migration warning executing [${stmt}]:`, msg);
+          }
+        }
+      }
+
     }
   }
 

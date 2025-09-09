@@ -29,10 +29,10 @@ export class AuditToolNew extends BaseTool {
       const workspaceDb = new WorkspaceDatabaseService(workspace.path, this.drizzleDb);
       const tasks = await workspaceDb.getAllTasks();
       const total = tasks.length;
-      const done = tasks.filter(t => t.status === 'done').length;
-      const inProgress = tasks.filter(t => t.status === 'in-progress').length;
+      const done = tasks.filter(t => t.status === 'completed').length;
+      const inProgress = tasks.filter(t => t.status === 'in_progress').length;
       const blocked = tasks.filter(t => t.status === 'blocked').length;
-      const highPriorityOpen = tasks.filter(t => t.priority === 'high' && t.status !== 'done');
+      const highPriorityOpen = tasks.filter(t => t.priority === 'high' && t.status !== 'completed');
       const summary = `Tasks: ${total}, Done: ${done}, In-Progress: ${inProgress}, Blocked: ${blocked}, High-Priority Open: ${highPriorityOpen.length}`;
       return this.createSuccessResult(summary);
     } catch (error) {

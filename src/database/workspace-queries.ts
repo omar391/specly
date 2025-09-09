@@ -4,8 +4,10 @@ import {
   tasks,
   githubConfigs,
   remoteInterfaces,
+  taskDependencies,
   type Task,
   type NewTask,
+
   type GithubConfig,
   type NewGithubConfig,
   type RemoteInterface,
@@ -29,173 +31,84 @@ export class WorkspaceDatabaseService {
   }
 
   // ========================================
-  // TASK OPERATIONS
+  // TASK OPERATIONS (Final Specly)
   // ========================================
-  /**
-   * Get paginated tasks with optional status filter
-   */
+
   async getTasksPaginated(status: string | undefined, limit: number, offset: number): Promise<Task[]> {
     const db = this.db.getDb();
-    let whereClause = undefined;
+    let whereClause = undefined as any;
     if (status === 'current') {
-      whereClause = notInArray(tasks.status, ['done', 'dropped']);
+      whereClause = notInArray(tasks.status, ['completed', 'failed']);
     } else if (status === 'history') {
-      whereClause = inArray(tasks.status, ['done', 'dropped']);
+      whereClause = inArray(tasks.status, ['completed', 'failed']);
+    } else if (status) {
+      whereClause = eq(tasks.status, status as any);
     }
-    return db
-      .select()
-      .from(tasks)
-      .where(whereClause)
-      .orderBy(desc(tasks.updatedAt))
-      .limit(limit)
-      .offset(offset);
+    return db.select().from(tasks).where(whereClause).orderBy(desc(tasks.updatedAt)).limit(limit).offset(offset);
   }
 
-  /**
-   * Count tasks with optional status filter
-   */
   async countTasks(status: string | undefined): Promise<number> {
     const db = this.db.getDb();
-    let whereClause;
+    let whereClause = undefined as any;
     if (status === 'current') {
-      whereClause = notInArray(tasks.status, ['done', 'dropped']);
+      whereClause = notInArray(tasks.status, ['completed', 'failed']);
     } else if (status === 'history') {
-      whereClause = inArray(tasks.status, ['done', 'dropped']);
+      whereClause = inArray(tasks.status, ['completed', 'failed']);
+    } else if (status) {
+      whereClause = eq(tasks.status, status as any);
     }
-    const result = await db
-      .select({ total: sql<number>`count(*) as total` })
-      .from(tasks)
-      .where(whereClause);
+    const result = await db.select({ total: sql<number>`count(*) as total` }).from(tasks).where(whereClause);
     return result?.[0]?.total ?? 0;
   }
 
-  /**
-   * Create a new task
-   */
   async createTask(task: NewTask): Promise<Task> {
     const db = this.db.getDb();
     const [result] = await db.insert(tasks).values(task).returning();
     return result;
   }
 
-  /**
-   * Get task by ID
-   */
   async getTask(id: string): Promise<Task | null> {
     const db = this.db.getDb();
     const [result] = await db.select().from(tasks).where(eq(tasks.id, id)).limit(1);
     return result || null;
   }
 
-  /**
-   * Get all tasks
-   */
-  async getAllTasks(): Promise<Task[]> {
-    const db = this.db.getDb();
-    return db.select().from(tasks).orderBy(desc(tasks.updatedAt));
-  }
-
-  /**
-   * Get tasks by status
-   */
-  async getTasksByStatus(status: string): Promise<Task[]> {
-    const db = this.db.getDb();
-    return db.select()
-      .from(tasks)
-      .where(eq(tasks.status, status as any))
-      .orderBy(desc(tasks.updatedAt));
-  }
-
-  /**
-   * Get tasks by priority
-   */
-  async getTasksByPriority(priority: string): Promise<Task[]> {
-    const db = this.db.getDb();
-    return db.select()
-      .from(tasks)
-      .where(eq(tasks.priority, priority as any))
-      .orderBy(desc(tasks.updatedAt));
-  }
-
-  /**
-   * Get in-progress tasks
-   */
-  async getInProgressTasks(): Promise<Task[]> {
-    return this.getTasksByStatus('in-progress');
-  }
-
-  /**
-   * Get high priority tasks
-   */
-  async getHighPriorityTasks(): Promise<Task[]> {
-    return this.getTasksByPriority('high');
-  }
-
-  /**
-   * Update task
-   */
   async updateTask(id: string, updates: Partial<Omit<Task, 'id' | 'createdAt'>>): Promise<Task | null> {
     const db = this.db.getDb();
-    const updateData = { ...updates, updatedAt: new Date().toISOString() };
-
-    // If status is being changed to 'done', set completedAt
-    if (updates.status === 'done' && !updates.completedAt) {
-      updateData.completedAt = new Date().toISOString();
-    }
-
-    const [result] = await db.update(tasks)
-      .set(updateData)
-      .where(eq(tasks.id, id))
-      .returning();
+    const [result] = await db.update(tasks).set({ ...updates, updatedAt: new Date().toISOString() } as any).where(eq(tasks.id, id)).returning();
     return result || null;
   }
 
-  /**
-   * Update task progress
-   */
-  async updateTaskProgress(id: string, progress: number): Promise<Task | null> {
-    const db = this.db.getDb();
-    const updateData: any = {
-      progress,
-      updatedAt: new Date().toISOString()
-    };
-
-    // If progress is 100%, mark as done
-    if (progress >= 100) {
-      updateData.status = 'done';
-      updateData.completedAt = new Date().toISOString();
-    }
-
-    const [result] = await db.update(tasks)
-      .set(updateData)
-      .where(eq(tasks.id, id))
-      .returning();
-    return result || null;
-  }
-
-  /**
-   * Delete task
-   */
   async deleteTask(id: string): Promise<boolean> {
     const db = this.db.getDb();
     const result = await db.delete(tasks).where(eq(tasks.id, id));
     return result.changes > 0;
   }
 
-  /**
-   * Search tasks by title or description
-   */
-  async searchTasks(query: string): Promise<Task[]> {
+  // Back-compat wrappers removed per Specly-only directive
+
+  // Dependencies (task_dependencies)
+  async addTaskDependency(taskId: string, dependsOnTaskId: string): Promise<void> {
     const db = this.db.getDb();
-    // Note: SQLite doesn't have full-text search by default, so we use LIKE
-    const likeQuery = `%${query}%`;
-    return db.select()
-      .from(tasks)
-      .where(or(
-        eq(tasks.title, likeQuery),
-        eq(tasks.description, likeQuery)
-      ))
-      .orderBy(desc(tasks.updatedAt));
+    await db.insert(taskDependencies).values({ taskId, dependsOnTaskId } as any).onConflictDoNothing();
+  }
+
+  async removeTaskDependency(taskId: string, dependsOnTaskId: string): Promise<boolean> {
+    const db = this.db.getDb();
+    const result = await db.delete(taskDependencies).where(and(eq(taskDependencies.taskId, taskId), eq(taskDependencies.dependsOnTaskId, dependsOnTaskId)));
+    return result.changes > 0;
+  }
+
+  async listTaskDependencies(taskId: string): Promise<{ depends_on_task_id: string }[]> {
+    const db = this.db.getDb();
+    const rows = await db.select().from(taskDependencies).where(eq(taskDependencies.taskId, taskId));
+    return rows.map((r: any) => ({ depends_on_task_id: r.dependsOnTaskId }));
+  }
+
+  // Convenience wrappers for common queries (final model)
+  async getAllTasks(): Promise<Task[]> {
+    const db = this.db.getDb();
+    return db.select().from(tasks).orderBy(desc(tasks.updatedAt));
   }
 
   // ========================================
@@ -342,7 +255,7 @@ export class WorkspaceDatabaseService {
       }
 
       // Count completed tasks
-      if (task.status === 'done') {
+      if (task.status === 'completed') {
         completedCount++;
       }
     }
@@ -361,7 +274,7 @@ export class WorkspaceDatabaseService {
     return db.select()
       .from(tasks)
       .where(and(
-        eq(tasks.status, 'in-progress'),
+        eq(tasks.status, 'in_progress'),
         eq(tasks.priority, 'high')
       ))
       .orderBy(desc(tasks.updatedAt));

@@ -31,12 +31,12 @@ describe('Task Endpoints (SP-016 minimal slice)', () => {
         // Create task
         const createRes = await request(app)
             .post('/api/workspaces/w1/tasks')
-            .send({ title: 'T1', description: 'Do something', priority: 'High' });
+            .send({ title: 'T1', description: 'Do something', priority: 'high' });
         expect(createRes.status).toBe(201);
         const task = createRes.body.data.task;
         expect(task).toBeTruthy();
         expect(task.id).toMatch(/^TP-/);
-        expect(task.status).toBe('backlog');
+        expect(task.status).toBe('queued');
         expect(task.priority).toBe('high');
 
         // GET single task
@@ -47,22 +47,22 @@ describe('Task Endpoints (SP-016 minimal slice)', () => {
         // Invalid transition: backlog -> done
         const badTransition = await request(app)
             .patch(`/api/workspaces/w1/tasks/${task.id}/status`)
-            .send({ status: 'done' });
+            .send({ status: 'completed' });
         expect(badTransition.status).toBe(422);
 
         // Valid transition: backlog -> in-progress
         const toInProgress = await request(app)
             .patch(`/api/workspaces/w1/tasks/${task.id}/status`)
-            .send({ status: 'in-progress' });
+            .send({ status: 'in_progress' });
         expect(toInProgress.status).toBe(200);
-        expect(toInProgress.body.data.task.status).toBe('in-progress');
+        expect(toInProgress.body.data.task.status).toBe('in_progress');
 
         // Valid transition: in-progress -> done (sets completed_at)
         const toDone = await request(app)
             .patch(`/api/workspaces/w1/tasks/${task.id}/status`)
-            .send({ status: 'done' });
+            .send({ status: 'completed' });
         expect(toDone.status).toBe(200);
-        expect(toDone.body.data.task.status).toBe('done');
+        expect(toDone.body.data.task.status).toBe('completed');
         expect(toDone.body.data.task.completed_at).toBeTruthy();
 
         // 404 for unknown task

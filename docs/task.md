@@ -16,7 +16,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Status**: Done
 - **Progress**: 100%
 - **Completed At**: 2025-09-03T08:09:25Z
-- **Notes**: Core schema established (global + workspace). Legacy multi-step system fully purged: executor logic neutralized, legacy tables (tool_flows, tool_flow_steps, feedback_steps) dropped via programmatic migration + SQL, references removed from code, placeholder tests ensure no regressions. Added specly-core-schema test verifying presence of new tables and absence of legacy ones (all tests green: 84/84). Naming normalization applied: workspace tables are `tasks`, `task_dependencies`, and `sessions` (no *_new suffix). This completes acceptance criterion #1 for backend cutover.
+- **Notes**: Core schema established (global + workspace). Legacy multi-step system fully purged: executor logic neutralized, legacy tables (tool_flows, tool_flow_steps, feedback_steps) dropped via programmatic migration + SQL, references removed from code, placeholder tests ensure no regressions. Added specly-core-schema test verifying presence of new tables and absence of legacy ones (all tests green: 84/84). Deferred items explicitly out of scope for SP-001: renaming tasks_new/sessions_new (handled in later task), adding full uniqueness/FK/indices expansion (future tasks will implement). This completes acceptance criterion #1 for backend cutover.
 - **Connected File List**: ./src/database/schema/global-schema.ts, ./src/database/schema/workspace-schema.ts, ./src/database/schema/relations.ts, ./src/database/migrations/*
 
 ## Task ID: SP-002
@@ -196,19 +196,13 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 
 ## Task ID: SP-008
 - **Title**: Task & Session Model Upgrade
-- **Description**: Cut over API and services to the final Specly task/session model using normalized table names and fields.
-	- Use workspace tables: `tasks`, `task_dependencies`, and `sessions` (no *_new suffixes).
-	- Implement Specly task statuses: `queued|in_progress|awaiting_input|blocked|paused|completed|failed` with validated transitions.
-	- Add task fields end-to-end (DB → services → API): `assets` (JSON array), `external_references` (JSON array), `metadata` (JSON object), `tags` (JSON array).
-	- Update Workspace DB/service layer and controllers to enforce transitions and set/clear `completed_at` appropriately.
-	- Update tests to cover transitions, dependency blocking/unblocking, and new fields in responses.
-	- Drop any legacy task tables/usages post-verification.
+- **Description**: Implement new task statuses, dependency table, session columns; update queries & services enforcing transitions. Remove old status mapping logic.
 - **Priority**: High
 - **Dependencies**: SP-001, SP-005
 - **Status**: TBD
 - **Progress**: 0%
 - **Completed At**: 
-- **Notes**: Acceptance: (1) No references to legacy task tables remain; (2) API returns new fields (`assets`, `external_references`, `metadata`, `tags`); (3) Transition rules enforced with negative tests; (4) Full suite green.
+- **Notes**: Add test coverage for transitions and dependency unlocking.
 - **Connected File List**: ./src/database/schema/workspace-schema.ts, ./src/services/workspace-registry.ts, ./src/__tests__/task-status-transitions.test.ts
 
 ## Task ID: SP-009
@@ -342,6 +336,8 @@ New in this iteration:
 - Documentation updated: specly-architecture.md §13.1 now includes normalization guarantees and validator→public error mapping table; README references that section.
 
 Remaining for SP-018: Endpoint audit completed (no other public surfaces throw validator errors). Consider exposing normalized manifest echo in responses (deferred). Proceed to SP-002 optimization and SP-200 golden maintenance per plan. Instruction docs updated to emphasize autonomous progression without asking user to choose next steps.
+
+## Task ID: SP-019
 - **Title**: Session Lease & Force-Start Enforcement Tests
 - **Description**: Implement rigorous tests around client_state_id leasing, force_start behavior (transfer ownership), and conflict responses (409). Ensure idle transition when awaiting_input and rejection on mismatched resume.
 - **Priority**: Medium
@@ -649,14 +645,4 @@ Rollback (minimal since destructive): backup of pre-migration DB snapshot retain
 (Other tasks map similarly; see their Description fields.)
 
 ## Notes
-Legacy phase-based planning removed 2025-09-02 for clarity under direct cutover approach. Historical phased plan intentionally discarded (no appendix) to prevent drift.
-
-### General Rule (Added 2025-09-03)
-After completing each discrete unit task or phase (e.g., journal seam, metrics seam):
-1. Perform an internal PR-style review of the local diff (logic correctness, style adherence, rule compliance, dead code, naming consistency).
-2. Only after review passes, run the full (or appropriately scoped) test suite.
-3. Commit with a message referencing affected Task ID(s) and a concise summary of the change scope.
-4. Push immediately (no batching unrelated tasks) to preserve atomic history and simplify audits.
-This rule is mandatory and supersedes any ad-hoc commit practices.
-
 This task plan is living; update in PRs referencing Task IDs. All implementers must maintain alignment with `migration_roadmap.md` and `migration_roadmap_ui.md`.

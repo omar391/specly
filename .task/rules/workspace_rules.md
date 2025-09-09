@@ -60,6 +60,14 @@ SP-###: Concise imperative summary
 - No commits without prior approval, even if tests are green.
 - Run linters/tests, re-check Documentation Integrity, then After approval commit with Task ID reference in the details if necessary.
 
+### Commit Process: General Rule (2025-09-03)
+After completing each discrete unit task or phase (e.g., journal seam, metrics seam):
+1. Perform an internal PR-style review of the local diff (logic correctness, style adherence, rule compliance, dead code, naming consistency).
+2. Only after review passes, run the full (or appropriately scoped) test suite.
+3. Commit with a message referencing affected Task ID(s) and a concise summary of the change scope.
+4. Push immediately (no batching unrelated tasks) to preserve atomic history and simplify audits.
+This rule is mandatory and supersedes any ad-hoc commit practices.
+
 ## Testing Requirements
 
 ### Coverage Expectations
@@ -73,6 +81,12 @@ SP-###: Concise imperative summary
 - **Frontend**: Vitest + React Testing Library.
 - **E2E**: (Deferred) — mark scenarios; optional Playwright later.
 - **Database**: Ephemeral SQLite file per test suite; wrap in transaction for rollback harness.
+
+### Testing Policy (2025-09-09)
+- Use pnpm + vitest/tsx for all tests and scripts.
+- Do not rely on Bun for running tests.
+- Do not add .vscode/tasks.json (no VS Code task files for test runs).
+- This policy supersedes any conflicting guidance elsewhere in this document for test execution and developer scripts.
 
 ## Security Guidelines
 
@@ -135,7 +149,7 @@ SP-###: Concise imperative summary
 - Add graph validation before accepting external tool version submissions.
 
 ### Test Environment Enforcement
-- Run all backend tests using Node (npm scripts with Vitest). Do NOT use `bun test` until native `better-sqlite3` compatibility is validated (prevents ABI load errors & mocking issues like `vi.mock is not a function`).
+- Follow "Testing Policy (2025-09-09)": use pnpm + vitest/tsx; do NOT use `bun test` (prevents ABI load errors & mocking issues like `vi.mock is not a function`).
 - When total test counts change (files or tests), update the README Testing section in the same PR (maintain accurate public metrics).
 
 ### Error Handling
@@ -155,12 +169,13 @@ SP-###: Concise imperative summary
 - **Backend**: Node.js 18+, TypeScript 5+, Express, Drizzle ORM, SQLite3
 - **Frontend**: React 18, Rsbuild, Tailwind CSS, React Query
 - **Build Tools**: Rsbuild (UI) & tsc (backend)
-- **Package Manager**: bun preferred; fallback npm only on incompatibility
+- **Package Manager**: pnpm for tests/scripts; bun allowed for UI build/dev; npm fallback if necessary
 - **Deployment**: Container image with deterministic build (lockfile pinned)
 
 ## Package Management Rules
-- Prefer `bun install` / `bun run` / `bun add`.
-- Keep lockfile committed; no manual edits.
+- Prefer pnpm for workspace installs and backend scripts.
+- Use bun only for UI dev/build commands; do not use bun for tests.
+- Keep lockfiles committed; no manual edits.
 - Add new dependency only with justification referencing SP task.
 - Remove unused deps promptly (tracked in SP-201 doc overhaul if discovered).
 
@@ -175,5 +190,5 @@ SP-###: Concise imperative summary
 ## Rule Change Log
 - 2025-09-02: Initial Specly rewrite of workspace rules replacing TaskPilot references.
 - 2025-09-02: Added mandate for drastic migration — remove all legacy tool_flow / feedback_step code & tables immediately (no coexistence). Any PR retaining legacy paths is invalid.
-- 2025-09-03: Always follow the implementation flow order: implement → tests green → re-audit and confirm the task is done → task docs progress update → commit. Deviation requires explicit justification in PR description. Commit message should follow the standard format, i.e feat/chore/refactor: {desc} etc.
+- 2025-09-03: Commit process consolidated. See "Commit Process: General Rule (2025-09-03)" above. Commit message format remains as specified in "Commit Message Format".
 - 2025-09-03: Always follow LLM assistant's recommended next steps

@@ -34,15 +34,16 @@ export interface Task {
   id: string;
   title: string;
   description: string;
-  priority: 'High' | 'Medium' | 'Low';
-  status: 'Backlog' | 'In-Progress' | 'Blocked' | 'Review' | 'Done' | 'Dropped';
+  priority: 'high' | 'medium' | 'low';
+  status: 'queued' | 'in_progress' | 'awaiting_input' | 'blocked' | 'paused' | 'completed' | 'failed';
   progress: number;
   parent_task_id: string | null;
   blocked_by_task_id: string | null;
-  connected_files: string[];
+  assets?: string[];
+  external_references?: any[];
+  metadata?: Record<string, any>;
+  tags?: string[];
   notes: string | null;
-  github_issue_number: number | null;
-  github_url: string | null;
   created_at: string;
   updated_at: string;
   completed_at: string | null;
@@ -62,7 +63,7 @@ export interface TasksResponse {
 export interface CreateTaskRequest {
   title: string;
   description: string;
-  priority: 'High' | 'Medium' | 'Low';
+  priority: 'high' | 'medium' | 'low';
   parent_task_id?: string | null;
 }
 

@@ -16,32 +16,25 @@ export class TasksController {
   constructor(
     private databaseService: DatabaseService,
     private workspacesController: WorkspacesController
-  ) {}
+  ) { }
 
   // Private helper to map DB task row (camelCase from Drizzle) to API Task shape (snake_case)
   private mapTaskDbToApi(task: any): Task {
     // Support both camelCase (Drizzle) and snake_case (raw) just in case
     const get = (camel: string, snake: string) => task?.[camel] ?? task?.[snake] ?? null;
-    const parseJson = (value: any) => {
-      if (Array.isArray(value)) return value;
-      if (typeof value === 'string') {
-        try { return JSON.parse(value); } catch { return []; }
-      }
-      return value ?? [];
-    };
+    const dbStatus = get('status', 'status') as string | null;
+    const publicStatus = (dbStatus ?? 'queued') as any;
     return {
       id: task.id,
       title: task.title,
       description: get('description', 'description') ?? '',
       priority: get('priority', 'priority') ?? 'medium',
-      status: get('status', 'status') ?? 'backlog',
+      status: publicStatus as any,
       progress: get('progress', 'progress') ?? 0,
-      parent_task_id: get('parentTaskId', 'parent_task_id'),
-      blocked_by_task_id: get('blockedByTaskId', 'blocked_by_task_id'),
-      connected_files: parseJson(get('connectedFiles', 'connected_files')),
+      // Parent/blocked relationships not modeled yet; keep as nulls to avoid legacy leakage
+      parent_task_id: null,
+      blocked_by_task_id: null,
       notes: get('notes', 'notes'),
-      github_issue_number: get('githubIssueNumber', 'github_issue_number'),
-      github_url: get('githubUrl', 'github_url'),
       created_at: get('createdAt', 'created_at'),
       updated_at: get('updatedAt', 'updated_at'),
       completed_at: get('completedAt', 'completed_at'),
@@ -67,8 +60,6 @@ export class TasksController {
       const tasks = await workspaceDb.getTasksPaginated(query.status, limit, offset);
       const total = await workspaceDb.countTasks(query.status);
       const transformedTasks: Task[] = tasks.map((task: any) => this.mapTaskDbToApi(task));
-
-      // Transform tasks (parse connected_files JSON)
 
       const response: TasksResponse = {
         tasks: transformedTasks,
@@ -106,8 +97,8 @@ export class TasksController {
       if (!taskData.description?.trim()) {
         throw new ValidationError('Task description is required');
       }
-      if (!['High', 'Medium', 'Low'].includes(taskData.priority)) {
-        throw new ValidationError('Priority must be High, Medium, or Low');
+      if (!['high', 'medium', 'low'].includes(taskData.priority)) {
+        throw new ValidationError('Priority must be high, medium, or low');
       }
 
       // Verify workspace exists
@@ -117,38 +108,27 @@ export class TasksController {
       const taskId = `TP-${Date.now().toString().slice(-6)}`;
       const now = new Date().toISOString();
 
-      // Verify parent task exists if specified
+      // Verify parent task exists if specified (temporary noop unless parent IDs are supported)
       if (taskData.parent_task_id) {
         const workspaceDb = await this.databaseService.getWorkspace(workspace.path);
         const parentTask = await workspaceDb.getTask(taskData.parent_task_id);
-
         if (!parentTask) {
           throw new ValidationError(`Parent task not found: ${taskData.parent_task_id}`);
         }
       }
 
-      // Insert new task
+      // Insert new task into tasks_new (Specly model)
       const workspaceDb = await this.databaseService.getWorkspace(workspace.path);
-      // Prepare DB object in snake_case
-      const dbTask = {
+      const createdTask = await workspaceDb.createTask({
         id: taskId,
         title: taskData.title.trim(),
         description: taskData.description.trim(),
-        priority: (taskData.priority ? taskData.priority.toLowerCase() : undefined) as 'high' | 'medium' | 'low' | null | undefined,
-        status: 'backlog' as 'backlog',
+        priority: taskData.priority as 'high' | 'medium' | 'low',
+        status: 'queued',
         progress: 0,
-        parent_task_id: taskData.parent_task_id || null,
-        connected_files: '[]',
-        created_at: now,
-        updated_at: now,
-        notes: null,
-        github_issue_number: null,
-        github_url: null,
-        blocked_by_task_id: null,
-        completed_at: null,
-      };
-
-      const createdTask = await workspaceDb.createTask(dbTask as any);
+        createdAt: now,
+        updatedAt: now
+      } as any);
 
       if (!createdTask) {
         throw new Error('Failed to create task');
@@ -196,8 +176,8 @@ export class TasksController {
       if (!status || typeof status !== 'string') {
         throw new ValidationError('Status is required');
       }
-      const allowedStatuses = ['backlog', 'in-progress', 'blocked', 'review', 'done', 'dropped'];
-      if (!allowedStatuses.includes(status)) {
+      const allowedStatusesSpecly = ['queued', 'in_progress', 'awaiting_input', 'blocked', 'paused', 'completed', 'failed'];
+      if (!allowedStatusesSpecly.includes(status)) {
         throw new ValidationError(`Invalid status value: ${status}`);
       }
       // Verify workspace & task
@@ -207,22 +187,22 @@ export class TasksController {
       if (!existingTask) {
         throw new NotFoundError(`Task not found: ${taskId}`);
       }
-      const from: string = existingTask.status ?? 'backlog';
-      // Define minimal allowed transitions
-      const canTransition: Record<string, string[]> = {
-        'backlog': ['in-progress', 'dropped'],
-        'in-progress': ['blocked', 'review', 'done', 'dropped'],
-        'blocked': ['in-progress', 'dropped'],
-        'review': ['in-progress', 'done', 'dropped'],
-        'done': [],
-        'dropped': []
+      const fromSpecly: string = (existingTask.status as string) ?? 'queued';
+      const canTransitionSpecly: Record<string, string[]> = {
+        'queued': ['in_progress', 'blocked', 'paused', 'failed'],
+        'in_progress': ['awaiting_input', 'blocked', 'paused', 'completed', 'failed'],
+        'awaiting_input': ['in_progress', 'paused', 'failed'],
+        'blocked': ['in_progress', 'paused', 'failed'],
+        'paused': ['in_progress', 'blocked', 'failed'],
+        'completed': [],
+        'failed': []
       };
-      if (!canTransition[from] || !canTransition[from].includes(status)) {
-        throw new ValidationError(`Invalid status transition: ${from} -> ${status}`);
+      if (!canTransitionSpecly[fromSpecly] || !canTransitionSpecly[fromSpecly].includes(status)) {
+        throw new ValidationError(`Invalid status transition: ${fromSpecly} -> ${status}`);
       }
       const now = new Date().toISOString();
       const updates: any = { status, updatedAt: now };
-      if (status === 'done') {
+      if (status === 'completed') {
         updates.completedAt = now;
       }
       await workspaceDb.updateTask(taskId, updates);
@@ -276,7 +256,7 @@ export class TasksController {
         throw new ValidationError('Priority must be High, Medium, or Low');
       }
 
-      if (updateData.field === 'status' && !['Backlog', 'In-Progress', 'Blocked', 'Review', 'Done', 'Dropped'].includes(updateData.value as string)) {
+      if (updateData.field === 'status' && !['queued', 'in_progress', 'awaiting_input', 'blocked', 'paused', 'completed', 'failed'].includes((updateData.value as string))) {
         throw new ValidationError('Invalid status value');
       }
 
@@ -290,9 +270,12 @@ export class TasksController {
       // Update task
       const now = new Date().toISOString();
       // Reuse workspaceDb, do not redeclare
-      let updates: any = { [updateData.field]: updateData.value, updated_at: now };
-      if (updateData.field === 'status' && updateData.value === 'Done') {
-        updates.completed_at = now;
+      let updates: any = { [updateData.field]: updateData.value, updatedAt: now };
+      if (updateData.field === 'status') {
+        updates = { status: updateData.value, updatedAt: now };
+        if (updateData.value === 'completed') {
+          updates.completedAt = now;
+        }
       }
 
       await workspaceDb.updateTask(taskId, updates);
@@ -306,9 +289,9 @@ export class TasksController {
 
       res.json(createSuccessResponse({
         task: {
-          id: updatedTask.id,
-          updatedAt: updatedTask.updatedAt,
-          [updateData.field]: updatedTask[updateData.field]
+          id: (updatedTask as any).id,
+          updatedAt: (updatedTask as any).updatedAt,
+          [updateData.field]: (updatedTask as any)[updateData.field]
         }
       }));
     } catch (error) {

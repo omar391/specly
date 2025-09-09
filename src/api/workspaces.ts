@@ -31,12 +31,12 @@ export class WorkspacesController {
             // Get all tasks to calculate task count and find active task
             const allTasks = await workspaceDb.getAllTasks();
             const activeTasks = allTasks.filter(task => 
-              task.status !== 'done' && task.status !== 'dropped'
+              task.status !== 'completed' && task.status !== 'failed'
             );
             const taskCount = activeTasks.length;
 
             // Get active task (highest priority in-progress task)
-            const inProgressTasks = allTasks.filter(task => task.status === 'in-progress');
+            const inProgressTasks = allTasks.filter(task => task.status === 'in_progress');
             const priorityOrder: Record<string, number> = { 'high': 1, 'medium': 2, 'low': 3 };
             const activeTask = inProgressTasks
               .sort((a, b) => {

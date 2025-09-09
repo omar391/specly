@@ -1,24 +1,25 @@
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, primaryKey } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 // Workspace-specific database tables - stored in {workspace}/.taskpilot/task.db
 
+// Final Specly tasks table (renamed from tasks_new)
 export const tasks = sqliteTable('tasks', {
   id: text('id').primaryKey(),
   title: text('title').notNull(),
   description: text('description'),
-  status: text('status', {
-    enum: ['backlog', 'in-progress', 'blocked', 'review', 'done', 'dropped']
-  }).default('backlog'),
-  priority: text('priority', {
-    enum: ['high', 'medium', 'low']
-  }).default('medium'),
+  status: text('status', { enum: ['queued', 'in_progress', 'awaiting_input', 'blocked', 'paused', 'completed', 'failed'] }).default('queued'),
+  priority: text('priority', { enum: ['high', 'medium', 'low'] }).default('medium'),
   progress: integer('progress').default(0),
-  dependencies: text('dependencies', { mode: 'json' }).default([]),
   notes: text('notes'),
-  connectedFiles: text('connected_files', { mode: 'json' }).default([]),
-  githubIssueNumber: integer('github_issue_number'),
-  githubUrl: text('github_url'),
+  // Generalized task fields
+  assets: text('assets', { mode: 'json' }).default([]),
+  externalReferences: text('external_references', { mode: 'json' }).default([]),
+  metadata: text('metadata', { mode: 'json' }).default({}),
+  tags: text('tags', { mode: 'json' }).default([]),
+  profileVersionId: text('profile_version_id'),
+  blockedReason: text('blocked_reason'),
+  deletedAt: text('deleted_at'),
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
   completedAt: text('completed_at')
@@ -60,33 +61,17 @@ export const remoteInterfaces = sqliteTable('remote_interfaces', {
 
 
 // -------------------------------------------------------------
-// Specly New Workspace Schema (SP-001)
-// Legacy tasks table retained until data migration & code refactor complete.
-// New tables suffixed with New to avoid naming collision temporarily.
+// Workspace dependencies and sessions (final)
 // -------------------------------------------------------------
-
-export const tasksNew = sqliteTable('tasks_new', {
-  id: text('id').primaryKey(),
-  title: text('title').notNull(),
-  description: text('description'),
-  status: text('status', { enum: ['queued', 'in_progress', 'awaiting_input', 'blocked', 'paused', 'completed', 'failed'] }).default('queued'),
-  priority: text('priority', { enum: ['high', 'medium', 'low'] }).default('medium'),
-  progress: integer('progress').default(0),
-  notes: text('notes'),
-  profileVersionId: text('profile_version_id'),
-  blockedReason: text('blocked_reason'),
-  deletedAt: text('deleted_at'),
-  createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
-  updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
-  completedAt: text('completed_at')
-});
 
 export const taskDependencies = sqliteTable('task_dependencies', {
   taskId: text('task_id').notNull(),
   dependsOnTaskId: text('depends_on_task_id').notNull()
-});
+}, (t) => ({
+  pk: primaryKey({ columns: [t.taskId, t.dependsOnTaskId] })
+}));
 
-export const sessionsNew = sqliteTable('sessions_new', {
+export const sessions = sqliteTable('sessions', {
   id: text('id').primaryKey(),
   workspaceId: text('workspace_id').notNull(),
   taskId: text('task_id'),
@@ -110,7 +95,5 @@ export type NewGithubConfig = typeof githubConfigs.$inferInsert;
 export type RemoteInterface = typeof remoteInterfaces.$inferSelect;
 export type NewRemoteInterface = typeof remoteInterfaces.$inferInsert;
 
-export type TaskNew = typeof tasksNew.$inferSelect;
-export type NewTaskNew = typeof tasksNew.$inferInsert;
 export type TaskDependency = typeof taskDependencies.$inferSelect;
-export type SessionNew = typeof sessionsNew.$inferSelect;
+export type Session = typeof sessions.$inferSelect;

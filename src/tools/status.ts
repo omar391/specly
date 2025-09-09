@@ -60,8 +60,8 @@ export class StatusToolNew extends BaseTool {
 
       // Calculate status metrics
       const totalTasks = tasks.length;
-      const completedTasks = tasks.filter(t => t.status === 'done').length;
-      const inProgressTasks = tasks.filter(t => t.status === 'in-progress').length;
+      const completedTasks = tasks.filter(t => t.status === 'completed').length;
+      const inProgressTasks = tasks.filter(t => t.status === 'in_progress').length;
       const blockedTasks = tasks.filter(t => t.status === 'blocked').length;
 
       // Generate status prompt

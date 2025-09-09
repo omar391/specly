@@ -84,15 +84,21 @@ export class AddToolNew extends BaseTool {
         title: taskTitle,
         description: task_description,
         priority: (priority?.toLowerCase() as 'high' | 'medium' | 'low') || 'medium',
-        status: 'backlog',
+        status: 'queued',
         progress: 0,
-        dependencies: [],
         notes: '',
-        connectedFiles: [],
+        assets: [],
+        externalReferences: [],
+        metadata: {},
+        tags: [],
+        profileVersionId: null,
+        blockedReason: null,
+        deletedAt: null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
 
+      // Use final Specly method
       await workspaceDb.createTask(newTask);
 
       return this.createSuccessResult(
