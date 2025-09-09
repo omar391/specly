@@ -37,12 +37,10 @@ export interface Task {
   priority: 'high' | 'medium' | 'low';
   status: 'queued' | 'in_progress' | 'awaiting_input' | 'blocked' | 'paused' | 'completed' | 'failed';
   progress: number;
-  parent_task_id: string | null;
-  blocked_by_task_id: string | null;
-  assets?: string[];
-  external_references?: any[];
-  metadata?: Record<string, any>;
-  tags?: string[];
+  assets: string[];
+  external_references: any[];
+  metadata: Record<string, any>;
+  tags: string[];
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -64,7 +62,10 @@ export interface CreateTaskRequest {
   title: string;
   description: string;
   priority: 'high' | 'medium' | 'low';
-  parent_task_id?: string | null;
+  assets?: string[];
+  external_references?: any[];
+  metadata?: Record<string, any>;
+  tags?: string[];
 }
 
 export interface UpdateTaskRequest {

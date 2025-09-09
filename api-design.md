@@ -239,7 +239,11 @@ Request body:
   "title": "string",
   "description": "string",
   "priority": "high|medium|low",
-  "profile_version_id": "string(optional)"
+  "profile_version_id": "string(optional)",
+  "assets": "array(optional)",
+  "external_references": "array(optional)",
+  "metadata": "object(optional)",
+  "tags": "array(optional)"
 }
 ```
 Response:
@@ -252,6 +256,10 @@ Response:
     "priority": "high|medium|low",
     "status": "queued",
     "progress": 0,
+    "assets": [],
+    "external_references": [],
+    "metadata": {},
+    "tags": [],
     "created_at": "ISO8601",
     "updated_at": "ISO8601"
   }
@@ -320,6 +328,41 @@ Validation rules (Specly model outline):
 Errors:
 - 422 on invalid transition with message: `Invalid status transition: {from} -> {to}`
 - 404 when task not found.
+
+Dependency Guard:
+- When a task has unresolved dependencies, transitioning to `in_progress` or `completed` is rejected with 422 and a message like `dependencies unresolved`.
+
+### 4c. Task Dependencies Endpoints
+Manage per-task dependency graph within a workspace. A dependency means: task A depends on task B (A cannot start until B is completed).
+
+Add dependency:
+```
+POST /api/workspaces/{id}/tasks/{taskId}/dependencies
+{
+  "depends_on_task_id": "string"
+}
+```
+Response (201): `{ "ok": true }`
+
+Remove dependency:
+```
+DELETE /api/workspaces/{id}/tasks/{taskId}/dependencies/{dependsOnTaskId}
+```
+Response (200): `{ "ok": true }`
+
+List dependencies for a task:
+```
+GET /api/workspaces/{id}/tasks/{taskId}/dependencies
+```
+Response (200):
+```json
+{ "dependencies": [ { "depends_on_task_id": "string" } ] }
+```
+
+Validation & Errors:
+- 422 when adding a self-dependency or when the addition would introduce a cycle
+- 404 when either task is not found in the workspace
+- 200 for idempotent add/remove of an already present/absent relationship
 
 ### 5. PUT /api/workspaces/{id}/tasks/{taskId}
 **Purpose**: Update task properties

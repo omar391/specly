@@ -1,5 +1,7 @@
 # Next Steps (as of 2025-09-09)
 
+Update (2025-09-09): Items 1–3 below are completed in this iteration; API docs and task trackers updated; full test suite green (173/173) and typecheck clean. Proceed with items 5–7 next.
+
 Focus: SP-016 Task dependencies and API cleanup; finalize Specly-only codebase
 
 Status: SP-008 is complete

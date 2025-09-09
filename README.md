@@ -393,7 +393,7 @@ interface ToolResult {
 
 ## 🧪 Testing
 
-TaskPilot includes comprehensive test coverage with **114/114 tests passing (100% success rate)** (17 test files):
+TaskPilot includes comprehensive test coverage with **173/173 tests passing (100% success rate)** (39 test files):
 
 ```bash
 # Run all tests

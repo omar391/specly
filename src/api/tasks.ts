@@ -31,9 +31,11 @@ export class TasksController {
       priority: get('priority', 'priority') ?? 'medium',
       status: publicStatus as any,
       progress: get('progress', 'progress') ?? 0,
-      // Parent/blocked relationships not modeled yet; keep as nulls to avoid legacy leakage
-      parent_task_id: null,
-      blocked_by_task_id: null,
+      // Specly-first class fields
+      assets: get('assets', 'assets') ?? [],
+      external_references: get('externalReferences', 'external_references') ?? [],
+      metadata: get('metadata', 'metadata') ?? {},
+      tags: get('tags', 'tags') ?? [],
       notes: get('notes', 'notes'),
       created_at: get('createdAt', 'created_at'),
       updated_at: get('updatedAt', 'updated_at'),
@@ -108,15 +110,6 @@ export class TasksController {
       const taskId = `TP-${Date.now().toString().slice(-6)}`;
       const now = new Date().toISOString();
 
-      // Verify parent task exists if specified (temporary noop unless parent IDs are supported)
-      if (taskData.parent_task_id) {
-        const workspaceDb = await this.databaseService.getWorkspace(workspace.path);
-        const parentTask = await workspaceDb.getTask(taskData.parent_task_id);
-        if (!parentTask) {
-          throw new ValidationError(`Parent task not found: ${taskData.parent_task_id}`);
-        }
-      }
-
       // Insert new task into tasks_new (Specly model)
       const workspaceDb = await this.databaseService.getWorkspace(workspace.path);
       const createdTask = await workspaceDb.createTask({
@@ -126,6 +119,10 @@ export class TasksController {
         priority: taskData.priority as 'high' | 'medium' | 'low',
         status: 'queued',
         progress: 0,
+        assets: (taskData as any).assets ?? [],
+        externalReferences: (taskData as any).external_references ?? [],
+        metadata: (taskData as any).metadata ?? {},
+        tags: (taskData as any).tags ?? [],
         createdAt: now,
         updatedAt: now
       } as any);

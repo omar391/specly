@@ -299,9 +299,9 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Priority**: High
 - **Dependencies**: SP-008, SP-006
 - **Status**: In-Progress
-- **Progress**: 45%
+- **Progress**: 85%
 - **Completed At**: 
-- **Notes**: Minimal slice delivered: added GET /api/workspaces/:workspaceId/tasks/:taskId and PATCH /api/workspaces/:workspaceId/tasks/:taskId/status with validation for allowed transitions. Status transition backlog→in-progress→done path covered; invalid backlog→done rejected with 422. Mapper introduced to normalize DB camelCase fields to API snake_case (including completed_at). Integration test `task-endpoints.test.ts` passes; full suite green (172/172). Next: implement dependency CRUD endpoints and additional transition constraints.
+- **Notes**: Implemented Specly-only Task API model (assets, external_references, metadata, tags). Added centralized status transition guard with dependency awareness; sets completed_at on completed. Implemented dependency endpoints: POST add, DELETE remove, GET list. Guards: self-dependency and cycle rejection (422); unresolved dependencies block in_progress/completed transitions (422). Updated API docs accordingly. Integration tests cover transitions, dependency CRUD, cycle detection, and guard behavior; full suite green.
 - **Connected File List**: ./src/api/router.ts, ./src/api/tasks.ts, ./src/__tests__/task-endpoints.test.ts, ./src/services/workspace-registry.ts
 
 ## Task ID: SP-017
@@ -336,8 +336,6 @@ New in this iteration:
 - Documentation updated: specly-architecture.md §13.1 now includes normalization guarantees and validator→public error mapping table; README references that section.
 
 Remaining for SP-018: Endpoint audit completed (no other public surfaces throw validator errors). Consider exposing normalized manifest echo in responses (deferred). Proceed to SP-002 optimization and SP-200 golden maintenance per plan. Instruction docs updated to emphasize autonomous progression without asking user to choose next steps.
-
-## Task ID: SP-019
 - **Title**: Session Lease & Force-Start Enforcement Tests
 - **Description**: Implement rigorous tests around client_state_id leasing, force_start behavior (transfer ownership), and conflict responses (409). Ensure idle transition when awaiting_input and rejection on mismatched resume.
 - **Priority**: Medium
@@ -645,4 +643,19 @@ Rollback (minimal since destructive): backup of pre-migration DB snapshot retain
 (Other tasks map similarly; see their Description fields.)
 
 ## Notes
+Legacy phase-based planning removed 2025-09-02 for clarity under direct cutover approach. Historical phased plan intentionally discarded (no appendix) to prevent drift.
+
+### General Rule (Added 2025-09-03)
+After completing each discrete unit task or phase (e.g., journal seam, metrics seam):
+1. Perform an internal PR-style review of the local diff (logic correctness, style adherence, rule compliance, dead code, naming consistency).
+2. Only after review passes, run the full (or appropriately scoped) test suite.
+3. Commit with a message referencing affected Task ID(s) and a concise summary of the change scope.
+4. Push immediately (no batching unrelated tasks) to preserve atomic history and simplify audits.
+This rule is mandatory and supersedes any ad-hoc commit practices.
+
 This task plan is living; update in PRs referencing Task IDs. All implementers must maintain alignment with `migration_roadmap.md` and `migration_roadmap_ui.md`.
+
+### Testing Policy (2025-09-09)
+- Use pnpm + vitest/tsx for all tests and scripts.
+- Do not rely on Bun for running tests.
+- Do not add .vscode/tasks.json (no VS Code task files for test runs).
