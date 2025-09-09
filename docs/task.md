@@ -5,6 +5,111 @@ No backward compatibility. Tasks formatted as execution-ready units with traceab
 Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 
 ---
+## UI: Recent SP updates
+
+### Task ID: SP-101
+- **Title**: Remove Legacy UI Pages & Components
+- **Status**: Done
+- **Completed At**:  — commit info not found in audit; verify later
+- **Summary**: Legacy tool-flow and feedback pages/components were removed or neutralized; navigation and headers updated to the new branding.
+- **Files changed / Evidence**:
+  - ui/src/components/tool-flow-card.tsx — legacy component removed/neutralized
+  - ui/src/components/feedback-editor.tsx — legacy component removed/neutralized
+  - ui/src/pages/tool-flows.tsx — page removed/neutralized
+  - ui/src/pages/feedback-steps.tsx — page removed/neutralized
+- **Verification**: commit info not found in audit; verified by code inspection
+
+### Task ID: SP-102
+- **Title**: Specs & Tools Pages Scaffold
+- **Status**: Done
+- **Completed At**:  — commit info not found in audit; verified by code inspection
+- **Summary**: Scaffolded Specs and Tools pages with list views and API integration.
+- **Files changed / Evidence**:
+  - ui/src/pages/specs.tsx — contains specs listing page; calls apiClient.getSpecs()
+  - ui/src/pages/tools.tsx — contains tools listing page; calls apiClient.getToolVersions()
+  - ui/src/router.tsx — routes wired for /specs and /tools
+  - ui/src/components/floating-nav.tsx — navigation links include /specs and /tools
+- **Verification**: commit info not found in audit; verified by code inspection
+
+### Task ID: SP-103
+- **Title**: Spec Editor Component
+- **Status**: Done
+- **Completed At**:  — commit info not found in audit; verified by code inspection
+- **Summary**: Spec editor UI with canonical JSON preview and live SHA-256 preview/copy.
+- **Files changed / Evidence**:
+  - ui/src/components/spec-editor.tsx — canonicalize + sha256Hex usage; JSON editor and preview present
+- **Verification**: commit info not found in audit; verified by code inspection
+
+### Task ID: SP-104
+- **Title**: Tool Version Publisher & Graph Canvas
+- **Status**: Done
+- **Completed At**:  — commit info not found in audit; verified by code inspection
+- **Summary**: Tool version publisher implements manifest editor, canonicalization, hash preview and graph validation; graph canvas renders manifests and detects cycles/self-loops.
+- **Files changed / Evidence**:
+  - ui/src/components/tool-version-publisher.tsx — manifest editor, canonicalize, sha256Hex, createToolVersion usage
+  - ui/src/components/tool-graph-canvas.tsx — graph rendering, detectSelfLoops/detectCycles, SVG layout
+- **Verification**: commit info not found in audit; verified by code inspection
+
+### Task ID: SP-105
+- **Title**: Profiles & Inheritance UI
+- **Status**: Done
+- **Completed At**:  — commit info not found in audit; verified by code inspection
+- **Summary**: Profiles page and profile-version creator implemented; supports JSON overrides and version creation flow.
+- **Files changed / Evidence**:
+  - ui/src/pages/profiles.tsx — profiles listing and integration points
+  - ui/src/components/profile-version-creator.tsx — JSON override editor and create flow
+- **Verification**: commit info not found in audit; verified by code inspection
+
+### Task ID: SP-106
+- **Title**: Execution Console & Sessions Page
+- **Status**: Done
+- **Completed At**:  — commit info not found in audit; verified by code inspection
+- **Summary**: Sessions list and execution console present; console subscribes to SSE, buffers updates and supports resume.
+- **Files changed / Evidence**:
+  - ui/src/pages/sessions.tsx — sessions listing and dialog integration
+  - ui/src/components/execution-console.tsx — SSE subscription, buffered rendering, context diff, resume flow
+- **Verification**: commit info not found in audit; verified by code inspection
+
+### Task ID: SP-107
+- **Title**: Task Dependencies Panel & Status Badges
+- **Status**: Done
+- **Completed At**:  — commit info not found in audit; verified by code inspection
+- **Summary**: Dependencies panel prevents cycles and status badge maps statuses to UI chips/colors.
+- **Files changed / Evidence**:
+  - ui/src/components/task-dependencies-panel.tsx — cycle prevention and dependency handlers
+  - ui/src/components/status-badge.tsx — status → color/label mapping
+- **Verification**: commit info not found in audit; verified by code inspection
+
+### Task ID: SP-108
+- **Title**: Rules UI Enhancements
+- **Status**: Done
+- **Completed At**:  — commit info not found in audit; verified by code inspection
+- **Summary**: Rules page and workspace rules display implement listing, reinforce/delete actions and rule input form.
+- **Files changed / Evidence**:
+  - ui/src/pages/rules.tsx — Rules page wiring with PageHeader and WorkspaceRulesDisplay
+  - ui/src/components/workspace-rules-display.tsx — rule CRUD handlers and reinforce/delete integration
+- **Verification**: commit info not found in audit; verified by code inspection
+
+### Task ID: SP-109
+- **Title**: Branding & Design Tokens Update
+- **Status**: Done
+- **Completed At**:  — commit info not found in audit; verified by code inspection
+- **Summary**: Design system JSON and TS helpers added and consumed by components; tokens used for responsive spacing and branding.
+- **Files changed / Evidence**:
+  - ui/src/design-system.json — design tokens including colors and spacing
+  - ui/src/lib/design-system.ts — helpers: getDesignToken, tailwind class helpers, brand/session tokens
+  - ui/src/components/page-header.tsx — consumes design tokens for header styling
+- **Verification**: commit info not found in audit; verified by code inspection
+
+### Task ID: SP-110
+- **Title**: Top Page Header — Tokenization & Responsive Spacing (UI)
+- **Status**: Done
+- **Completed At**: 2025-09-09T13:39:00Z
+- **Summary**: Replaced hard-coded header styles with design tokens and improved responsive spacing.
+- **Files changed / Evidence**:
+  - ui/src/components/page-header.tsx — updated to use design tokens and responsive spacing helpers
+- **Verification**: Build success; commit short: 49aa3fa, full hash: 49aa3fa35dfac217d7fd9b05cdbb731579acdf6f
+
 ## Backend Foundation
 
 ## Task ID: SP-001
