@@ -1,6 +1,6 @@
-// Design system constants based on the TaskPilot design language
+// Design system constants based on the Specly design language
 export const designSystem = {
-    name: 'TaskPilot Design System',
+    name: 'Specly Design System',
     version: '1.1.0',
     spacing: {
         xs: '0.25rem',

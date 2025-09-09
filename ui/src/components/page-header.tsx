@@ -27,7 +27,7 @@ export function PageHeader({
           <div className="text-center">
             <Link to="/" className="inline-block hover:opacity-80 transition-all duration-200 group">
               <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent mb-3 group-hover:from-blue-600 group-hover:to-blue-500 transition-all duration-200">
-                TaskPilot
+                Specly
               </h1>
             </Link>
             

@@ -1,5 +1,5 @@
 import { Link, useLocation, useParams } from '@tanstack/react-router'
-import { CheckSquare, Settings, MessageSquare, Home } from 'lucide-react'
+import { CheckSquare, Home, Wrench, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function FloatingNav() {
@@ -10,26 +10,10 @@ export function FloatingNav() {
   // If we're in a workspace context, show workspace-scoped navigation
   if (workspaceId) {
     const navItems = [
-      {
-        label: 'Home',
-        path: '/',
-        icon: Home,
-      },
-      {
-        label: 'Tasks',
-        path: `/workspace/${workspaceId}/tasks`,
-        icon: CheckSquare,
-      },
-      {
-        label: 'Tool Flows',
-        path: `/workspace/${workspaceId}/tool-flows`,
-        icon: Settings,
-      },
-      {
-        label: 'Feedback Steps',
-        path: `/workspace/${workspaceId}/feedback-steps`,
-        icon: MessageSquare,
-      },
+      { label: 'Home', path: '/', icon: Home },
+      { label: 'Tasks', path: `/workspace/${workspaceId}/tasks`, icon: CheckSquare },
+      { label: 'Specs', path: `/specs`, icon: FileText },
+      { label: 'Tools', path: `/tools`, icon: Wrench },
     ]
 
     return (

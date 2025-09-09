@@ -1,69 +1,76 @@
-# React + TypeScript + Vite
+# Specly UI (React + Rsbuild + Tailwind)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This package contains the Specly web UI built with React 19, Rsbuild, TypeScript, and Tailwind CSS.
 
-Currently, two official plugins are available:
+## Quickstart
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+1) Install dependencies
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+bun install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+2) Start the dev server
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
 ```
+bun run dev
+```
+
+3) Production build
+
+```
+bun run build
+```
+
+Optional: You can also use npm or pnpm if you prefer.
+- npm: `npm install` then `npm run dev`
+- pnpm: `pnpm install` then `pnpm run dev`
+
+## Environment variables
+
+- `VITE_API_BASE_URL` (optional): Base URL for REST API. Defaults to `http://localhost:8989`.
+- `VITE_MCP_SSE_URL` (optional): Base URL for SSE endpoint. Defaults to `${VITE_API_BASE_URL}/mcp`.
+
+Example (macOS/Linux):
+
+```
+export VITE_API_BASE_URL=http://localhost:8989
+export VITE_MCP_SSE_URL=http://localhost:8989/mcp
+bun run dev
+```
+
+## Tech stack
+
+- React 19 + TypeScript 5
+- Rsbuild + @rsbuild/plugin-react
+- Tailwind CSS 4
+- @tanstack/react-router
+- lucide-react icons, Radix UI primitives
+
+## Routing overview
+
+- Home: `/`
+- Workspace tasks: `/workspace/:workspaceId/tasks`
+- Specs: `/specs`
+- Tools: `/tools`
+
+## Scripts
+
+- `bun run dev` — start the Rsbuild dev server
+- `bun run build` — production build (outputs to `dist/`)
+
+## Notes
+
+- Legacy Tool Flows and Feedback Steps pages/components were removed in favor of a simpler Tasks-first UI.
+- API client is located at `src/lib/api-client.ts`.
+
+## Troubleshooting
+
+- API requests failing (4xx/5xx): verify `VITE_API_BASE_URL` points to your running backend.
+- SSE connection errors: check `VITE_MCP_SSE_URL` and that the backend SSE endpoint is enabled.
+- Type errors or missing types: ensure dependencies are installed (`bun install`) and you’re on the UI workspace directory before running commands.
+- Theme storage key changed to `specly-theme`. If your browser had a previous TaskPilot theme value, it won’t be reused (by design).
+
+## Branding tokens
+
+- Core design tokens live in `src/lib/design-system.ts` and `src/design-system.json`. The design system is now named “Specly Design System”.

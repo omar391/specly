@@ -1,7 +1,7 @@
 /**
- * TaskPilot API Client
+ * Specly API Client (UI-only)
  * 
- * Provides typed API access to the TaskPilot REST API with:
+ * Provides typed API access to the Specly REST API with:
  * - Type-safe requests and responses
  * - Error handling and retry logic
  * - Real-time updates via Server-Sent Events (SSE)
@@ -38,25 +38,7 @@ export interface Task {
   updated_at: string
 }
 
-export interface ToolFlow {
-  id: string
-  tool_name: string
-  description: string
-  feedback_step_id: string | null
-  next_tool: string | null
-  is_global: boolean
-  workspace_id?: string
-}
-
-export interface FeedbackStep {
-  id: string
-  name: string
-  description: string
-  template_content: string
-  variable_schema: Record<string, any>
-  is_global: boolean
-  workspace_id?: string
-}
+// Legacy tool flows and feedback steps removed from UI client
 
 export interface ApiResponse<T> {
   data: T
@@ -99,7 +81,7 @@ export interface ApiClientConfig {
 // API Client Implementation
 // ========================================
 
-export class TaskPilotApiClient {
+export class SpeclyApiClient {
   private baseUrl: string
   private timeout: number
   private retryAttempts: number
@@ -123,7 +105,7 @@ export class TaskPilotApiClient {
     this.retryAttempts = config.retryAttempts || 3
     this.retryDelay = config.retryDelay || 1000
 
-    console.log(`TaskPilot API Client initialized with base URL: ${this.baseUrl}`)
+    console.log(`Specly API Client initialized with base URL: ${this.baseUrl}`)
   }
 
   // ========================================
@@ -214,97 +196,7 @@ export class TaskPilotApiClient {
     })
   }
 
-  // ========================================
-  // Tool Flow API
-  // ========================================
-
-  async getToolFlows(workspaceId: string): Promise<ApiResponse<{
-    global_flows: ToolFlow[];
-    workspace_flows: ToolFlow[];
-    available_tools: string[];
-    workspace: {
-      id: string;
-      name: string;
-      path: string;
-    };
-  }>> {
-    return this.makeRequest<{
-      global_flows: ToolFlow[];
-      workspace_flows: ToolFlow[];
-      available_tools: string[];
-      workspace: {
-        id: string;
-        name: string;
-        path: string;
-      };
-    }>(`/api/workspaces/${workspaceId}/tool-flows`)
-  }
-
-  async createToolFlow(workspaceId: string, flow: Partial<ToolFlow>): Promise<ApiResponse<{ toolFlow: ToolFlow }>> {
-    return this.makeRequest<{ toolFlow: ToolFlow }>(`/api/workspaces/${workspaceId}/tool-flows`, {
-      method: 'POST',
-      body: JSON.stringify(flow),
-    })
-  }
-
-  async updateToolFlow(workspaceId: string, flowId: string, flow: Partial<ToolFlow>): Promise<ApiResponse<{ toolFlow: ToolFlow }>> {
-    return this.makeRequest<{ toolFlow: ToolFlow }>(`/api/workspaces/${workspaceId}/tool-flows/${flowId}`, {
-      method: 'PUT',
-      body: JSON.stringify(flow),
-    })
-  }
-
-  // ========================================
-  // Feedback Steps API
-  // ========================================
-
-  async getFeedbackSteps(workspaceId: string): Promise<ApiResponse<{ 
-    feedbackSteps: FeedbackStep[];
-    global_steps?: FeedbackStep[];
-    workspace_steps?: FeedbackStep[];
-  }>> {
-    const response = await this.makeRequest<{
-      global_steps: Array<{
-        id: string;
-        name: string;
-        description: string;
-        template_content: string;
-        variable_schema: Record<string, any>;
-        is_global: boolean;
-      }>;
-      workspace_steps: Array<{
-        id: string;
-        name: string;
-        description: string;
-        template_content: string;
-        variable_schema: Record<string, any>;
-        is_global: boolean;
-        workspace_id?: string;
-      }>;
-    }>(`/api/workspaces/${workspaceId}/feedback-steps`);
-
-    if (response.error) {
-      return { data: { feedbackSteps: [] }, error: response.error };
-    }
-
-    // Map the API response to the expected FeedbackStep format
-    const globalSteps = (response.data?.global_steps || []).map(step => ({
-      ...step,
-      is_global: true,
-    }));
-
-    const workspaceSteps = (response.data?.workspace_steps || []).map(step => ({
-      ...step,
-      is_global: false,
-      workspace_id: step.workspace_id,
-    }));
-
-    return {
-      data: {
-        feedbackSteps: [...globalSteps, ...workspaceSteps],
-      },
-    };
-  }
+  // (Legacy tool flows / feedback steps API removed)
 
   // ========================================
   // Health Check API
@@ -312,6 +204,36 @@ export class TaskPilotApiClient {
 
   async getHealth(): Promise<ApiResponse<HealthStatus>> {
     return this.makeRequest<HealthStatus>('/health')
+  }
+
+  // ========================================
+  // Specs & Tools Listing (best-effort; 404-safe)
+  // ========================================
+
+  async getSpecs(): Promise<ApiResponse<{ specs: Array<{ hash: string; intent?: string; executor_type?: string }> }>> {
+    const res = await this.makeRequest<{ specs: Array<{ hash: string; intent?: string; executor_type?: string }> }>(
+      `/api/specs`
+    )
+    // If backend returns 404 as error text in makeRequest, normalize to empty
+    if (res.error && /404/.test(res.error)) return { data: { specs: [] } }
+    if (!res.data) return { data: { specs: [] }, error: res.error }
+    return res
+  }
+
+  async getTools(): Promise<ApiResponse<{ tools: string[] }>> {
+    const res = await this.makeRequest<{ tools: string[] }>(`/api/tools`)
+    if (res.error && /404/.test(res.error)) return { data: { tools: [] } }
+    if (!res.data) return { data: { tools: [] }, error: res.error }
+    return res
+  }
+
+  async getToolVersions(toolName: string): Promise<ApiResponse<{ versions: Array<{ hash: string; entry_spec?: string }> }>> {
+    const res = await this.makeRequest<{ versions: Array<{ hash: string; entry_spec?: string }> }>(
+      `/api/tools/${encodeURIComponent(toolName)}/versions`
+    )
+    if (res.error && /404/.test(res.error)) return { data: { versions: [] } }
+    if (!res.data) return { data: { versions: [] }, error: res.error }
+    return res
   }
 
   // ========================================
@@ -403,82 +325,7 @@ export class TaskPilotApiClient {
     this.disconnectSSE()
     this.sseEventHandlers.clear()
   }
-  // Clone a global tool flow to a workspace
-  async cloneToolFlow(workspaceId: string, flowId: string): Promise<ApiResponse<{ toolFlow: ToolFlow }>> {
-    return this.makeRequest<{ toolFlow: ToolFlow }>(
-      `/api/workspaces/${workspaceId}/tool-flows/${flowId}/clone`,
-      { method: 'POST' }
-    );
-  }
-
-  // Delete a global tool flow
-  async deleteToolFlow(workspaceId: string, flowId: string): Promise<ApiResponse<{ success: boolean }>> {
-    return this.makeRequest<{ success: boolean }>(
-      `/api/workspaces/${workspaceId}/tool-flows/${flowId}`,
-      { method: 'DELETE' }
-    );
-  }
-
-  // Fetch feedback steps for all global tool flows
-  async getGlobalToolFlowFeedbackSteps(workspaceId: string): Promise<ApiResponse<{ feedbackStepsByFlow: Record<string, any[]> }>> {
-    try {
-      // First, get all feedback steps
-      const response = await this.makeRequest<{ 
-        global_steps: Array<{ id: string; name: string }>,
-        workspace_steps: Array<{ id: string; name: string }>
-      }>(`/api/workspaces/${workspaceId}/feedback-steps`);
-
-      if (response.error) {
-        return { data: { feedbackStepsByFlow: {} }, error: response.error };
-      }
-
-      // Get all tool flows to map feedback steps to
-      const toolFlowsResponse = await this.getToolFlows(workspaceId);
-      if (toolFlowsResponse.error) {
-        return { data: { feedbackStepsByFlow: {} }, error: toolFlowsResponse.error };
-      }
-
-      // Create a map of flowId to its feedback steps
-      const feedbackStepsByFlow: Record<string, any[]> = {};
-      
-      // Initialize with empty arrays for all flows
-      toolFlowsResponse.data?.global_flows?.forEach(flow => {
-        feedbackStepsByFlow[flow.id] = [];
-      });
-      toolFlowsResponse.data?.workspace_flows?.forEach(flow => {
-        feedbackStepsByFlow[flow.id] = [];
-      });
-
-      // Add feedback steps to their respective flows
-      const allFeedbackSteps = [
-        ...(response.data?.global_steps || []),
-        ...(response.data?.workspace_steps || [])
-      ];
-
-      // For each flow, find its feedback steps
-      Object.keys(feedbackStepsByFlow).forEach(flowId => {
-        const flow = [
-          ...(toolFlowsResponse.data?.global_flows || []),
-          ...(toolFlowsResponse.data?.workspace_flows || [])
-        ].find(f => f.id === flowId);
-
-        if (flow?.feedback_step_id) {
-          const step = allFeedbackSteps.find(s => s.id === flow.feedback_step_id);
-          if (step) {
-            feedbackStepsByFlow[flowId] = [{
-              id: step.id,
-              name: step.name || `Feedback Step ${step.id.slice(0, 6)}`
-            }];
-          }
-        }
-      });
-
-      return { data: { feedbackStepsByFlow } };
-    } catch (error) {
-      console.error('Error in getGlobalToolFlowFeedbackSteps:', error);
-      return { data: { feedbackStepsByFlow: {} }, error: 'Failed to fetch feedback steps' };
-    }
-  }
+  // (Legacy helper methods removed)
 }
 
 // ========================================
@@ -495,10 +342,10 @@ export interface UseApiClientOptions extends ApiClientConfig {
 export function useApiClient(options: UseApiClientOptions = {}) {
   const [isConnected, setIsConnected] = useState(false)
   const [connectionError, setConnectionError] = useState<string | null>(null)
-  const clientRef = useRef<TaskPilotApiClient | null>(null)
+  const clientRef = useRef<SpeclyApiClient | null>(null)
 
   useEffect(() => {
-    const client = new TaskPilotApiClient(options)
+    const client = new SpeclyApiClient(options)
     clientRef.current = client
 
     if (options.autoConnectSSE !== false) {
@@ -534,7 +381,7 @@ export function useApiClient(options: UseApiClientOptions = {}) {
 // ========================================
 
 // Create API client without automatic SSE connection
-export const apiClient = new TaskPilotApiClient({
+export const apiClient = new SpeclyApiClient({
   // Disable auto-connect by default
   autoConnectSSE: false
 })

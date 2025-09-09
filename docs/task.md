@@ -400,33 +400,33 @@ Remaining for SP-018: Endpoint audit completed (no other public surfaces throw v
 - **Description**: Replace `TaskPilotApiClient` with `SpeclyApiClient`; remove tool-flow & feedback methods; add spec/tool/profile endpoints. Update types (statuses, remove dependencies array). See file_changes_ui.md.
 - **Priority**: High
 - **Dependencies**: SP-006
-- **Status**: TBD
-- **Progress**: 0%
-- **Completed At**: 
-- **Notes**: Maintain SSE; add new event handlers.
-- **Connected File List**: ./ui/src/lib/api-client.ts
+ - **Status**: Done
+ - **Progress**: 100%
+ - **Completed At**: 2025-09-09T00:00:00Z
+ - **Notes**: Implemented SpeclyApiClient with workspaces/tasks/health and SSE; removed legacy tool-flow/feedback APIs. Hook `useApiClient` added; singleton `apiClient` exported. Verified with typecheck and Rsbuild production build.
+ - **Connected File List**: ./ui/src/lib/api-client.ts
 
 ## Task ID: SP-101
 - **Title**: Remove Legacy UI Pages & Components
 - **Description**: Delete tool-flow-card, feedback-editor, pages/tool-flows.tsx, pages/feedback-steps.tsx. Clean CSS. Update nav.
 - **Priority**: High
 - **Dependencies**: SP-100
-- **Status**: TBD
-- **Progress**: 0%
-- **Completed At**: 
-- **Notes**: Ensure dead imports purged.
-- **Connected File List**: ./ui/src/components/tool-flow-card.tsx, ./ui/src/components/feedback-editor.tsx, ./ui/src/pages/tool-flows.tsx, ./ui/src/pages/feedback-steps.tsx
+ - **Status**: Done
+ - **Progress**: 100%
+ - **Completed At**: 2025-09-09T00:00:00Z
+ - **Notes**: Routes and FloatingNav updated to remove legacy links; legacy files neutralized as no-op exports to avoid residual imports in workspace. Branding updated to Specly in headers and design system. Typecheck and production build green.
+ - **Connected File List**: ./ui/src/components/tool-flow-card.tsx, ./ui/src/components/feedback-editor.tsx, ./ui/src/pages/tool-flows.tsx, ./ui/src/pages/feedback-steps.tsx, ./ui/src/components/floating-nav.tsx, ./ui/src/router.tsx, ./ui/src/components/clone-to-workspace.tsx, ./ui/src/components/page-header.tsx, ./ui/src/components/workspace-header.tsx, ./ui/src/components/getting-started.tsx, ./ui/src/lib/design-system.ts, ./ui/src/design-system.json, ./ui/index.html, ./ui/src/App.tsx
 
 ## Task ID: SP-102
 - **Title**: Specs & Tools Pages Scaffold
 - **Description**: Create pages/specs.tsx & pages/tools.tsx listing specs (hash, intent) and tool versions (hash, entry_spec). Query via new endpoints.
 - **Priority**: High
 - **Dependencies**: SP-100
-- **Status**: TBD
-- **Progress**: 0%
-- **Completed At**: 
-- **Notes**: Include simple search by hash prefix.
-- **Connected File List**: ./ui/src/pages/specs.tsx, ./ui/src/pages/tools.tsx
+- **Status**: Done
+- **Progress**: 100%
+- **Completed At**: 2025-09-09T00:00:00Z
+- **Notes**: Added read-only Specs and Tools pages with 404-safe API client methods (getSpecs, getTools, getToolVersions). Wired routes /specs and /tools and added to FloatingNav. Included simple hash prefix search on Specs.
+- **Connected File List**: ./ui/src/pages/specs.tsx, ./ui/src/pages/tools.tsx, ./ui/src/lib/api-client.ts, ./ui/src/components/floating-nav.tsx, ./ui/src/router.tsx
 
 ## Task ID: SP-103
 - **Title**: Spec Editor Component
