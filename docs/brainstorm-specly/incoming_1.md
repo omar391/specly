@@ -1,3 +1,4 @@
+# Incoming 1
 Here’s a focused comparative analysis showing how your Specly brainstorm reshapes / supersedes the earlier multi‑flow redesign, plus a merged, updated architectural direction and concrete next steps.
 
 ## 1. Key Concept Shifts (Delta From Previous Redesign)

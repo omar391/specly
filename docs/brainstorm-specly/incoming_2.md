@@ -1,3 +1,4 @@
+# Incoming 2
 Incorporating your feedback, here’s a consolidated, updated architecture spec plus concrete schema/API adjustments and an execution roadmap tuned for “no backward compatibility,” explicit spec-as-executor model, task–session lifecycle, profile versioning, external executor packaging, and preference (rules) capture.
 
 ## Checklist (your feedback → addressed)
@@ -273,7 +274,7 @@ POST /api/workspaces/:id/rules/reinforce (add/update facts)
 
 ## 5. Schema Sketch (TypeScript / Drizzle Pseudocode)
 
-````ts
+```ts
 export const specs = sqliteTable('specs', {
   hash: text('hash').primaryKey(),
   executorType: text('executor_type').notNull(),
@@ -387,7 +388,7 @@ export const workspaceRuleFacts = sqliteTable('workspace_rule_facts',{
   lastReinforcedAt: integer('last_reinforced_at',{mode:'timestamp_ms'}),
   active: integer('active',{mode:'boolean'}).notNull().default(true)
 });
-````
+```
 
 ---
 
@@ -395,7 +396,7 @@ export const workspaceRuleFacts = sqliteTable('workspace_rule_facts',{
 
 Pseudo:
 
-````ts
+```ts
 function normalizeTemplate(t?: string|null) {
   if(!t) return null;
   return t
@@ -416,16 +417,16 @@ function canonicalizeSpec(spec: CanonicalSpecInput) {
 function computeSpecHash(spec) {
   return sha256(canonicalizeSpec(spec));
 }
-````
+```
 
 ---
 
 ## 7. External Executor Packaging
 
 Convention:
-- Package name: specly-executor-<domain>
+- Package name: specly-executor-&lt;domain&gt;
 - Exports `register()` returning manifest(s):
-  ```
+  ```ts
   export interface ExecutorManifest {
     executor_type: string;
     executor_version: string; // semver

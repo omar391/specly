@@ -10,6 +10,7 @@ import { TasksController } from './tasks.js';
 import { ToolsExecuteController } from './tools-execute.js';
 import { SpecsController, ToolsController } from './specs-tools.js';
 import { ProfilesController } from './profiles.js';
+import { SessionsController } from './sessions.js';
 // Legacy ToolFlowsController & FeedbackStepsController removed (drastic migration)
 import { 
   errorHandler, 
@@ -34,6 +35,7 @@ export function createApiRouter(databaseService: DatabaseService): Router {
   const specsController = new SpecsController();
   const toolsController = new ToolsController();
   const profilesController = new ProfilesController();
+  const sessionsController = new SessionsController(databaseService);
 
   // Apply middleware
   router.use(corsHandler);
@@ -67,6 +69,15 @@ export function createApiRouter(databaseService: DatabaseService): Router {
   router.get('/workspaces', readRateLimit, async (req, res, next) => {
     try {
       await workspacesController.getWorkspaces(req, res);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Sessions listing (global; filter by workspace_id)
+  router.get('/sessions', readRateLimit, async (req, res, next) => {
+    try {
+      await sessionsController.getSessions(req, res);
     } catch (error) {
       next(error);
     }

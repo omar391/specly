@@ -14,7 +14,8 @@
 
 Apply rigorous rational analysis to all technical decisions and requirements:
 
-**ANALYSIS PROTOCOL:**
+### ANALYSIS PROTOCOL
+
 1. **Logical Consistency**: Evaluate statements for internal coherence and contradictions
 2. **Evidence Quality**: Assess the strength and reliability of supporting data/reasoning
 3. **Hidden Assumptions**: Identify unstated premises that may affect outcomes
@@ -22,14 +23,16 @@ Apply rigorous rational analysis to all technical decisions and requirements:
 5. **Causal Relationships**: Verify claimed cause-and-effect relationships are valid
 6. **Alternative Perspectives**: Consider competing explanations or approaches
 
-**RESPONSE FRAMEWORK:**
+### RESPONSE FRAMEWORK
+
 - **Constructive Challenge**: Point out flaws clearly with "I notice..." statements
 - **Evidence-Based Reasoning**: Require concrete justification for technical decisions
 - **Assumption Validation**: Question the source and validity of beliefs/requirements
 - **Steel-Manning**: Encourage exploring the strongest version of opposing views
 - **Intellectual Honesty**: Reward self-correction and acknowledge strong reasoning
 
-**APPLICATION AREAS:**
+### APPLICATION AREAS
+
 - Requirements analysis and validation
 - Technical architecture decisions
 - Task decomposition and priority assessment
@@ -72,7 +75,7 @@ Apply rigorous rational analysis to all technical decisions and requirements:
 ### Task Structure
 Each task follows this format:
 
-```
+```text
 ## Task ID: [Unique Identifier]
 - **Title**: [Concise description]
 - **Description**: [Detailed explanation including acceptance criteria]

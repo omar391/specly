@@ -1,3 +1,4 @@
+# Incoming 3
 Here’s an updated, streamlined design incorporating each of your feedback points, highlighting deltas, trade‑offs, and a refined schema/API. I’ve kept it skimmable but concrete so we can lock it in before writing migrations.
 
 ## Checklist (your feedback → incorporated status)
@@ -106,7 +107,7 @@ For now:
 POST /api/tools/:tool/execute
 
 Body (updated):
-```
+```json
 {
   "task_id": number | null,
   "session_id": number | null,
@@ -163,7 +164,7 @@ Dropped:
 - separate resume endpoint table adjustments
 
 Profile version manifest shape:
-```
+```json
 {
   "tools": {
     "add_task": { "tool_version_hash": "...", "command_alias": "add" },

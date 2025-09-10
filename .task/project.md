@@ -90,6 +90,7 @@ Single destructive migration (SP-001) with prior local DB backup. Legacy code re
 Rollback = restore pre-migration DB snapshot + revert code commit prior to SP-001 merge. No partial rollback supported after executing new writes.
 
 ## 14. Open Risks & Mitigations
+
 | Risk | Impact | Mitigation Task |
 |------|--------|-----------------|
 | Incorrect canonicalization | Hash churn & duplication | Golden tests (SP-002, SP-200) |

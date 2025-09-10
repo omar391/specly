@@ -11,10 +11,10 @@ curl -s -I http://localhost:5173 | head -1 | cut -d' ' -f2
 
 echo -n "✅ CORS Test (from UI to Backend): "
 CORS_RESULT=$(curl -s -H "Origin: http://localhost:5173" http://localhost:8989/api/workspaces)
-if echo "$CORS_RESULT" | grep -q '"workspaces"'; then
-  echo "✅ OK"
+if echo "${CORS_RESULT}" | grep -q '"workspaces"'; then
+	echo "✅ OK"
 else
-  echo "❌ Failed"
+	echo "❌ Failed"
 fi
 
 echo "✅ Backend API Discovery:"

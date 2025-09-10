@@ -114,7 +114,7 @@ No dual-run, no shadow mode: legacy execution path is deleted once SpecEngine la
 ### `dynamic-schema-generator.ts` [M]
 - Extend to build runtime input/output schema caches from spec JSON.
 
-### `next-step-generator.ts` (duplicate listing) — Already removed.
+### `next-step-generator.ts` (duplicate listing) — Already removed
 
 ### `project-initializer.ts` [M]
 - Initialize root profile version & workspace binding; drop any legacy seeding.

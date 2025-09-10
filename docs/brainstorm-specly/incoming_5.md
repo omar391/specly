@@ -1,3 +1,4 @@
+# Incoming 5
 Incorporating Iter 0–4 plus your latest feedback; below you get (1) a concise checklist with analytic evaluation of each new point, (2) resolved decisions and any justified trade‑offs, (3) deltas applied to the model, and (4) a final consolidated architecture document you can drop in (`docs/specly-architecture.md`). I also outline next concrete implementation steps.
 
 ## Checklist (New Feedback → Analysis → Decision)
@@ -94,8 +95,8 @@ A task is `blocked` if any dependency not in `completed` or `failed`. An optiona
 
 ## 7. Transitions & Routing
 Transition row structure (in `tool_versions.graph_manifest.edges` & optionally a normalized table later):
-```
-{ from, to, condition_type: 'result_code' | 'always', condition_value?, priority? }
+```json
+{ "from": "...", "to": "...", "condition_type": "result_code|always", "condition_value": "...", "priority": 0 }
 ```
 Selection algorithm:
 1. Gather edges with `from = current_spec`.
@@ -153,12 +154,12 @@ Tool alias uniqueness enforced per profile version (post-inheritance application
 - `tools (name, description, created_at)`
 - `tool_versions (hash, tool_name, graph_manifest JSON, created_at)`
 Graph manifest minimal schema:
-```
+```json
 {
-  "ordered_specs": [spec_hash...],
-  "entry_spec": spec_hash,
+  "ordered_specs": ["spec_hash", "..."],
+  "entry_spec": "spec_hash",
   "edges": [
-    { "from": spec_hash, "to": spec_hash, "condition_type": "result_code"|"always", "condition_value": "...", "priority": 10 }
+    { "from": "spec_hash", "to": "spec_hash", "condition_type": "result_code", "condition_value": "...", "priority": 10 }
   ]
 }
 ```

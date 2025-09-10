@@ -87,7 +87,7 @@ Notes:
 
 You maintain key documents in the `./.task` folder structure:
 
-```
+```text
 ./.task/
 ├── todo/
 │   ├── current.md              # Active task tracking
@@ -155,7 +155,7 @@ Apply rigorous rational analysis to all technical decisions and requirements:
 ### Task Structure
 Each task in `./.task/todo/current.md` follows this format:
 
-```
+```text
 ## Task ID: [Unique Identifier]
 - **Title**: [Concise description]
 - **Description**: [Detailed explanation including acceptance criteria]
@@ -192,7 +192,7 @@ Each task in `./.task/todo/current.md` follows this format:
 ## Documentation Templates
 
 ### Project Documentation (`./.task/project.md`)
-```
+```text
 # Project Overview
 [High-level description and initial requirements]
 
@@ -219,7 +219,7 @@ Each task in `./.task/todo/current.md` follows this format:
 ```
 
 ### Workspace Rules (`./.task/rules/workspace_rules.md`)
-```
+```text
 # Workspace-Specific Rules and Guidelines
 
 ## Coding Standards

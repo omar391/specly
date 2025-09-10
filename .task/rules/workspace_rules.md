@@ -33,7 +33,7 @@
 - `docs/SP-###-short-desc`
 
 ### Commit Message Format
-```
+```text
 SP-###: Concise imperative summary
 
 * Context / rationale (if needed)
@@ -192,3 +192,4 @@ This rule is mandatory and supersedes any ad-hoc commit practices.
 - 2025-09-02: Added mandate for drastic migration — remove all legacy tool_flow / feedback_step code & tables immediately (no coexistence). Any PR retaining legacy paths is invalid.
 - 2025-09-03: Commit process consolidated. See "Commit Process: General Rule (2025-09-03)" above. Commit message format remains as specified in "Commit Message Format".
 - 2025-09-03: Always follow LLM assistant's recommended next steps
+

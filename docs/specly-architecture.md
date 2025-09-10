@@ -3,23 +3,35 @@
 ## 1. Purpose
 Specly is an MCP server providing deterministic multi-step “spec” workflows (prompt + autonomous action nodes) to AI assistants. Hash-addressed specs and versioned tool/profile snapshots guarantee reproducibility; the server exclusively controls flow progression.
 
-## 2. Core Abstractions
-| Concept | Summary |
-|---------|---------|
-| Spec | Immutable execution unit (prompt or action) hashed over canonical fields. |
-| Tool Version | DAG snapshot of spec hashes (ordered list + transition edges) hashed for integrity. |
-| Tool | Stable identity (name + description); owns many versions historically. |
-| Profile | Logical collection of tools for a domain; can inherit from a parent profile (linear chain). |
-| Profile Version | Flattened snapshot of tool versions (with aliases) plus pointer to optional parent profile version. |
-| Workspace Binding | Workspace pinned to a single profile version (explicit upgrades). |
-| Task | User-visible unit of work pinned to a profile version; tracks lifecycle & optional dependencies. |
-| Session | Execution context for a tool run; transient until attached to a task. |
-| Action Journal | Idempotency + retry ledger for side-effect specs. |
+## 2. Core Abstractions 
+
+| Concept | Summary | 
+
+|---------|---------| 
+
+| Spec | Immutable execution unit (prompt or action) hashed over canonical fields. | 
+
+| Tool Version | DAG snapshot of spec hashes (ordered list + transition edges) hashed for integrity. | 
+
+| Tool | Stable identity (name + description); owns many versions historically. | 
+
+| Profile | Logical collection of tools for a domain; can inherit from a parent profile (linear chain). | 
+
+| Profile Version | Flattened snapshot of tool versions (with aliases) plus pointer to optional parent profile version. | 
+
+| Workspace Binding | Workspace pinned to a single profile version (explicit upgrades). | 
+
+| Task | User-visible unit of work pinned to a profile version; tracks lifecycle & optional dependencies. | 
+
+| Session | Execution context for a tool run; transient until attached to a task. | 
+
+| Action Journal | Idempotency + retry ledger for side-effect specs. | 
+
 | Workspace Rules | Stored preference/constraint facts shaping future prompts. |
 
 ## 3. Execution Model
 ### 3.1 State Machine (Text Diagram)
-```
+```text
 ┌──────────┐     autonomous spec      ┌─────────────┐
 │ RUNNING  │ ───────────────────────▶ │RUNNING(next)│
 └────┬─────┘                          └────┬────────┘
@@ -43,24 +55,40 @@ Transitions:
 - RUNNING → ERROR on dead-end detection (ROUTE_DEAD_END).
 - RUNNING → COMPLETED when all plan steps consumed and last node has no outgoing edges.
 
-### 3.2 Seams
-| Seam | Purpose | Current Implementation | Future Extension |
-|------|---------|------------------------|------------------|
-| Lease Provider | Session ownership & renewal | In-memory interface (acquire/renew/release) | Persistent / distributed lease with TTL |
-| Journal | Idempotency + retry replay | Single mutable row per (session,spec,idempotency_key) | Immutable attempt history table |
-| Metrics | Operational observability | Counter increments in critical paths | Histograms, labels (tool_name, result_code) |
-| Retry Policy | Controlled reattempt of autonomous failures | maxAttempts + strategy (immediate/exponential logical) | Real delay scheduling / jitter |
+### 3.2 Seams 
+
+| Seam | Purpose | Current Implementation | Future Extension | 
+
+|------|---------|------------------------|------------------| 
+
+| Lease Provider | Session ownership & renewal | In-memory interface (acquire/renew/release) | Persistent / distributed lease with TTL | 
+
+| Journal | Idempotency + retry replay | Single mutable row per (session,spec,idempotency_key) | Immutable attempt history table | 
+
+| Metrics | Operational observability | Counter increments in critical paths | Histograms, labels (tool_name, result_code) | 
+
+| Retry Policy | Controlled reattempt of autonomous failures | maxAttempts + strategy (immediate/exponential logical) | Real delay scheduling / jitter | 
+
 | Resume Token Invalidation | Prevent duplicate progress after human input | In-memory consumed token set | Persisted token versioning & concurrency detection |
 
-### 3.3 Error Taxonomy (Runtime + Structural)
-| Code | Layer | Trigger | Caller Guidance |
-|------|-------|---------|-----------------|
-| GRAPH_CYCLE | Structural | Cycle/self-loop in validation | Fix graph definition |
-| GRAPH_MISSING_NODE | Structural | Edge references absent spec | Correct manifest or builder |
-| EXECUTOR_FAILED | Runtime | Final autonomous attempt failed | Investigate spec executor; maybe increase retries |
-| LEASE_ACQUIRE_FAILED | Runtime | Competing client ownership | Retry with force if appropriate |
-| LEASE_RENEW_FAILED | Runtime | Lost lease mid-run | Re-run from start after resolving ownership |
-| ROUTE_DEAD_END | Runtime | Plan ended while outgoing edges exist (planner gap) | Inspect planner / manifest consistency |
+### 3.3 Error Taxonomy (Runtime + Structural) 
+
+| Code | Layer | Trigger | Caller Guidance | 
+
+|------|-------|---------|-----------------| 
+
+| GRAPH_CYCLE | Structural | Cycle/self-loop in validation | Fix graph definition | 
+
+| GRAPH_MISSING_NODE | Structural | Edge references absent spec | Correct manifest or builder | 
+
+| EXECUTOR_FAILED | Runtime | Final autonomous attempt failed | Investigate spec executor; maybe increase retries | 
+
+| LEASE_ACQUIRE_FAILED | Runtime | Competing client ownership | Retry with force if appropriate | 
+
+| LEASE_RENEW_FAILED | Runtime | Lost lease mid-run | Re-run from start after resolving ownership | 
+
+| ROUTE_DEAD_END | Runtime | Plan ended while outgoing edges exist (planner gap) | Inspect planner / manifest consistency | 
+
 | RESUME_TOKEN_INVALID | Runtime | Token mismatch or reuse | Obtain fresh state and retry resume |
 
 ### 3.4 Determinism Guarantees
@@ -111,7 +139,7 @@ A task is `blocked` if any dependency not in `completed` or `failed`. An optiona
 
 ## 7. Transitions & Routing
 Transition row structure (in `tool_versions.graph_manifest.edges` & optionally a normalized table later):
-```
+```json
 { from, to, condition_type: 'result_code' | 'always', condition_value?, priority? }
 ```
 Selection algorithm (deterministic):
@@ -186,7 +214,7 @@ Tool alias uniqueness enforced per profile version (post-inheritance application
 - `tools (name, description, created_at)`
 - `tool_versions (hash, tool_name, graph_manifest JSON, created_at)`
 Graph manifest minimal schema:
-```
+```json
 {
   "ordered_specs": [spec_hash...],
   "entry_spec": spec_hash,
@@ -214,11 +242,16 @@ Normalization & Hashing Guarantees:
 - Edge list is deterministically sorted by `(from, to, condition_type, condition_value, priority, insertion_index)` ensuring stable tool version hashes regardless of input order.
 - Changing an explicitly provided `priority` that differs from the default affects the hash, as expected.
 
-Public API Error Mapping (Validator → HTTP):
-| Internal Code | Public Code | HTTP |
-|---------------|------------|------|
-| ERR_CYCLE, ERR_SELF_LOOP | GRAPH_CYCLE | 422 |
-| ERR_UNDECLARED_SPEC, ERR_ENTRY_NOT_DECLARED | GRAPH_MISSING_NODE | 422 |
+Public API Error Mapping (Validator → HTTP): 
+
+| Internal Code | Public Code | HTTP | 
+
+|---------------|------------|------| 
+
+| ERR_CYCLE, ERR_SELF_LOOP | GRAPH_CYCLE | 422 | 
+
+| ERR_UNDECLARED_SPEC, ERR_ENTRY_NOT_DECLARED | GRAPH_MISSING_NODE | 422 | 
+
 | ERR_UNREACHABLE, ERR_PRIORITY_INVALID, ERR_DUP_SPEC | GRAPH_INVALID | 422 |
 
 ## 14. Specs
@@ -284,19 +317,32 @@ Rules:
 - POST /api/rules  (upsert)
 - GET /api/rules?workspace_id=
 
-## 18. Validation & Edge Cases
-| Scenario | Handling |
-|----------|----------|
-| Circular profile inheritance | Reject creation (DFS check). |
-| Overriding non-existent tool in child | Treated as addition. |
-| Removal of tool not present | Ignored (idempotent). |
-| Dead-end spec (no edges) mid-run | Task failed with diagnostic (result_code `no_transition`). |
-| Duplicate alias post-flattening | Reject before insert (unique constraint). |
-| Client resume mismatch | 409 unless `force_start`. |
-| Human input spec w/out args | Return prompt; no progression. |
-| Side-effect replay | (Phase 1 seam) Journal write only; replay & retry logic added later (SP-010). |
-| Unreachable spec in new tool version | Validation error (422) unless `allow_unreachable=true` internal override. |
-| Multiple entry specs declared | Validation error (ERR_MULTI_ENTRY). |
+## 18. Validation & Edge Cases 
+
+| Scenario | Handling | 
+
+|----------|----------| 
+
+| Circular profile inheritance | Reject creation (DFS check). | 
+
+| Overriding non-existent tool in child | Treated as addition. | 
+
+| Removal of tool not present | Ignored (idempotent). | 
+
+| Dead-end spec (no edges) mid-run | Task failed with diagnostic (result_code `no_transition`). | 
+
+| Duplicate alias post-flattening | Reject before insert (unique constraint). | 
+
+| Client resume mismatch | 409 unless `force_start`. | 
+
+| Human input spec w/out args | Return prompt; no progression. | 
+
+| Side-effect replay | (Phase 1 seam) Journal write only; replay & retry logic added later (SP-010). | 
+
+| Unreachable spec in new tool version | Validation error (422) unless `allow_unreachable=true` internal override. | 
+
+| Multiple entry specs declared | Validation error (ERR_MULTI_ENTRY). | 
+
 | Cycle in edges | Validation error (ERR_CYCLE). |
 
 ## 19. Extensibility (Deferred)

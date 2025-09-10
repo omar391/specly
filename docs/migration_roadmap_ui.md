@@ -28,43 +28,74 @@ Extend existing SSE to emit:
 - `rule.created`, `rule.reinforced`
 UI subscribes via `useApiClient` and updates relevant query caches.
 
-## 2. Data & Type Adjustments
-| Legacy | New |
-|--------|-----|
-| ToolFlow / Flow Steps | ToolVersion (graphManifest.edges) + Specs |
-| FeedbackStep | Spec (intent='human') |
-| Task.status (backlog, in-progress...) | Task.status (queued, in_progress, awaiting_input, blocked, paused, completed, failed) |
-| Task.dependencies JSON | task_dependencies table (fetched via separate endpoint) |
+## 2. Data & Type Adjustments 
+
+| Legacy | New | 
+
+|--------|-----| 
+
+| ToolFlow / Flow Steps | ToolVersion (graphManifest.edges) + Specs | 
+
+| FeedbackStep | Spec (intent='human') | 
+
+| Task.status (backlog, in-progress...) | Task.status (queued, in_progress, awaiting_input, blocked, paused, completed, failed) | 
+
+| Task.dependencies JSON | task_dependencies table (fetched via separate endpoint) | 
+
 | StepId orchestration | Session.current_spec_hash driven |
 
 Update client Task interface accordingly; remove legacy arrays.
 
-## 3. Component Responsibilities
-| Component | Responsibility |
-|-----------|---------------|
-| `spec-editor` | Create spec JSON with live hash preview; validates schema fields (basic structural + required fields). |
-| `tool-version-publisher` | Assemble ordered spec list, add edges (inline form), preview DAG, compute hash client-side before submit. |
-| `tool-graph-canvas` | Visualize tool version DAG (node color by intent; edge label condition_type/result_code). |
-| `profile-version-creator` | Display parent flattened tools (inherited vs overridden); apply removals/additions. |
-| `task-dependencies-panel` | CRUD dependencies; show blocked reason; highlight circular attempts (prevent). |
-| `execution-console` | Live session view; show spec template rendered; context diff (prev vs current). |
-| `rule-input-form` | Normalize rule text; preview uniqueness (warn if duplicate). |
+## 3. Component Responsibilities 
+
+| Component | Responsibility | 
+
+|-----------|---------------| 
+
+| `spec-editor` | Create spec JSON with live hash preview; validates schema fields (basic structural + required fields). | 
+
+| `tool-version-publisher` | Assemble ordered spec list, add edges (inline form), preview DAG, compute hash client-side before submit. | 
+
+| `tool-graph-canvas` | Visualize tool version DAG (node color by intent; edge label condition_type/result_code). | 
+
+| `profile-version-creator` | Display parent flattened tools (inherited vs overridden); apply removals/additions. | 
+
+| `task-dependencies-panel` | CRUD dependencies; show blocked reason; highlight circular attempts (prevent). | 
+
+| `execution-console` | Live session view; show spec template rendered; context diff (prev vs current). | 
+
+| `rule-input-form` | Normalize rule text; preview uniqueness (warn if duplicate). | 
+
 | `status-badge` | Uniform badge for statuses with token-driven color scheme. |
 
-## 4. API Mapping (Client Methods)
-| Method | Endpoint | Notes |
-|--------|----------|-------|
-| createSpec | POST /api/specs | Returns spec hash |
-| publishToolVersion | POST /api/tools/:tool/versions | Provide ordered_specs, edges, entry_spec |
-| getToolGraph | GET /api/tools/:tool/graph | Manifest & resolved edges |
-| createProfileVersion | POST /api/profile-versions | inheritance logic server side |
-| upgradeWorkspaceProfile | POST /api/workspaces/:id/upgrade-profile | binds new version |
-| executeTool | POST /api/tools/:tool/execute | multi-step management |
-| getTasks | GET /api/workspaces/:id/tasks | statuses updated |
-| addTaskDependency | POST /api/tasks/:id/dependencies | |
-| removeTaskDependency | DELETE /api/tasks/:id/dependencies/:depId | |
-| softDeleteTask | PATCH /api/tasks/:id/delete | sets deleted_at |
-| listExternalTaskIntegrations | GET /api/workspaces/:id/external-task-integrations | integrations catalog for task execution context |
+## 4. API Mapping (Client Methods) 
+
+| Method | Endpoint | Notes | 
+
+|--------|----------|-------| 
+
+| createSpec | POST /api/specs | Returns spec hash | 
+
+| publishToolVersion | POST /api/tools/:tool/versions | Provide ordered_specs, edges, entry_spec | 
+
+| getToolGraph | GET /api/tools/:tool/graph | Manifest & resolved edges | 
+
+| createProfileVersion | POST /api/profile-versions | inheritance logic server side | 
+
+| upgradeWorkspaceProfile | POST /api/workspaces/:id/upgrade-profile | binds new version | 
+
+| executeTool | POST /api/tools/:tool/execute | multi-step management | 
+
+| getTasks | GET /api/workspaces/:id/tasks | statuses updated | 
+
+| addTaskDependency | POST /api/tasks/:id/dependencies | | 
+
+| removeTaskDependency | DELETE /api/tasks/:id/dependencies/:depId | | 
+
+| softDeleteTask | PATCH /api/tasks/:id/delete | sets deleted_at | 
+
+| listExternalTaskIntegrations | GET /api/workspaces/:id/external-task-integrations | integrations catalog for task execution context | 
+
 | getWorkspaceProfile | GET /api/workspaces/:id/profile-version | (new) workspace binding |
 
 ## 5. UX Flows
@@ -104,26 +135,42 @@ Update client Task interface accordingly; remove legacy arrays.
 - DAG canvas: provide textual fallback list (ordered traversal) for screen readers.
 - Color tokens accompanied by `aria-label` for status meaning.
 
-## 9. Implementation Phases (Aggressive Direct Cutover)
-| Phase | Scope | Duration Target |
-|-------|-------|-----------------|
-| UI-1 | API client refactor + remove legacy pages | 1 day |
-| UI-2 | Core new pages: Tools, Specs, Profiles scaffold | 1 day |
-| UI-3 | Spec Editor + Tool Version Publisher + Graph Canvas | 1–2 days |
-| UI-4 | Profile Version Creator + Upgrade flow | 1 day |
-| UI-5 | Execution Console + Sessions page + SSE extensions | 1–2 days |
-| UI-6 | Task Dependencies Panel + Status badges overhaul | 1 day |
-| UI-7 | Rules enhancements + Rule Form | 0.5 day |
+## 9. Implementation Phases (Aggressive Direct Cutover) 
+
+| Phase | Scope | Duration Target | 
+
+|-------|-------|-----------------| 
+
+| UI-1 | API client refactor + remove legacy pages | 1 day | 
+
+| UI-2 | Core new pages: Tools, Specs, Profiles scaffold | 1 day | 
+
+| UI-3 | Spec Editor + Tool Version Publisher + Graph Canvas | 1–2 days | 
+
+| UI-4 | Profile Version Creator + Upgrade flow | 1 day | 
+
+| UI-5 | Execution Console + Sessions page + SSE extensions | 1–2 days | 
+
+| UI-6 | Task Dependencies Panel + Status badges overhaul | 1 day | 
+
+| UI-7 | Rules enhancements + Rule Form | 0.5 day | 
+
 | UI-8 | Polish: accessibility, performance, docs | 0.5 day |
 
 (May overlap with backend phases; coordinate on endpoints availability.)
 
-## 10. Risk & Mitigation
-| Risk | Mitigation |
-|------|-----------|
-| Missing backend endpoint timing | Stub client with mock service, feature toggle display until live |
-| DAG layout complexity | Use simple layered layout (topological order) initially; upgrade later |
-| SSE burst overload | Debounce & only patch changed session nodes |
+## 10. Risk & Mitigation 
+
+| Risk | Mitigation | 
+
+|------|-----------| 
+
+| Missing backend endpoint timing | Stub client with mock service, feature toggle display until live | 
+
+| DAG layout complexity | Use simple layered layout (topological order) initially; upgrade later | 
+
+| SSE burst overload | Debounce & only patch changed session nodes | 
+
 | Hash mismatch (client/server) | Log mismatch; show warning; rely on server authoritative hash |
 
 ## 11. Testing Strategy

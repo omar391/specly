@@ -26,7 +26,7 @@ Servers supporting tools MUST declare the `tools` capability:
 
 #### 1.2 Tool Discovery (`tools/list`)
 
-**Request Format:**
+##### Request Format
 ```json
 {
   "jsonrpc": "2.0",
@@ -38,7 +38,7 @@ Servers supporting tools MUST declare the `tools` capability:
 }
 ```
 
-**Response Format:**
+##### Response Format
 ```json
 {
   "jsonrpc": "2.0",
@@ -82,7 +82,7 @@ Servers supporting tools MUST declare the `tools` capability:
 
 #### 1.3 Tool Invocation (`tools/call`)
 
-**Request Format:**
+##### Request Format (tools/call)
 ```json
 {
   "jsonrpc": "2.0",
@@ -97,7 +97,7 @@ Servers supporting tools MUST declare the `tools` capability:
 }
 ```
 
-**Response Format:**
+##### Response Format (tools/call)
 ```json
 {
   "jsonrpc": "2.0",
@@ -188,7 +188,7 @@ Tools can return multiple content types:
 
 #### 1.5 Error Handling
 
-**Protocol Errors (JSON-RPC errors):**
+##### Protocol Errors (JSON-RPC errors)
 ```json
 {
   "jsonrpc": "2.0",
@@ -200,7 +200,7 @@ Tools can return multiple content types:
 }
 ```
 
-**Tool Execution Errors:**
+##### Tool Execution Errors
 ```json
 {
   "jsonrpc": "2.0",
@@ -236,7 +236,7 @@ Resources in MCP are **application-controlled** and provide contextual data to l
 
 #### 2.2 Resource Discovery (`resources/list`)
 
-**Request Format:**
+##### Request Format (resources/list)
 ```json
 {
   "jsonrpc": "2.0",
@@ -248,7 +248,7 @@ Resources in MCP are **application-controlled** and provide contextual data to l
 }
 ```
 
-**Response Format:**
+##### Response Format (resources/list)
 ```json
 {
   "jsonrpc": "2.0",
@@ -276,7 +276,7 @@ Resources in MCP are **application-controlled** and provide contextual data to l
 
 #### 2.3 Resource Reading (`resources/read`)
 
-**Request Format:**
+##### Request Format (resources/read)
 ```json
 {
   "jsonrpc": "2.0",
@@ -288,7 +288,7 @@ Resources in MCP are **application-controlled** and provide contextual data to l
 }
 ```
 
-**Response Format:**
+##### Response Format (resources/read)
 ```json
 {
   "jsonrpc": "2.0",
@@ -314,7 +314,7 @@ Resources in MCP are **application-controlled** and provide contextual data to l
 
 #### 2.4 Resource Templates (`resources/templates/list`)
 
-**Request Format:**
+##### Request Format (resources/templates/list)
 ```json
 {
   "jsonrpc": "2.0",
@@ -323,7 +323,7 @@ Resources in MCP are **application-controlled** and provide contextual data to l
 }
 ```
 
-**Response Format:**
+##### Response Format (resources/templates/list)
 ```json
 {
   "jsonrpc": "2.0",
@@ -344,7 +344,7 @@ Resources in MCP are **application-controlled** and provide contextual data to l
 
 #### 2.5 Resource Content Types
 
-**Text Content:**
+##### Text Content
 ```json
 {
   "uri": "file:///example.txt",
@@ -355,7 +355,7 @@ Resources in MCP are **application-controlled** and provide contextual data to l
 }
 ```
 
-**Binary Content:**
+##### Binary Content
 ```json
 {
   "uri": "file:///example.png",
@@ -438,7 +438,7 @@ return {
 
 **Current Issue:** Tools return user-oriented narrative prompts rather than structured tool results.
 
-**Example from PromptOrchestrator.generateBasicPrompt():**
+#### Example from PromptOrchestrator.generateBasicPrompt()
 ```typescript
 case 'taskpilot_init':
   return `# TaskPilot Project Initialization\n\n` +
@@ -459,7 +459,7 @@ case 'taskpilot_init':
 2. **No Resource Endpoints:** No `resources/list`, `resources/read`, or `resources/templates/list`  
 3. **No Resource Handlers:** No MCP resource request handlers in server setup
 
-**Missing Implementation in `src/index.ts`:**
+#### Missing Implementation in `src/index.ts`
 ```typescript
 // Current capabilities
 {
@@ -482,12 +482,12 @@ case 'taskpilot_init':
 
 ### 3. Prompt Orchestration Architecture Issue
 
-**Current Flow:**
+#### Current Flow
 1. Tool receives input → 
 2. PromptOrchestrator generates narrative text →
 3. Returns narrative as tool result
 
-**MCP-Compliant Flow Should Be:**
+##### MCP-Compliant Flow Should Be
 1. Tool receives input →
 2. Tool performs business logic →
 3. Tool returns structured data + optional presentation text →
@@ -523,11 +523,11 @@ This inconsistency suggests the MCP implementation could follow the same structu
 
 ### 1. Fix Tool Response Architecture
 
-**Priority: HIGH - Critical for MCP compliance**
+#### Priority: HIGH - Critical for MCP compliance
 
 **Current Problem:** Tools return narrative text meant for users instead of structured data for LLMs.
 
-**Recommended Refactor:**
+#### Recommended Refactor
 
 ```typescript
 // BEFORE (current implementation)
@@ -563,7 +563,7 @@ return {
 };
 ```
 
-**Implementation Steps:**
+#### Implementation Steps
 
 1. **Separate Business Logic from Presentation** - Move prompt generation out of tools
 2. **Return Structured Data** - Tools should return machine-readable results
@@ -571,9 +571,9 @@ return {
 
 ### 2. Implement Resources Capability
 
-**Priority: HIGH - Missing core MCP feature**
+#### Priority: HIGH - Missing core MCP feature
 
-**Add Resources Support:**
+#### Add Resources Support
 
 ```typescript
 // 1. Update server capabilities in src/index.ts
@@ -658,7 +658,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 
 ### 3. Add Output Schemas to Tools
 
-**Priority: MEDIUM - Improves client integration**
+#### Priority: MEDIUM - Improves client integration
 
 ```typescript
 // Update tool definitions in src/index.ts
@@ -698,7 +698,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 
 ### 4. Enhance Tool Metadata
 
-**Priority: MEDIUM - Better UX and discoverability**
+#### Priority: MEDIUM - Better UX and discoverability
 
 ```typescript
 // Add missing metadata to tools
@@ -718,7 +718,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 
 ### 5. Implement Structured Content Support
 
-**Priority: MEDIUM - Enables richer client interactions**
+#### Priority: MEDIUM - Enables richer client interactions
 
 ```typescript
 // Update tools to return both text and structured content
@@ -763,15 +763,15 @@ export class InitTool {
 
 ### 6. Separate Prompt Generation from Tool Logic
 
-**Priority: HIGH - Architectural improvement**
+#### Priority: HIGH - Architectural improvement
 
 **Current Flow:**
-```
+```text
 Tool Input → PromptOrchestrator.orchestratePrompt() → Narrative Text → Return as Tool Result
 ```
 
 **Recommended Flow:**
-```
+```text
 Tool Input → Business Logic → Structured Data → Return to Client
                 ↓
 Client/LLM can request prompt generation separately via resources or dedicated prompt tools
@@ -985,3 +985,4 @@ async execute(input: InitToolInput): Promise<TaskPilotToolResult> {
 - **MCP Clients:** New structured responses provide better integration
 
 This phased approach ensures TaskPilot becomes fully MCP-compliant while maintaining existing functionality and providing a clear upgrade path.
+

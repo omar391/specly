@@ -27,10 +27,10 @@ npm run dev
 ```
 
 **Access Points:**
-- **Web UI**: http://localhost:8989/
-- **REST API**: http://localhost:8989/api/
-- **Health Check**: http://localhost:8989/health
-- **MCP**: http://localhost:8989/mcp
+- **Web UI**: <http://localhost:8989/>
+- **REST API**: <http://localhost:8989/api/>
+- **Health Check**: <http://localhost:8989/health>
+- **MCP**: <http://localhost:8989/mcp>
 
 ## 🏗️ Architecture
 
@@ -120,7 +120,7 @@ cd ui && npm run dev
 
 ### Project Structure
 
-```
+```text
 .
 ├── src/                  # TypeScript source code
 │   ├── tools/           # MCP tool implementations
@@ -207,7 +207,7 @@ npm run serve
        server_name taskpilot.example.com;
        
        location / {
-           proxy_pass http://localhost:8989;
+           proxy_pass <http://localhost:8989>;
            proxy_http_version 1.1;
            proxy_set_header Upgrade $http_upgrade;
            proxy_set_header Connection 'upgrade';
@@ -244,7 +244,7 @@ echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}' | node 
 
 ```bash
 # Health check
-curl http://localhost:8989/health
+curl <http://localhost:8989/health>
 
 # Expected: {"status":"healthy",...}
 ```
@@ -352,6 +352,7 @@ Completion Response:
 ```
 
 Error Mapping (current):
+
 | Error Code | HTTP | Meaning |
 |------------|------|---------|
 | GRAPH_CYCLE | 422 | Cycle or self-loop detected |
@@ -363,6 +364,7 @@ Error Mapping (current):
 | EXECUTOR_FAILED | 500 | Tool execution runtime failure |
 | (other) | 500 | Unclassified internal error |
 | (none) | 200 | Completed or awaiting_input (success path) |
+
 
 `tool_version_id` path is active: sending only that field (without graph or resumeToken) executes the persisted manifest. If both `graph` and `tool_version_id` are supplied the explicit `graph` wins. Supplying deprecated `mode` query param returns 400.
 
@@ -393,7 +395,7 @@ interface ToolResult {
 
 ## 🧪 Testing
 
-TaskPilot includes comprehensive test coverage with **173/173 tests passing (100% success rate)** (39 test files):
+TaskPilot includes comprehensive test coverage with **175/175 tests passing (100% success rate)** (40 test files):
 
 ```bash
 # Run all tests

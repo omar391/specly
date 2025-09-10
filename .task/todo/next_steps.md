@@ -1,68 +1,43 @@
 # Next Steps (as of 2025-09-09)
 
-Update (2025-09-09): Items 1–3 below are completed in this iteration; API docs and task trackers updated; full test suite green (173/173) and typecheck clean. Proceed with items 5–7 next.
+Update (2025-09-09): SP-016 completed (task dependencies, status guard, sessions endpoint). API docs and task trackers updated; targeted tests green and typecheck clean. Shifting focus to validator hardening (SP-018) and lease enforcement tests (SP-019).
 
-Focus: SP-016 Task dependencies and API cleanup; finalize Specly-only codebase
+Focus: SP-018 Graph & Transition Validation; SP-019 Session lease enforcement tests
 
-Status: SP-008 is complete
+Status: SP-008 remains complete
 - Final tables in place (workspace: `tasks`, `task_dependencies`, `sessions` | global: Specly tables)
 - API + services use Specly statuses: queued | in_progress | awaiting_input | blocked | paused | completed | failed
 - Programmatic migrations create final schema and rebuild/upgrade legacy tables on detection
-- Test suite green (172/172)
 
 Immediate next actions:
-1) Centralize status transitions (Specly-only)
-   - Add small pure util `utils/task-status.ts`:
-     - allowedStatuses and canTransition(from, to, opts?) returning { ok, reason? }
-     - nextStatuses(from) for UI/help
-     - opts may include dependency guardrail toggles (e.g., hasUnresolvedDeps)
-   - Wire TasksController to use the util (remove inline transition maps)
-   - Tests: happy paths, terminal-state immutability, invalid jumps, dependency guardrail
+1) SP-018: Finish validator hardening and coverage
+   - Add/confirm tests for: duplicate ordered_specs, negative/float priorities rejection, unreachable with allow_unreachable flag off, deterministic edge ordering impacts hash (already covered, re-assert post refactors)
+   - Ensure all publish/create endpoints use validator + public error mapping consistently
+   - Documentation touch-ups: specly-architecture.md §13.1 normalization guarantees (done) — verify references from README/api-design
 
-2) SP-016: Implement dependencies endpoints on `task_dependencies`
-   - Endpoints:
-     - POST /api/workspaces/:id/tasks/:taskId/dependencies { depends_on: string }
-     - DELETE /api/workspaces/:id/tasks/:taskId/dependencies/:dependsOn
-     - GET /api/workspaces/:id/tasks/:taskId/dependencies (optional)
-   - Rules: no self-dependency, reject duplicates idempotently, 404 on missing tasks, cycle detection (A->...->A is invalid)
-   - Behavior: when a task has unresolved dependencies, disallow transition to in_progress/completed; allow queued/blocked/paused
-   - Tests: create chain A->B->C; reject A->A; reject cycle C->A; delete removes edge; status validator respects dependencies
+2) SP-019: Lease enforcement and conflict tests
+   - Tests: lease acquire/renew failure mapping (409), force_start transfers ownership, resume with mismatched client rejected, awaiting_input idle semantics
+   - Extend ToolsExecuteController mapping if any 409 paths missing; keep behavior Specly-only
 
-3) API model polish (Specly-only)
-   - TasksController.mapTaskDbToApi currently preserves legacy fields (parent_task_id, connected_files). Update to:
-     - Return Specly fields only (assets, external_references, tags, metadata) without aliasing to legacy names
-     - Confirm no legacy-only fields remain; UI will adapt to Specly fields
-   - Task interface (src/api/types.ts) is already Specly for status/priority; confirm fields and remove any legacy remnants across API types
-   - Inline transition tables removed in favor of centralized util (see 1)
+3) Document explicit decision on external_references and tags
+   - Keep as first-class columns alongside assets and metadata; use metadata for free-form
+   - Update docs where needed (api-design.md and specly-architecture.md appendix)
 
-4) Testing policy (locked)
-   - Use pnpm + vitest/tsx for all tests; no Bun-based test runs
-   - Do not add .vscode/tasks.json for running tests
+4) Task sync providers rename (optional, small)
+   - Rename `remote_interfaces` → `task_sync_providers` (tables, indices, code refs)
+   - Programmatic migration + drizzle-kit SQL follow-up; no shims
 
-5) Data modeling decision: external_references and tags
-   - Current: stored as first-class JSON columns on `tasks`
-   - Recommendation: keep as explicit columns (assets/external_references/tags/metadata)
-     - Pros: clear schema, targeted indexing later, selective queries without parsing one catch-all metadata object
-     - Use `metadata` for free-form extensions; keep external_references/tags stable and validated
-   - Action: document this decision in project docs; ensure API returns them consistently (may keep `connected_files` as alias for assets for now)
-
-6) Task sync providers rename plan
-   - Rename `remote_interfaces` → `task_sync_providers` (clearer intent: GitHub/Jira/Trello/Asana task sources)
-   - Scope: table + indices + service/DAO naming + tests; no behavior change
-   - Optional follow-up: introduce two tables later if needed (catalog of provider types vs per-workspace connections)
-   - Migration: drizzle programmatic rename (and drizzle-kit SQL later) without shims
-
-7) Migrations approach
-   - Continue using programmatic SQL for rapid test environments (current path) and add drizzle-kit migrations for reproducible versioned changes
-   - Action: scaffold drizzle-kit migrations mirroring current tables; configure CI/dev to run generated SQL; keep programmatic as bootstrap
+5) Migrations scaffolding
+   - Scaffold drizzle-kit migrations mirroring current schema for reproducible versioning
+   - Keep programmatic bootstrap for tests; wire CI/dev to run generated SQL
 
 Acceptance for this next iteration:
-- Status transition logic centralized and covered by unit tests
-- Dependencies endpoints implemented with tests, including cycle detection and status guardrails
-- Docs updated (api-design.md, specly-architecture.md) to reflect decisions on external_references/tags and remote interfaces
-- Testing policy documented (pnpm/vitest only; no Bun-based tests; no VS Code tasks)
+- SP-018 validator finalized with tests green and docs aligned
+- SP-019 lease tests implemented with clear 409 mappings and force_start behavior
+- Docs updated to reflect external_references/tags decision
+- Optional rename planned/scaffolded without impacting runtime
 - All tests and typechecks green
 
 Deferred/Optional:
-- Sessions listing endpoint and filters for tasks index
+- Sessions listing filters expansion and tasks index filters (server + UI)
 - Final rename of New-suffixed methods to drop “New” after wrapper removal (small follow-up)

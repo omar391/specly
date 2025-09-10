@@ -75,6 +75,27 @@ Response:
 }
 ```
 
+### 2b. GET /api/sessions?workspace_id=&task_id?
+Purpose: List execution sessions across all workspaces (optionally filtered by workspace). Task filter reserved for future use.
+Used by: Sessions page / execution console
+Query params:
+- workspace_id: string (optional)
+- task_id: string (optional; reserved)
+Response:
+```json
+{
+  "sessions": [
+    {
+      "id": "string",
+      "workspace_id": "string",
+      "is_active": true,
+      "last_activity": "ISO8601",
+      "created_at": "ISO8601"
+    }
+  ]
+}
+```
+
 ### 3. POST /api/tools/{tool}/execute
 **Purpose**: Unified execution (start or resume) of a tool version graph via SpecEngine.
 
@@ -163,6 +184,7 @@ Successful Resume Completion (200):
 ```
 
 Error Code → HTTP Mapping (current):
+
 | Engine Error Code | HTTP Status | Notes |
 |-------------------|-------------|-------|
 | GRAPH_CYCLE | 422 | Includes self-loop & cycle detection |
@@ -172,6 +194,7 @@ Error Code → HTTP Mapping (current):
 | RESUME_TOKEN_INVALID | 404 | Stale or already-used resume token |
 | ROUTE_DEAD_END | 500 | Dead-end encountered with remaining outgoing edges |
 | (EXECUTOR_FAILED / other runtime) | 500 | Autonomous executor failure or unspecified runtime error |
+
 
 Response Envelope Fields:
 - `status`: `completed | awaiting_input | failed`
@@ -336,7 +359,7 @@ Dependency Guard:
 Manage per-task dependency graph within a workspace. A dependency means: task A depends on task B (A cannot start until B is completed).
 
 Add dependency:
-```
+```text
 POST /api/workspaces/{id}/tasks/{taskId}/dependencies
 {
   "depends_on_task_id": "string"
@@ -345,13 +368,13 @@ POST /api/workspaces/{id}/tasks/{taskId}/dependencies
 Response (201): `{ "ok": true }`
 
 Remove dependency:
-```
+```text
 DELETE /api/workspaces/{id}/tasks/{taskId}/dependencies/{dependsOnTaskId}
 ```
 Response (200): `{ "ok": true }`
 
 List dependencies for a task:
-```
+```text
 GET /api/workspaces/{id}/tasks/{taskId}/dependencies
 ```
 Response (200):
@@ -459,6 +482,7 @@ Central reference for current and planned SpecEngine error codes surfaced via th
 | LEASE_RENEW_FAILED | Runtime | Lease renewal failed mid-run | 409 | Re-run after ownership clarification |
 | ROUTE_DEAD_END | Runtime | No valid transition despite outgoing edges | 500 | Inspect routing/graph definition |
 | RESUME_TOKEN_INVALID | Runtime | Resume token stale, mismatched, or reused | 404 | Refetch state & resume again |
+
 
 Legend: * denotes codes defined in engine design but not yet surfaced through HTTP mapping in this iteration; mapping will be finalized alongside SP-019 / SP-010 tasks.
 

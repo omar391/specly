@@ -5,19 +5,33 @@ This roadmap defines a direct (non‑backwards‑compatible) replacement of the 
 ## 1. Target Domain Model (Authoritative)
 
 ### 1.1 Core Entities
+
 | Entity | Purpose | Key Immutability Rules |
+
 |--------|---------|------------------------|
+
 | Spec | Immutable instruction template + executor metadata | Hash changes on any canonical field change |
+
 | ToolVersion | Immutable DAG snapshot (ordered specs + edges) | Hash changes on spec list or any edge detail |
+
 | Tool | Stable identity (name + description + optional command alias) | No mutable pointer to version in pure snapshot model |
+
 | Profile | Logical grouping of tools (supports inheritance) | Parent chain linear only |
+
 | ProfileVersion | Flattened snapshot of tool → tool_version mapping (with aliases) | Immutable after creation |
+
 | ProfileVersionTool | Row per tool in a profile_version (optionally inherited) | Records `inherited_from_profile_version_id` |
+
 | Workspace | Bound to single profile_version at a time | Upgrade explicit; tasks pinned to version at creation |
+
 | Task | User-visible work unit | Status transitions deterministic per engine |
+
 | TaskDependency | M:N self deps for tasks | Unique per pair |
+
 | Session | Execution context (transient or task-bound) | Idle/active state only |
+
 | ActionJournal | Idempotency + side effect ledger | Unique (spec_hash, session_id, idempotency_key) |
+
 | WorkspaceRule | Preference / constraint fact | Unique (workspace_id, relation, rule) |
 
 ### 1.2 Status Enums
@@ -26,7 +40,7 @@ Session: `active | idle`
 
 ### 1.3 Hash Canonicalization
 Spec hash = SHA-256 of canonical JSON of immutable fields:
-```
+```json
 {
   executor_type,
   executor_version,
@@ -277,7 +291,7 @@ class SpecEngine {
 ```
 
 ### Edge Selection
-```
+```typescript
 function selectNextEdge(edges, fromHash, resultCode) {
   const candidates = edges.filter(e => e.from === fromHash);
   const bySpecificity = partition(candidates, e => e.condition_type === 'result_code' && e.condition_value === resultCode,
@@ -309,44 +323,77 @@ async function createProfileVersion({ profileId, parentProfileVersionId, additio
 ```
 
 ## 4. API Contract (New / Updated)
+
 | Method | Path | Purpose | Notes |
+
 |--------|------|---------|-------|
+
 | POST | /api/specs | Create (idempotent by hash) spec | Returns spec hash |
+
 | POST | /api/tools/:tool/versions | Publish tool version (body: ordered_specs[], edges[], entry_spec) | Returns tool_version hash |
+
 | GET | /api/tools/:tool/graph | Fetch active graph per workspace profile binding | workspace->profile_version->tool_version |
+
 | POST | /api/profile-versions | Create child/root profile version | additions/removals payload |
+
 | POST | /api/workspaces/:id/upgrade-profile | Bind newer profile version | returns new binding |
+
 | POST | /api/tools/:tool/execute | Unified execute | Body: { task_id?, session_id?, client_state_id?, force_start?, args? } |
+
 | POST | /api/tasks/:id/dependencies | Add dependency | Body: { depends_on } |
+
 | DELETE | /api/tasks/:id/dependencies/:depId | Remove dependency |  |
+
 | PATCH | /api/tasks/:id/delete | Soft delete task | sets deleted_at |
 
 ## 5. Migration Execution Order (Compressed Direct Cutover)
+
 | Step | Goal | Key Actions | Success Criteria |
+
 |------|------|------------|------------------|
+
 | 1 | Schema creation | Create new Specly tables; drop legacy after verification snapshot | New tables exist; legacy tables absent |
+
 | 2 | Seed base data | Convert legacy flow definitions in-memory → specs & tool versions; insert root profile/version; bind workspaces | Counts match expectations; no legacy queries needed |
+
 | 3 | Implement SpecEngine & Validator | Add engine + repositories + hashing utilities + pre-persist graph validator (single entry, no cycles, no unreachable, priority normalization) | Unit tests pass (hash, routing, validation: cycle, unreachable, multi-entry) |
+
 | 4 | Replace execution path | Wire API / CLI to SpecEngine; remove ToolFlowExecutor imports | All tests use new engine only |
+
 | 5 | Profile inheritance | Implement create child profile versions + upgrading | Inheritance tests green |
+
 | 6 | Side effects & idempotency | Add action journal enforcement & retry policies | Journal tests green |
+
 | 7 | Ops hardening | Add GC, purge, metrics | Observability metrics emitting |
+
 | 8 | UI alignment | Ship UI pages tied to new endpoints (specs/tools/profiles/sessions) | UI e2e smoke passes |
 
 ## 6. Background Jobs
+
 | Job | Schedule | Function |
+
 |-----|----------|----------|
+
 | Transient Session GC | hourly | Delete sessions with task_id null & last_active_at < now - 24h |
+
 | Soft Delete Purge | daily | Hard delete tasks/sessions with deleted_at < now - 90d |
+
 | Action Journal Retry | every 5m | Re-run failed side_effect specs if retry policy permits |
 
 ## 7. Risk & Mitigations
+
 | Risk | Impact | Mitigation |
+
 |------|--------|------------|
+
 | Hash drift due to normalization bug | Duplicate specs or incorrect reuse | Unit tests with golden vectors; freeze normalization util |
+
 | Partial cutover divergence | Inconsistent task states | Dual execution diff logger Phase 2 |
+
 | Inheritance chain loops | Infinite traversal | DB CHECK or code guard rejecting cycle on insert |
+
 | Idempotency key collisions | Unexpected reuse | Include spec_hash + deterministic args digest |
+
 | Performance regression (extra joins) | Higher latency | Flattened profile_version_tools for O(1) lookups |
 
 ## 8. Validation & Testing Strategy
@@ -362,12 +409,19 @@ async function createProfileVersion({ profileId, parentProfileVersionId, additio
 - Provide a `specly_migration_version` table recording applied phase for ops visibility.
 
 ## 10. Open (Deferred) Enhancements
+
 | Item | Rationale |
+
 |------|-----------|
+
 | Expression-based transition conditions | Add after result_code & always stable |
+
 | Cross-tool edges | Requires multi-tool routing semantics |
+
 | JSON export/import bundle | After stable internal format |
+
 | Retry scheduling backoff queue | Use simple delay first |
+
 | Rule inference pipeline (LLM) | After core deterministic engine stable |
 
 ## 11. Sample Payloads
@@ -415,13 +469,21 @@ Response (awaiting input example):
 ```
 
 ## 12. Reference Mapping Legacy → New
+
 | Legacy Concept | New Equivalent |
+
 |----------------|----------------|
+
 | tool_flows | tool_versions + profile_version_tools |
+
 | tool_flow_steps | specs + tool_versions.graph_manifest.edges |
+
 | feedback_steps | specs (intent='human') |
+
 | stepId param | implicit via session.currentSpecHash |
+
 | ToolFlowExecutor | SpecEngine |
+
 | next-step-generator | edge routing logic |
 
 ## 13. Implementation Order Within Phases (Micro-Sequence)
@@ -452,12 +514,19 @@ Phase 8:
 16. Add GC + purge jobs; metrics & logging.
 
 ## 14. Metrics & Observability (Initial)
+
 | Metric | Type | Description |
+
 |--------|------|-------------|
+
 | spec_engine_execution_ms | histogram | End-to-end execute latency |
+
 | spec_engine_routing_branch | counter(labels: tool, result_code) | Edge selection frequency |
+
 | spec_reuse_cache_hit | counter | Spec hash lookup cache hits |
+
 | action_journal_retries | counter | Retry attempts performed |
+
 | profile_inheritance_depth | gauge | Max depth observed |
 
 ## 15. Security Considerations

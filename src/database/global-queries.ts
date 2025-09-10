@@ -195,6 +195,25 @@ export class GlobalDatabaseService {
   }
 
   /**
+   * Get all sessions (optionally filtered)
+   */
+  async getAllSessions(filter?: { workspaceId?: string; isActive?: boolean }): Promise<Session[]> {
+    const db = this.db.getDb();
+    const whereClauses: any[] = [];
+    if (filter?.workspaceId) {
+      whereClauses.push(eq(sessions.workspaceId, filter.workspaceId));
+    }
+    if (filter?.isActive !== undefined) {
+      whereClauses.push(eq(sessions.isActive, filter.isActive));
+    }
+    const base = db.select().from(sessions);
+    const query = whereClauses.length === 0
+      ? base
+      : (base as any).where(whereClauses.length === 1 ? whereClauses[0] : and(...whereClauses));
+    return (query as any).orderBy(desc(sessions.lastActivity));
+  }
+
+  /**
    * Update session activity
    */
   async updateSessionActivity(sessionId: string): Promise<void> {

@@ -1,3 +1,4 @@
+# Incoming 4
 Integrating your Iter 0–3 evolution plus the latest feedback to converge on a “final” architecture doc; below you’ll find (1) a feedback checklist with critical evaluation, (2) decisions & trade‑offs, (3) the refined model (statuses, schema, execution algorithm), (4) an updated API, and (5) a clean replacement doc you can drop in (suggested new filename: `docs/specly-architecture.md`). I call out any remaining decision points explicitly.
 
 ## 1. Feedback → Evaluation Checklist
@@ -135,7 +136,7 @@ Session doesn’t own completion semantics; task completion is authoritative.
 Endpoint: POST `/api/tools/:tool/execute`
 
 Request body:
-```
+```json
 {
   "task_id": number | null,
   "session_id": number | null,      // OPTIONAL (see discussion)
@@ -184,7 +185,7 @@ Rules
 
 ## 8. Schema Sketch (Drizzle Pseudocode)
 
-````ts
+```ts
 // Note: Omit runtime counters initially; add as needed.
 
 export const specs = sqliteTable('specs', {
@@ -322,7 +323,7 @@ export const workspaceRules = sqliteTable('workspace_rules', {
 }, (t)=>({
   uniqRule: uniqueIndex('workspace_rule_uq').on(t.workspaceId, t.relation, t.rule)
 }));
-````
+```
 
 ## 9. Deterministic Execution Summary
 
@@ -342,7 +343,7 @@ export const workspaceRules = sqliteTable('workspace_rules', {
 
 Below is the proposed consolidated document you can save as `docs/specly-architecture.md` (superseding `brainstorm.md` & incoming iterations).
 
-````markdown
+```markdown
 # Specly Architecture (Finalized Core Model)
 
 ## 1. Purpose
@@ -363,8 +364,8 @@ Specly is an MCP server delivering deterministic, multi-step “spec” workflow
 Spec hash = SHA-256 of canonical JSON of immutable fields (normalized templates, sorted keys, stripped nulls). Tool version hash = SHA-256 of { tool_name, ordered_specs[], sorted_edges[] }. No runtime metadata influences hashes.
 
 ## 4. Status Model
-Task statuses: queued | in_progress | awaiting_input | blocked | paused | completed | failed  
-Session statuses: active | paused  
+Task statuses: queued | in_progress | awaiting_input | blocked | paused | completed | failed
+Session statuses: active | paused
 A session never “completes” independently; task completion renders session inactive (paused).
 
 ## 5. Routing & Transitions
@@ -383,7 +384,7 @@ Action specs (`side_effect=true`) require idempotency key:
 Action journal ensures safe retries and replay immunity.
 
 ## 7. Dependency Management
-`task_dependencies (task_id, depends_on_task_id)` forms a self-referential M:N.  
+`task_dependencies (task_id, depends_on_task_id)` forms a self-referential M:N.
 Task is `blocked` if any dependency not in (completed, failed, canceled) OR if manual `blocked_reason` set.
 
 ## 8. Rules (Preferences)
@@ -451,7 +452,7 @@ Add metrics counters (executions, retries, failures) & spec lineage (metadata.su
 - Task/profile pinning ensures reproducible continuations post-upgrade.
 - Minimal relational tables (one join for profile_version_tools, one for dependencies) balance integrity & simplicity.
 
-````
+```
 
 ## 11. Diff Summary vs Iteration 3
 

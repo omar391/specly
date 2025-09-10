@@ -29,6 +29,19 @@ export interface WorkspacesResponse {
   workspaces: WorkspaceSummary[];
 }
 
+// Sessions types (global sessions listing)
+export interface SessionSummary {
+  id: string;
+  workspace_id: string;
+  is_active: boolean;
+  last_activity: string;
+  created_at: string;
+}
+
+export interface SessionsResponse {
+  sessions: SessionSummary[];
+}
+
 // Task types
 export interface Task {
   id: string;

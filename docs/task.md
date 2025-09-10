@@ -134,8 +134,9 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 		- Ph8: Large-plan performance smoke test + concurrency edge tests; progress to 100%.
 
 	Implementation Order Justification: Establish stable internal state (Ph1) before external coordination (leases, resume). Error taxonomy depends on runtime semantics clarity (after Ph3). Journal & metrics seams inserted once core control flow steady to avoid rewrite churn. Hardening deferred last to avoid premature micro-optimizations.
-
+	
 	Error Taxonomy Summary (Updated Phase 4 Enum Names):
+	
 	| Code | Layer | Description | Retry Guidance |
 	| ---- | ----- | ----------- | -------------- |
 	| GRAPH_CYCLE | Structural | Graph has cycle (validator detected) | Fix graph definition |
@@ -145,7 +146,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 	| LEASE_RENEW_FAILED | Runtime | Lost lease mid-run (renewal failure) | Retry whole run after investigating ownership |
 	| ROUTE_DEAD_END | Runtime | Plan exhausted while current node still has configured outgoing edges (dynamic routing gap) | Investigate routing logic / conditions |
 	| RESUME_TOKEN_INVALID | Runtime | Resume token mismatch or stale | Refresh latest state & resume again |
-
+	
 	Progress Justification (Final 100%): All eight phases executed. Structural validation + error taxonomy active; pause/resume with token invalidation; lease scaffolding; journal seam with reuse & retry (via SP-010 linkage) and idempotent row updates; metrics counters extended (reuse_hits, retries, retry_exhausted). Hardening tests (performance, concurrency, idempotency, dead-end) ensure stability and deterministic behavior. Documentation updated: architecture §3 Execution Model added (state diagram, seams, taxonomy). Remaining journal auto-create gating & failure metrics extracted as separate follow-up tasks to avoid blocking closure.
 
 	> Project Rule (Enforced): No backward compatibility shims or legacy translation utilities will be introduced when performing internal refactors (e.g., error code enum migration). All changes are allowed to be drastic; consumers must adapt immediately. This supersedes any prior transitional helper additions.
@@ -298,10 +299,10 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Description**: Implement: POST /api/tasks, PATCH /api/tasks/:id/status, POST/DELETE dependencies endpoints, GET /api/tasks/:id, GET /api/sessions?workspace_id=&task_id?. Architecture refs: specly-architecture.md §5 Status Model, specly-architecture.md §6 Dependency Management, migration_roadmap.md §4 API Contract (was §17), specly-architecture.md §15 Task & Session Tables. Tests: dependency cycle rejection, blocked→in_progress invalid, queued→paused invalid, status updates reflect dependency resolution.
 - **Priority**: High
 - **Dependencies**: SP-008, SP-006
-- **Status**: In-Progress
-- **Progress**: 85%
-- **Completed At**: 
-- **Notes**: Implemented Specly-only Task API model (assets, external_references, metadata, tags). Added centralized status transition guard with dependency awareness; sets completed_at on completed. Implemented dependency endpoints: POST add, DELETE remove, GET list. Guards: self-dependency and cycle rejection (422); unresolved dependencies block in_progress/completed transitions (422). Updated API docs accordingly. Integration tests cover transitions, dependency CRUD, cycle detection, and guard behavior; full suite green.
+- **Status**: Done
+- **Progress**: 100%
+- **Completed At**: 2025-09-09T00:00:00Z
+- **Notes**: Implemented Specly-only Task API model (assets, external_references, metadata, tags). Added centralized status transition guard with dependency awareness; sets completed_at on completed. Implemented dependency endpoints: POST add, DELETE remove, GET list. Guards: self-dependency and cycle rejection (422); unresolved dependencies block in_progress/completed transitions (422). Added Sessions listing endpoint `GET /api/sessions?workspace_id=&task_id?` with types and controller; updated `api-design.md`. Added tests (`sessions-endpoint.test.ts`) covering empty, filtered, and shape. Typecheck clean and targeted tests green. Remaining SP-016 items: none.
 - **Connected File List**: ./src/api/router.ts, ./src/api/tasks.ts, ./src/__tests__/task-endpoints.test.ts, ./src/services/workspace-registry.ts
 
 ## Task ID: SP-017
@@ -616,28 +617,50 @@ Documentation criteria:
 
 Rollback (minimal since destructive): backup of pre-migration DB snapshot retained until SP-006 and SP-008 validations green.
 
-## Updated Traceability Matrix (Representative)
-| SP Task | Roadmap Section | File Changes Anchor |
-|---------|-----------------|---------------------|
-| SP-001 | migration_roadmap.md §2 New Database Schema | global/workspace schema additions |
-| SP-002 | migration_roadmap.md §1.3 Hash Canonicalization | hash utilities (new) |
-| SP-003 | migration_roadmap.md §2 New Database Schema / §1.4 Profile Inheritance Flatten Algorithm | repository layer refactors |
-| SP-004 | migration_roadmap.md §5 Status Model | seed scripts & data conversion |
-| SP-005 | migration_roadmap.md §3 Execution Engine | spec-engine.ts (new) |
-| SP-006 | migration_roadmap.md §4 API Contract | router/middleware execute endpoint |
-| SP-008 | migration_roadmap.md §2.2 Workspace DB Changes | task/session schema + logic |
-| SP-014 | migration_roadmap.md §4 API Contract / §13 Tools & Versions | spec/tool version endpoints |
-| SP-015 | migration_roadmap.md §4 API Contract / specly-architecture.md §4 Profile Inheritance / specly-architecture.md §12 Profiles & Versions Data Model | profile/version/binding endpoints |
-| SP-016 | migration_roadmap.md §4 API Contract / specly-architecture.md §5 Status Model / specly-architecture.md §6 Dependency Management / specly-architecture.md §15 Task & Session Tables | task & dependency endpoints |
-| SP-017 | specly-architecture.md §11 Workspace Rules / specly-architecture.md §8 Spec Execution Flow / migration_roadmap.md §4 API Contract | rules endpoints & reinforcement |
-| SP-018 | specly-architecture.md §7 Transitions & Routing / specly-architecture.md §13 Tools & Versions | graph validation |
-| SP-019 | specly-architecture.md §9 Session & Client Ownership | session lease logic tests |
-| SP-020 | specly-architecture.md §10 Idempotency & Retries | retry policy tests |
-| SP-009 | migration_roadmap.md §1.4 | profile-service flatten logic |
-| SP-010 | migration_roadmap.md §2 (action_journal) | action_journal integration |
-| SP-013 | migration_roadmap.md §Security | validation additions |
-| SP-100 | migration_roadmap_ui.md §API | api-client refactor |
-| SP-106 | migration_roadmap_ui.md §Sessions | execution console |
+## Updated Traceability Matrix (Representative) 
+
+| SP Task | Roadmap Section | File Changes Anchor | 
+
+|---------|-----------------|---------------------| 
+
+| SP-001 | migration_roadmap.md §2 New Database Schema | global/workspace schema additions | 
+
+| SP-002 | migration_roadmap.md §1.3 Hash Canonicalization | hash utilities (new) | 
+
+| SP-003 | migration_roadmap.md §2 New Database Schema / §1.4 Profile Inheritance Flatten Algorithm | repository layer refactors | 
+
+| SP-004 | migration_roadmap.md §5 Status Model | seed scripts & data conversion | 
+
+| SP-005 | migration_roadmap.md §3 Execution Engine | spec-engine.ts (new) | 
+
+| SP-006 | migration_roadmap.md §4 API Contract | router/middleware execute endpoint | 
+
+| SP-008 | migration_roadmap.md §2.2 Workspace DB Changes | task/session schema + logic | 
+
+| SP-014 | migration_roadmap.md §4 API Contract / §13 Tools & Versions | spec/tool version endpoints | 
+
+| SP-015 | migration_roadmap.md §4 API Contract / specly-architecture.md §4 Profile Inheritance / specly-architecture.md §12 Profiles & Versions Data Model | profile/version/binding endpoints | 
+
+| SP-016 | migration_roadmap.md §4 API Contract / specly-architecture.md §5 Status Model / specly-architecture.md §6 Dependency Management / specly-architecture.md §15 Task & Session Tables | task & dependency endpoints | 
+
+| SP-017 | specly-architecture.md §11 Workspace Rules / specly-architecture.md §8 Spec Execution Flow / migration_roadmap.md §4 API Contract | rules endpoints & reinforcement | 
+
+| SP-018 | specly-architecture.md §7 Transitions & Routing / specly-architecture.md §13 Tools & Versions | graph validation | 
+
+| SP-019 | specly-architecture.md §9 Session & Client Ownership | session lease logic tests | 
+
+| SP-020 | specly-architecture.md §10 Idempotency & Retries | retry policy tests | 
+
+| SP-009 | migration_roadmap.md §1.4 | profile-service flatten logic | 
+
+| SP-010 | migration_roadmap.md §2 (action_journal) | action_journal integration | 
+
+| SP-013 | migration_roadmap.md §Security | validation additions | 
+
+| SP-100 | migration_roadmap_ui.md §API | api-client refactor | 
+
+| SP-106 | migration_roadmap_ui.md §Sessions | execution console | 
+
 | SP-201 | migration_roadmap.md §Docs | README overhaul |
 
 (Other tasks map similarly; see their Description fields.)
