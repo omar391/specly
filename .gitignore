@@ -5,3 +5,4 @@ build/
 
 .taskpilot/
 /worktree/
+.DS_Store
