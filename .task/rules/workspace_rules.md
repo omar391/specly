@@ -42,12 +42,16 @@ SP-###: Concise imperative summary
 ```
 
 ### Git Commit Best Practices
-- **NEVER use multi-line commit messages with special characters in terminal**
-- Use single-line commit messages for terminal commits: `git commit -m "message"`
-- For complex commits, write commit message in editor: `git commit` (opens editor)
-- Avoid quotes, backticks, emojis in terminal commit messages
+- **CRITICAL: NEVER use multi-line commit messages with unescaped newlines in terminal - causes shell crashes**
+- **CRITICAL: NEVER use `cat`, `echo`, or heredoc (<<EOF) to write multi-line files - use create_file or replace_string_in_file tools instead**
+- **ALWAYS use `git commit` (no args) to open editor for complex multi-line messages**
+- For simple commits only: `git commit -m "single line message without special chars"`
+- Never embed literal newlines in -m flag (use \n if needed, but prefer editor)
+- Avoid quotes, backticks, parentheses, emojis in terminal commit messages
 - Keep terminal commit messages under 80 characters
-- Use `git commit --file=message.txt` for pre-written complex messages
+- For pre-written commit messages: use create_file tool to create message file, then `git commit --file=filepath`
+- **Rule: If commit message has bullet points, multiple paragraphs, or >100 chars → use editor, not -m flag**
+- **Rule: NEVER write multi-line content using shell commands (cat/echo/heredoc) - ALWAYS use provided file manipulation tools**
 
 ### PR Process
 - Link to task ID in PR description

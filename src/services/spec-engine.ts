@@ -6,6 +6,8 @@
 
 import { validateToolGraph, GraphValidationError } from '../utils/graph-validate.js';
 import { PersistentJournalService } from './persistent-journal-service.js';
+import { GlobalDatabaseService } from '../database/global-queries.js';
+import { WorkspaceRulesRepository } from '../repositories/workspace-rules-repository.js';
 
 export interface SpecNode {
   hash: string;
@@ -171,6 +173,8 @@ export class SpecEngine {
   private retry: RetryPolicy;
   // Track consumed resume tokens (basic in-memory invalidation). For multi-instance persistence a store would be required.
   private consumedResumeTokens: Set<string> = new Set();
+  private globalDb: GlobalDatabaseService;
+  private rulesRepo: WorkspaceRulesRepository;
 
   constructor(opts: SpecEngineOptions = {}) {
     this.planner = opts.planner ?? new BasicExecutionPlanner();
@@ -180,10 +184,30 @@ export class SpecEngine {
     this.journal = opts.journalAdapter ?? new NoopActionJournalAdapter();
     this.metrics = opts.metricsCollector ?? new NoopMetricsCollector();
     this.retry = opts.retryPolicy ?? { maxAttempts: 1, strategy: 'immediate' };
+    this.globalDb = new GlobalDatabaseService();
+    this.rulesRepo = new WorkspaceRulesRepository(this.globalDb);
   }
   // (import relocated to top)
 
-  async run(graph: ToolGraph, runOpts?: { sessionId?: string; clientId?: string; force?: boolean }): Promise<ExecutionContext> {
+  /**
+   * Fetch workspace rules for prompt context injection (SP-017)
+   */
+  private async fetchWorkspaceRules(workspaceId: string): Promise<Array<{ relation: string; rule: string; confidence: number }>> {
+    try {
+      const rules = await this.rulesRepo.list(workspaceId, true);
+      return rules.map(r => ({
+        relation: r.relation,
+        rule: r.rule,
+        confidence: r.confidence ?? 1
+      }));
+    } catch (error) {
+      // Log error but don't fail execution if rules fetch fails
+      console.warn(`Failed to fetch workspace rules for ${workspaceId}:`, error);
+      return [];
+    }
+  }
+
+  async run(graph: ToolGraph, runOpts?: { sessionId?: string; clientId?: string; workspaceId?: string; force?: boolean }): Promise<ExecutionContext> {
     try {
         // Structural validation (SP-018) to catch missing nodes / cycles before planning
         try {
@@ -208,11 +232,20 @@ export class SpecEngine {
         // Inject metrics collector if available when upgrading to persistent journal
         this.journal = new PersistentJournalService(runOpts.sessionId, { metrics: this.metrics });
       }
+
+      // Fetch workspace rules for prompt context injection (SP-017)
+      let workspaceRules: Array<{ relation: string; rule: string; confidence: number }> = [];
+      if (runOpts?.workspaceId) {
+        workspaceRules = await this.fetchWorkspaceRules(runOpts.workspaceId);
+      }
+
       const state: ExecutionState = {
         plan,
         currentIndex: 0,
         records: {},
-        sessionContext: {}
+        sessionContext: {
+          workspace_rules: workspaceRules
+        }
       };
 
       const executed: string[] = [];
@@ -391,7 +424,7 @@ export class SpecEngine {
   }
 
     /** Phase 3: resume execution after a human spec output is provided. */
-  async resume(graph: ToolGraph, serializedState: SerializedPausedState, input: { specHash: string; humanOutput: unknown; resumeToken?: string }, runOpts?: { sessionId?: string; clientId?: string; force?: boolean }): Promise<ExecutionContext> {
+  async resume(graph: ToolGraph, serializedState: SerializedPausedState, input: { specHash: string; humanOutput: unknown; resumeToken?: string }, runOpts?: { sessionId?: string; clientId?: string; workspaceId?: string; force?: boolean }): Promise<ExecutionContext> {
         // Basic validation of token/spec alignment
         if (serializedState.awaitingSpec !== input.specHash) {
             return { status: 'error', executed: serializedState.executed, results: serializedState.results, warnings: serializedState.warnings, error: { message: 'Stale or mismatched resume token' }, errorCode: SpecEngineErrorCode.RESUME_TOKEN_INVALID };

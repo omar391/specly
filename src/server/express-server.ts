@@ -329,9 +329,9 @@ export class ExpressServer {
   /**
    * Setup REST API routes
    */
-  setupAPIEndpoints(databaseService: DatabaseService): void {
+  async setupAPIEndpoints(databaseService: DatabaseService): Promise<void> {
     try {
-      const apiRouter = createApiRouter(databaseService);
+      const apiRouter = await createApiRouter(databaseService);
       this.app.use('/api', apiRouter);
       console.log('REST API endpoints configured');
     } catch (error) {

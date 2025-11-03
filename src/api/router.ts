@@ -11,6 +11,7 @@ import { ToolsExecuteController } from './tools-execute.js';
 import { SpecsController, ToolsController } from './specs-tools.js';
 import { ProfilesController } from './profiles.js';
 import { SessionsController } from './sessions.js';
+import { RulesController } from './rules.js';
 // Legacy ToolFlowsController & FeedbackStepsController removed (drastic migration)
 import { 
   errorHandler, 
@@ -25,7 +26,7 @@ import {
 /**
  * Create API router with all endpoints
  */
-export function createApiRouter(databaseService: DatabaseService): Router {
+export async function createApiRouter(databaseService: DatabaseService): Promise<Router> {
   const router = Router();
 
   // Initialize controllers
@@ -36,6 +37,8 @@ export function createApiRouter(databaseService: DatabaseService): Router {
   const toolsController = new ToolsController();
   const profilesController = new ProfilesController();
   const sessionsController = new SessionsController(databaseService);
+  const rulesController = new RulesController(databaseService.getGlobal());
+  await rulesController.initialize();
 
   // Apply middleware
   router.use(corsHandler);
@@ -78,6 +81,22 @@ export function createApiRouter(databaseService: DatabaseService): Router {
   router.get('/sessions', readRateLimit, async (req, res, next) => {
     try {
       await sessionsController.getSessions(req, res);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Workspace Rules (SP-017)
+  router.post('/rules', writeRateLimit, async (req, res, next) => {
+    try {
+      await rulesController.createRule(req, res);
+    } catch (error) {
+      next(error);
+    }
+  });
+  router.get('/rules', readRateLimit, async (req, res, next) => {
+    try {
+      await rulesController.getRules(req, res);
     } catch (error) {
       next(error);
     }

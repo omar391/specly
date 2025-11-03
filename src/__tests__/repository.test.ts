@@ -146,7 +146,9 @@ describe('Repository Layer (Spec & ToolVersion)', () => {
     const r2 = await rulesRepo.addOrReinforce({ workspaceId: 'ws-rules', relation: 'always-do', rule: uniqueRule });
     expect(r1.created).toBe(true);
     expect(r2.created).toBe(false);
-    expect(r2.confidence).toBe(r1.confidence + 1);
+    // Logarithmic formula: 1 -> 31 (first reinforcement applies 1-(1-0.01)*0.7 = 0.307 -> 31)
+    expect(r2.confidence).toBeGreaterThan(r1.confidence);
+    expect(r2.confidence).toBe(31); // Verify exact logarithmic calculation
     const list = await rulesRepo.list('ws-rules');
     expect(list.find(r => r.id === r1.id)).toBeTruthy();
   });

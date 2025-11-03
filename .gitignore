@@ -6,3 +6,4 @@ build/
 .taskpilot/
 /worktree/
 .DS_Store
+test-output.txt

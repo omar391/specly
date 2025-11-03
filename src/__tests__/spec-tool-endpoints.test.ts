@@ -7,20 +7,20 @@ import { GlobalDatabaseService } from '../database/global-queries.js';
 import { DatabaseService } from '../services/database-service.js';
 import { DrizzleDatabaseManager, DatabaseType } from '../database/drizzle-connection.js';
 
-function makeApp() {
+async function makeApp() {
     const app = express();
     app.use(bodyParser.json());
     const globalMgr = new DrizzleDatabaseManager(':memory:', DatabaseType.GLOBAL);
     const globalDbService = new GlobalDatabaseService(globalMgr as any);
     (app as any).locals.dbService = globalDbService; // used by specs/tools controllers
     const dbServiceWrapper = new DatabaseService(globalMgr as any); // satisfies router signature
-    app.use('/api', createApiRouter(dbServiceWrapper));
+    app.use('/api', await createApiRouter(dbServiceWrapper));
     return app;
 }
 
 describe('Spec & Tool Endpoints (SP-014)', () => {
     it('creates tool, spec, and tool version then idempotently re-posts', async () => {
-        const app = makeApp();
+        const app = await makeApp();
         const toolRes = await request(app).post('/api/tools').send({ name: 'demo_tool_case1', description: 'Demo' });
         expect([200, 201]).toContain(toolRes.status);
 
@@ -62,7 +62,7 @@ describe('Spec & Tool Endpoints (SP-014)', () => {
     });
 
     it('rejects creating tool version referencing missing spec', async () => {
-        const app = makeApp();
+        const app = await makeApp();
         await request(app).post('/api/tools').send({ name: 't2_case2' });
         const res = await request(app).post('/api/tools/t2_case2/versions').send({ ordered_specs: ['missing'], entry_spec: 'missing', edges: [] });
         expect(res.status).toBe(422);
@@ -70,7 +70,7 @@ describe('Spec & Tool Endpoints (SP-014)', () => {
     });
 
     it('rejects invalid cyclic graph', async () => {
-        const app = makeApp();
+        const app = await makeApp();
         // create specs
         const s1 = await request(app).post('/api/specs').send({ executor_type: 'noop', executor_version: '1', intent: 'autonomous' });
         const s2 = await request(app).post('/api/specs').send({ executor_type: 'noop', executor_version: '1', intent: 'human' });

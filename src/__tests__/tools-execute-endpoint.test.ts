@@ -32,11 +32,11 @@ class MockDatabaseService {
   }
 }
 
-function buildApp(engineFactory?: () => SpecEngine, mockDb?: MockDatabaseService) {
+async function buildApp(engineFactory?: () => SpecEngine, mockDb?: MockDatabaseService) {
   const db = (mockDb || new MockDatabaseService()) as unknown as DatabaseService;
   const app = express();
   app.use(express.json());
-  const router = createApiRouter(db);
+  const router = await createApiRouter(db);
   app.use('/api', router);
   return { app, mockDb: db as unknown as MockDatabaseService };
 }
@@ -59,8 +59,8 @@ function basicGraph(humanAt?: 'none' | 'first' | 'second'): ToolGraph {
 
 describe('POST /api/tools/:tool/execute', () => {
   let app: express.Express; let mockDb: MockDatabaseService;
-  beforeAll(() => {
-    const built = buildApp();
+  beforeAll(async () => {
+    const built = await buildApp();
     app = built.app;
     mockDb = built.mockDb;
   });

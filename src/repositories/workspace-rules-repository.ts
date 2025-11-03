@@ -23,7 +23,13 @@ export class WorkspaceRulesRepository {
       eq(workspaceRulesNew.rule, input.rule)
     )).limit(1);
     if (existing.length > 0) {
-      const confidence = (existing[0].confidence ?? 1) + 1;
+      // Logarithmic reinforcement: new_conf = 1 - (1 - old_conf) * (1 - baseDelta)
+      // baseDelta ≈ 0.3, so (1 - baseDelta) = 0.7
+      // Formula works on 0-1 scale, so normalize from 1-100 range
+      const oldConf = existing[0].confidence ?? 1;
+      const normalizedOld = oldConf / 100; // Convert to 0-1
+      const normalizedNew = 1 - (1 - normalizedOld) * 0.7;
+      const confidence = Math.min(100, Math.max(1, Math.round(normalizedNew * 100))); // Convert back to 1-100
       await db.update(workspaceRulesNew).set({ confidence, lastReinforcedAt: new Date().toISOString() }).where(eq(workspaceRulesNew.id, existing[0].id));
       return { id: existing[0].id, created: false, confidence };
     }

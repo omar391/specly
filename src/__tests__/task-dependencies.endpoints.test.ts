@@ -8,20 +8,20 @@ import { DatabaseService } from '../services/database-service.js';
 import { DrizzleDatabaseManager, DatabaseType } from '../database/drizzle-connection.js';
 import { workspaces } from '../database/schema/global-schema.js';
 
-function makeApp() {
+async function makeApp() {
   const app = express();
   app.use(bodyParser.json());
   const globalMgr = new DrizzleDatabaseManager(':memory:', DatabaseType.GLOBAL);
   const globalDbService = new GlobalDatabaseService(globalMgr as any);
   (app as any).locals.dbService = globalDbService;
   const dbServiceWrapper = new DatabaseService(globalMgr as any);
-  app.use('/api', createApiRouter(dbServiceWrapper));
+  app.use('/api', await createApiRouter(dbServiceWrapper));
   return { app, globalDbService };
 }
 
 describe('Task Dependency Endpoints (SP-016)', () => {
   it('adds/removes/lists dependencies and enforces transition guard', async () => {
-    const { app, globalDbService } = makeApp();
+    const { app, globalDbService } = await makeApp();
     await globalDbService.initialize();
     const db = globalDbService.getDrizzleManager().getDb();
     // Seed workspace

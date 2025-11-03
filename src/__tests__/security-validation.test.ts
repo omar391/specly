@@ -23,7 +23,7 @@ describe('SP-013: Security Validation', () => {
     globalDb = new GlobalDatabaseService(dbManager as any);
     (app as any).locals.dbService = globalDb;
     const dbServiceWrapper = new DatabaseService(dbManager as any);
-    app.use('/api', createApiRouter(dbServiceWrapper));
+    app.use('/api', await createApiRouter(dbServiceWrapper));
   });
 
   afterEach(async () => {

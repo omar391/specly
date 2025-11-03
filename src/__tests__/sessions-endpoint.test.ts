@@ -10,7 +10,7 @@ import { v4 as uuid } from 'uuid';
 import { sessions, workspaces } from '../database/schema/global-schema.js';
 import { eq } from 'drizzle-orm';
 
-function makeApp() {
+async function makeApp() {
     const app = express();
     app.use(bodyParser.json());
     const globalMgr = new DrizzleDatabaseManager(':memory:', DatabaseType.GLOBAL);
@@ -19,20 +19,20 @@ function makeApp() {
     // Initialize DB
     // @ts-ignore
     app.locals.dbService = globalDbService;
-    app.use('/api', createApiRouter(dbServiceWrapper));
+    app.use('/api', await createApiRouter(dbServiceWrapper));
     return { app, globalDbService };
 }
 
 describe('GET /api/sessions', () => {
     it('returns empty list when no sessions', async () => {
-        const { app } = makeApp();
+        const { app } = await makeApp();
         const res = await request(app).get('/api/sessions');
         expect(res.status).toBe(200);
         expect(res.body?.data?.sessions).toEqual([]);
     });
 
     it('lists sessions filtered by workspace_id', async () => {
-        const { app, globalDbService } = makeApp();
+        const { app, globalDbService } = await makeApp();
         await globalDbService.initialize();
         const db = globalDbService.getDrizzleManager().getDb();
         const w1 = { id: uuid(), path: '/tmp/ws1', name: 'WS1', status: 'active', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };

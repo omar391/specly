@@ -365,7 +365,7 @@ async function startHttpMode(port: number) {
   expressServer.setupMCPEndpoint(toolHandlers);
 
   // Setup REST API endpoints
-  expressServer.setupAPIEndpoints(databaseService);
+  await expressServer.setupAPIEndpoints(databaseService);
 
   // Setup health check
   expressServer.setupHealthCheck();

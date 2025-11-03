@@ -8,20 +8,20 @@ import { DatabaseService } from '../services/database-service.js';
 import { DrizzleDatabaseManager, DatabaseType } from '../database/drizzle-connection.js';
 import { workspaces } from '../database/schema/global-schema.js';
 
-function makeApp() {
+async function makeApp() {
   const app = express();
   app.use(bodyParser.json());
   const globalMgr = new DrizzleDatabaseManager(':memory:', DatabaseType.GLOBAL);
   const globalDbService = new GlobalDatabaseService(globalMgr as any);
   (app as any).locals.dbService = globalDbService;
   const dbServiceWrapper = new DatabaseService(globalMgr as any);
-  app.use('/api', createApiRouter(dbServiceWrapper));
+  app.use('/api', await createApiRouter(dbServiceWrapper));
   return { app, globalDbService };
 }
 
 describe('Profile & Workspace Binding Endpoints (SP-015)', () => {
   it('creates a profile and rejects duplicate name (409)', async () => {
-    const { app } = makeApp();
+    const { app } = await makeApp();
     const res1 = await request(app).post('/api/profiles').send({ name: 'dev', description: 'Dev Profile' });
     expect([200, 201]).toContain(res1.status);
     const res2 = await request(app).post('/api/profiles').send({ name: 'dev' });
@@ -29,7 +29,7 @@ describe('Profile & Workspace Binding Endpoints (SP-015)', () => {
   });
 
   it('increments profile version on creation', async () => {
-    const { app } = makeApp();
+    const { app } = await makeApp();
     await request(app).post('/api/profiles').send({ name: 'verprof' });
     const v1 = await request(app).post('/api/profiles/verprof/versions').send({});
     expect(v1.status).toBe(201);
@@ -40,7 +40,7 @@ describe('Profile & Workspace Binding Endpoints (SP-015)', () => {
   });
 
   it('upgrades workspace binding to latest version and GET returns it', async () => {
-    const { app, globalDbService } = makeApp();
+    const { app, globalDbService } = await makeApp();
     await globalDbService.initialize();
     const db = globalDbService.getDrizzleManager().getDb();
     // create a workspace row to allow upgrade
@@ -65,7 +65,7 @@ describe('Profile & Workspace Binding Endpoints (SP-015)', () => {
   });
 
   it('attaches tool versions to a profile version and handles duplicates', async () => {
-    const { app } = makeApp();
+    const { app } = await makeApp();
     // Create tool + spec + version
     const specBody = {
       executor_type: 'node',
@@ -121,7 +121,7 @@ describe('Profile & Workspace Binding Endpoints (SP-015)', () => {
   });
 
   it('rejects creating a profile version with missing parent_profile_version_id', async () => {
-    const { app } = makeApp();
+    const { app } = await makeApp();
     await request(app).post('/api/profiles').send({ name: 'p1' });
     const v1 = await request(app).post('/api/profiles/p1/versions').send({});
     expect(v1.status).toBe(201);
@@ -130,7 +130,7 @@ describe('Profile & Workspace Binding Endpoints (SP-015)', () => {
   });
 
   it('rejects parent_profile_version_id from a different profile', async () => {
-    const { app } = makeApp();
+    const { app } = await makeApp();
     await request(app).post('/api/profiles').send({ name: 'a' });
     await request(app).post('/api/profiles').send({ name: 'b' });
     const a1 = await request(app).post('/api/profiles/a/versions').send({});
@@ -140,7 +140,7 @@ describe('Profile & Workspace Binding Endpoints (SP-015)', () => {
   });
 
     it('publishes a profile version (validation-only) and 404s on missing version', async () => {
-        const { app } = makeApp();
+        const { app } = await makeApp();
         await request(app).post('/api/profiles').send({ name: 'pub' });
         const v1 = await request(app).post('/api/profiles/pub/versions').send({});
         expect(v1.status).toBe(201);

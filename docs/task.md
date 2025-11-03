@@ -310,11 +310,11 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Description**: Implement reinforcement algorithm (confidence update) and retrieval ordering (confidence desc, recency). Integrate top-N rules into human & autonomous prompt context. Architecture refs: specly-architecture.md §11 Workspace Rules, specly-architecture.md §8 Spec Execution Flow (context injection), migration_roadmap.md §4 API Contract (was §17). Add rule upsert endpoint POST /api/rules and GET /api/rules. Tests: duplicate rule triple idempotent, confidence increases, inactive rules excluded.
 - **Priority**: High
 - **Dependencies**: SP-003, SP-005
-- **Status**: TBD
-- **Progress**: 0%
-- **Completed At**: 
-- **Notes**: Cache optional; simple in-process list acceptable. CRITICAL - workspace_rules actively used in prompt-orchestrator.ts, project-initializer.ts, and tools (start.ts, rule-update.ts).
-- **Connected File List**: ./src/services/prompt-orchestrator.ts, ./src/api/router.ts, ./src/__tests__/workspace-rules.test.ts
+- **Status**: Done
+- **Progress**: 100%
+- **Completed At**: 2025-01-10T20:45:00Z
+- **Notes**: ✅ Fully implemented with logarithmic reinforcement formula `new = 1 - (1-old/100)*0.7`, normalized for 1-100 scale, capped at 100. ✅ POST /api/rules (201 create, 200 reinforce), GET /api/rules (confidence desc → recency desc ordering). ✅ 12 comprehensive tests passing (creation, reinforcement, validation, ordering, uniqueness, confidence math, cap verification). ✅ SpecEngine integration complete: fetchWorkspaceRules helper injects workspace_rules into sessionContext before execution, accepts optional workspaceId in run()/resume() methods. ✅ Made createApiRouter async, updated all 9 call sites. ✅ RulesController accepts optional GlobalDatabaseService with shouldInitialize flag for test database reuse. Cache optional; simple in-process list acceptable. CRITICAL - workspace_rules actively used in prompt-orchestrator.ts, project-initializer.ts, and tools (start.ts, rule-update.ts).
+- **Connected File List**: ./src/api/rules.ts, ./src/api/router.ts, ./src/repositories/workspace-rules-repository.ts, ./src/services/spec-engine.ts, ./src/server/express-server.ts, ./src/index.ts, ./src/__tests__/workspace-rules.test.ts, ./src/__tests__/base-tool.test.ts, ./src/__tests__/instance-manager.integration.test.ts, ./src/__tests__/persistent-journal.integration.test.ts, ./src/__tests__/profile-endpoints.test.ts, ./src/__tests__/sessions-endpoint.test.ts, ./src/__tests__/spec-tool-endpoints.test.ts, ./src/__tests__/task-dependencies.endpoints.test.ts
 
 ## Task ID: SP-018
 - **Title**: Graph & Transition Validation
