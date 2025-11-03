@@ -166,7 +166,12 @@ For each test case in the plan, auto-resolve:
    - Note tests added count
    - Document any deliberately untested lines (with reason)
 
-3. **Commit progress** (after user approval):
+3. **Self-Optimization check (pre-commit, if needed)**:
+   - Quickly review session learnings and this file’s patterns
+   - If the agent guidance needs an update (new mock pattern, efficiency tip, or rule like concrete-over-mocks), run Phase 4 steps 1–3 now (Update This Agent File and Refine Documentation), but defer Phase 4’s own commit until the file commit below, bundling doc changes with this file’s commit when appropriate
+   - Perform a brief duplicate-content pass (deduplicate overlapping bullets; keep one authoritative version)
+
+4. **Commit progress** (after user approval):
    ```
    test: improve coverage for [file-path] from X% to Y%
    
@@ -225,7 +230,7 @@ For each test case in the plan, auto-resolve:
 
 ### Phase 4: Self-Optimization (Before Completion)
 
-At the end of each session (or after completing 5+ files), optimize the agent itself:
+At the end of each session (or after completing 5+ files), optimize the agent itself. This phase is also invoked as a lightweight pre-commit check after each file when updates are needed (see Step 4.3):
 
 1. **Review Session Learnings**:
    - What mock patterns were discovered?
@@ -238,7 +243,6 @@ At the end of each session (or after completing 5+ files), optimize the agent it
    - Update "Efficiency Tips" with proven practices
    - Add examples to commit message format
    - Document any new edge cases handled
-   - Remove redundant or outdated guidance
 
 3. **Refine Documentation**:
    - Remove verbose or redundant explanations
