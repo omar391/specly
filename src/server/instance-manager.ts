@@ -1,4 +1,4 @@
-// TaskPilot InstanceManager: Handles main/proxy instance logic, lock file, version/PID checks, and proxying
+// Specly InstanceManager: Handles main/proxy instance logic, lock file, version/PID checks, and proxying
 
 import fs from "fs";
 import path from "path";
@@ -34,7 +34,7 @@ export class InstanceManager {
   private backgroundJobs?: BackgroundJobsService;
 
   constructor(lockPath?: string, port?: number) {
-    this.lockPath = lockPath ?? path.join(os.tmpdir(), "taskpilot-8989.lock");
+    this.lockPath = lockPath ?? path.join(os.tmpdir(), "specly-8989.lock");
     this.port = port ?? 8989;
   }
 

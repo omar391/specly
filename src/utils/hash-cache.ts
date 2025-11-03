@@ -43,7 +43,7 @@ export function resetHashCacheMetrics() {
   hashCacheMetrics.misses = 0;
 }
 
-const DEFAULT_SIZE = Number.parseInt(process.env.TASKPILOT_HASH_CACHE_SIZE || "500", 10) || 500;
+const DEFAULT_SIZE = Number.parseInt(process.env.SPECLY_HASH_CACHE_SIZE || "500", 10) || 500;
 let cache = new LRUCache<string, string>(DEFAULT_SIZE);
 
 export function configureHashCache(opts: { size?: number } = {}) {

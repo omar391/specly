@@ -1,7 +1,7 @@
 /**
  * Command Line Interface Parser
  *
- * Handles command line arguments for TaskPilot server
+ * Handles command line arguments for Specly server
  */
 
 /**
@@ -30,7 +30,7 @@ export function parseCliArgs(args: string[] = process.argv.slice(2)): CliOptions
     dev: false,
     help: false,
     killExisting: true,
-    forceSeed: process.env.TASKPILOT_FORCE_SEED === '1'
+    forceSeed: process.env.SPECLY_FORCE_SEED === '1'
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -118,25 +118,25 @@ export function parseCliArgs(args: string[] = process.argv.slice(2)): CliOptions
  */
 export function displayHelp(): void {
   console.log(`
-TaskPilot MCP Server
+Specly MCP Server
 
 USAGE:
-  taskpilot [OPTIONS]
+  specly [OPTIONS]
 
 OPTIONS:
   --port, -p <number>    Port number to run on (default: 8989)
   --stdio               Run in STDIO mode for MCP clients
   --http                Run in HTTP mode with integrated UI (default)
   --dev                 Enable development mode
-  --force-seed          Force re-run of Specly seeding even if data present (or TASKPILOT_FORCE_SEED=1)
-  --no-kill             Don't kill existing TaskPilot instances
+  --force-seed          Force re-run of Specly seeding even if data present (or SPECLY_FORCE_SEED=1)
+  --no-kill             Don't kill existing Specly instances
   --help, -h            Show this help message
 
 EXAMPLES:
-  taskpilot                          # Start on port 8989 with UI
-  taskpilot --port 3000              # Start on port 3000
-  taskpilot --stdio                  # Start in STDIO mode for MCP
-  taskpilot --dev --port 3001        # Development mode on port 3001
+  specly                          # Start on port 8989 with UI
+  specly --port 3000              # Start on port 3000
+  specly --stdio                  # Start in STDIO mode for MCP
+  specly --dev --port 3001        # Development mode on port 3001
 
 MODES:
   HTTP Mode (default):

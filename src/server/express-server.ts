@@ -208,7 +208,7 @@ export class ExpressServer {
     if (!this.mcpServer) {
       this.mcpServer = new MCPServer(
         {
-          name: "taskpilot",
+          name: "specly",
           version: "0.1.0",
         },
         {
@@ -369,7 +369,7 @@ export class ExpressServer {
     // Root endpoint for API discovery
     this.app.get('/', (req, res) => {
       res.json({
-        message: 'TaskPilot Backend API',
+        message: 'Specly Backend API',
         version: '0.1.0',
         mode: this.options.dev ? 'development' : 'production',
         endpoints: {
@@ -394,7 +394,7 @@ export class ExpressServer {
   async start(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.httpServer = this.app.listen(this.options.port, () => {
-        console.log(`TaskPilot backend server running on http://localhost:${this.options.port}`);
+        console.log(`Specly backend server running on http://localhost:${this.options.port}`);
         console.log(`  API: http://localhost:${this.options.port}/api`);
         console.log(`  MCP: http://localhost:${this.options.port}/mcp`);
         console.log(`  Health: http://localhost:${this.options.port}/health`);
@@ -432,7 +432,7 @@ export class ExpressServer {
     return new Promise((resolve) => {
       if (this.httpServer) {
         this.httpServer.close(() => {
-          console.log('TaskPilot backend server stopped');
+          console.log('Specly backend server stopped');
           resolve();
         });
       } else {

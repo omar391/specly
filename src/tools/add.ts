@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { TaskPilotToolResult } from '../types/index.js';
+import type { SpeclyToolResult } from '../types/index.js';
 import { BaseTool, BaseToolConfig, ToolDefinition, createBaseToolSchema } from './base-tool.js';
 import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
 import { WorkspaceDatabaseService } from '../database/workspace-queries.js';
@@ -13,7 +13,7 @@ export const addToolSchema = createBaseToolSchema(ToolNames.ADD, {
 export type AddToolInput = z.infer<typeof addToolSchema>;
 
 /**
- * TaskPilot Add Tool - Refactored using BaseTool interface
+ * Specly Add Tool - Refactored using BaseTool interface
  * 
  * Enhanced with database-driven stepId enumeration and common error handling.
  * Demonstrates the new pattern all tools should follow.
@@ -49,9 +49,9 @@ export class AddToolNew extends BaseTool {
   }
 
   /**
-   * Execute taskpilot_add tool with multi-step support using base class validation
+   * Execute specly_add tool with multi-step support using base class validation
    */
-  async execute(input: any): Promise<TaskPilotToolResult> {
+  async execute(input: any): Promise<SpeclyToolResult> {
     const { workspace_path, task_description, priority = 'Medium', parent_task_id, title } = input as AddToolInput & { workspace_path: string };
     const workspaceValidation = await this.validateWorkspace(workspace_path);
     if (!workspaceValidation.isValid) {
@@ -67,7 +67,7 @@ export class AddToolNew extends BaseTool {
   /**
    * Handle creation step - create task directly (single-step simplified)
    */
-  private async handleCreationStep(input: AddToolInput, workspace: any): Promise<TaskPilotToolResult> {
+  private async handleCreationStep(input: AddToolInput, workspace: any): Promise<SpeclyToolResult> {
     const { task_description, priority, parent_task_id, title } = input;
 
     try {

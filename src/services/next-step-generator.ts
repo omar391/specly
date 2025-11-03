@@ -1,7 +1,7 @@
 /**
  * NextStepTemplateGenerator - Dynamic Generation of Next Step Instructions
  * 
- * Replaces hardcoded "Call taskpilot_add with stepId='validate'" text with dynamic 
+ * Replaces hardcoded "Call specly_add with stepId='validate'" text with dynamic 
  * next step instructions generated from database tool flows. Builds contextual 
  * instructions from tool flow data automatically.
  */
@@ -75,9 +75,9 @@ export class NextStepTemplateGenerator {
         context?: string
     ): Promise<NextStepInstruction> {
         const completionTemplates = {
-            [ToolNames.ADD]: "Task has been successfully added to your workspace. Use `taskpilot_status` to view all tasks or continue with other workflow tools.",
-            [ToolNames.INIT]: "Project initialization completed. Your workspace is now set up with the task management system. Use `taskpilot_add` to create your first task.",
-            [ToolNames.STATUS]: "Status overview complete. Use detailed information to guide your next actions or run `taskpilot_focus` on specific tasks.",
+            [ToolNames.ADD]: "Task has been successfully added to your workspace. Use `specly_status` to view all tasks or continue with other workflow tools.",
+            [ToolNames.INIT]: "Project initialization completed. Your workspace is now set up with the task management system. Use `specly_add` to create your first task.",
+            [ToolNames.STATUS]: "Status overview complete. Use detailed information to guide your next actions or run `specly_focus` on specific tasks.",
             [ToolNames.UPDATE]: "Task update completed successfully. Changes have been saved to your workspace database.",
             [ToolNames.AUDIT]: "Audit completed. Review the generated reports and recommendations for workspace optimization.",
             [ToolNames.FOCUS]: "Focus session complete. Task analysis and recommendations are ready for implementation."
@@ -205,7 +205,7 @@ export class NextStepTemplateGenerator {
     }
 
     private extractStepId(systemToolFn: string): string {
-        // Extract stepId from system_tool_fn like "taskpilot_add:validate"
+        // Extract stepId from system_tool_fn like "specly_add:validate"
         const parts = systemToolFn.split(':');
         return parts.length > 1 ? parts[1] : 'initial';
     }

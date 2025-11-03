@@ -28,7 +28,7 @@ export interface ProjectInitializationResult {
 /**
  * ProjectInitializer Service
  * 
- * Handles the initialization of new TaskPilot projects including:
+ * Handles the initialization of new Specly projects including:
  * - Workspace setup and configuration
  * - Initial task creation
  * - Workspace rules establishment
@@ -42,7 +42,7 @@ export class ProjectInitializer {
   }
 
   /**
-   * Initialize a new TaskPilot project
+   * Initialize a new Specly project
    */
   async initializeProject(input: ProjectInitializationInput): Promise<ProjectInitializationResult> {
     const { workspace_path, project_requirements, tech_stack, project_name } = input;

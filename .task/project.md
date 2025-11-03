@@ -1,6 +1,6 @@
 # Specly Project Documentation
 
-Legacy TaskPilot project is now superseded by Specly. This document defines the active scope, requirements, architecture links, and task mapping for the Specly direct cutover. A concise legacy summary is preserved for historical context at the end.
+Legacy Specly project is now superseded by Specly. This document defines the active scope, requirements, architecture links, and task mapping for the Specly direct cutover. A concise legacy summary is preserved for historical context at the end.
 
 ---
 ## 1. Overview
@@ -116,8 +116,8 @@ Workspace Binding: workspace → profile version pointer.
 Session Lease: (session_id, client_state_id) exclusivity pair.
 Idempotency Key: derived identifier for side_effect replay detection.
 
-## 19. Legacy Snapshot (TaskPilot Summary)
-TaskPilot delivered MCP multi-step flows with template orchestration, UI (Home / Tool Flows / Feedback Steps), dual DB architecture, and 69 passing tests. It lacked: hash-addressable specs, immutable versioning, profile inheritance, unified execution endpoint, and idempotent side effects—all addressed by Specly.
+## 19. Legacy Snapshot (Specly Summary)
+Specly delivered MCP multi-step flows with template orchestration, UI (Home / Tool Flows / Feedback Steps), dual DB architecture, and 69 passing tests. It lacked: hash-addressable specs, immutable versioning, profile inheritance, unified execution endpoint, and idempotent side effects—all addressed by Specly.
 
 ## 20. Change Log (Specly Initiation)
 - 2025-09-02: Specly project doc created; legacy project.md replaced; direct cutover tasks enumerated (SP-001..SP-020, SP-100+).

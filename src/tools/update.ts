@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { TaskPilotToolResult } from '../types/index.js';
+import type { SpeclyToolResult } from '../types/index.js';
 import { BaseTool, BaseToolConfig, ToolDefinition, createBaseToolSchema } from './base-tool.js';
 import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
 import { WorkspaceDatabaseService } from '../database/workspace-queries.js';
@@ -16,7 +16,7 @@ export const updateToolSchema = createBaseToolSchema(ToolNames.UPDATE, {
 export type UpdateToolInput = z.infer<typeof updateToolSchema>;
 
 /**
- * TaskPilot Update Tool - Refactored using BaseTool interface
+ * Specly Update Tool - Refactored using BaseTool interface
  * 
  * Enhanced with database-driven stepId enumeration and common error handling.
  */
@@ -50,7 +50,7 @@ export class UpdateToolNew extends BaseTool {
     super(drizzleDb, config);
   }
 
-  async execute(input: any): Promise<TaskPilotToolResult> {
+  async execute(input: any): Promise<SpeclyToolResult> {
     const { workspace_path, task_id, field, value, reason } = input as UpdateToolInput & { workspace_path: string };
     const workspaceValidation = await this.validateWorkspace(workspace_path);
     if (!workspaceValidation.isValid) {
@@ -60,7 +60,7 @@ export class UpdateToolNew extends BaseTool {
     return this.applyUpdate({ task_id, field, value, reason } as UpdateToolInput, workspace);
   }
 
-  private async applyUpdate(input: UpdateToolInput, workspace: any): Promise<TaskPilotToolResult> {
+  private async applyUpdate(input: UpdateToolInput, workspace: any): Promise<SpeclyToolResult> {
     const { task_id, field, value, reason } = input;
     try {
       const workspaceDb = new WorkspaceDatabaseService(workspace.path, this.drizzleDb);
@@ -120,7 +120,7 @@ export class UpdateToolNew extends BaseTool {
    */
   static getToolDefinition(): ToolDefinition {
     return {
-      name: 'taskpilot_update',
+      name: 'specly_update',
       description: 'Single-step update of task properties with audit trail.',
       inputSchema: {
         type: 'object',

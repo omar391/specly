@@ -1,5 +1,5 @@
 /**
- * Embedded seed data for TaskPilot initialization
+ * Embedded seed data for Specly initialization
  * Uses Drizzle ORM types for compile-time type safety
  */
 

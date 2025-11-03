@@ -1,8 +1,8 @@
-# MCP Input/Output Format Specification for TaskPilot
+# MCP Input/Output Format Specification for Specly
 
 ## Overview
 
-This document provides comprehensive details on the Model Context Protocol (MCP) input/output formats for **Tools** and **Resources**, based on the MCP 2025-06-18 specification. It then analyzes how TaskPilot's current implementation aligns with these standards.
+This document provides comprehensive details on the Model Context Protocol (MCP) input/output formats for **Tools** and **Resources**, based on the MCP 2025-06-18 specification. It then analyzes how Specly's current implementation aligns with these standards.
 
 ## MCP Protocol Specification Summary
 
@@ -366,20 +366,20 @@ Resources in MCP are **application-controlled** and provide contextual data to l
 }
 ```
 
-## TaskPilot Current Implementation Analysis
+## Specly Current Implementation Analysis
 
 ### Current Tool Implementation Status
 
 #### ✅ Correctly Implemented
 
-1. **Tool Registration Structure** - TaskPilot properly implements the tools/list response:
+1. **Tool Registration Structure** - Specly properly implements the tools/list response:
 ```typescript
 async listTools() {
   return {
     tools: [
       {
-        name: "taskpilot_init",
-        description: "Initialize a TaskPilot workspace with .task folder structure and configuration",
+        name: "specly_init",
+        description: "Initialize a Specly workspace with .task folder structure and configuration",
         inputSchema: zodToJsonSchema(initToolSchema),
       },
       // ... 11 total tools
@@ -440,9 +440,9 @@ return {
 
 #### Example from PromptOrchestrator.generateBasicPrompt()
 ```typescript
-case 'taskpilot_init':
-  return `# TaskPilot Project Initialization\n\n` +
-         `Project: ${args.project_name || 'TaskPilot Project'}\n` +
+case 'specly_init':
+  return `# Specly Project Initialization\n\n` +
+         `Project: ${args.project_name || 'Specly Project'}\n` +
          `Workspace: ${args.workspace_path || 'current directory'}\n` +
          `Tech Stack: ${args.tech_stack || 'Not specified'}\n` +
          `Requirements: ${args.project_requirements || 'No specific requirements'}\n\n` +
@@ -453,7 +453,7 @@ case 'taskpilot_init':
 
 ### 2. Missing Resources Implementation
 
-**❌ Complete Gap:** TaskPilot has NO resources implementation:
+**❌ Complete Gap:** Specly has NO resources implementation:
 
 1. **No Capability Declaration:** Server doesn't declare `resources` capability
 2. **No Resource Endpoints:** No `resources/list`, `resources/read`, or `resources/templates/list`  
@@ -534,7 +534,7 @@ This inconsistency suggests the MCP implementation could follow the same structu
 return {
   content: [{
     type: 'text',
-    text: `# TaskPilot Project Initialization\n\nProject: ${args.project_name}\n...`
+    text: `# Specly Project Initialization\n\nProject: ${args.project_name}\n...`
   }]
 };
 
@@ -542,7 +542,7 @@ return {
 return {
   content: [{
     type: 'text',
-    text: 'TaskPilot workspace successfully initialized'
+    text: 'Specly workspace successfully initialized'
   }],
   structuredContent: {
     operation: 'init',
@@ -599,7 +599,7 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
   return {
     resources: [
       {
-        uri: "taskpilot://workspace/current/tasks",
+        uri: "specly://workspace/current/tasks",
         name: "Current Tasks",
         title: "📋 Active Workspace Tasks", 
         description: "All tasks in the current workspace",
@@ -610,7 +610,7 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
         }
       },
       {
-        uri: "taskpilot://workspace/current/rules",
+        uri: "specly://workspace/current/rules",
         name: "Workspace Rules",
         title: "📝 Project Rules & Guidelines",
         description: "Project-specific coding standards and rules",
@@ -628,7 +628,7 @@ server.setRequestHandler(ListResourcesRequestSchema, async () => {
 server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
   const { uri } = request.params;
   
-  if (uri === "taskpilot://workspace/current/tasks") {
+  if (uri === "specly://workspace/current/tasks") {
     const tasks = await getCurrentWorkspaceTasks();
     return {
       contents: [{
@@ -640,7 +640,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     };
   }
   
-  if (uri === "taskpilot://workspace/current/rules") {
+  if (uri === "specly://workspace/current/rules") {
     const rules = await getCurrentWorkspaceRules();
     return {
       contents: [{
@@ -663,8 +663,8 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 ```typescript
 // Update tool definitions in src/index.ts
 {
-  name: "taskpilot_init",
-  description: "Initialize a TaskPilot workspace with .task folder structure and configuration",
+  name: "specly_init",
+  description: "Initialize a Specly workspace with .task folder structure and configuration",
   inputSchema: zodToJsonSchema(initToolSchema),
   outputSchema: {
     type: "object",
@@ -703,9 +703,9 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 ```typescript
 // Add missing metadata to tools
 {
-  name: "taskpilot_init",
-  title: "🚀 Initialize TaskPilot Workspace", // User-friendly title
-  description: "Initialize a TaskPilot workspace with .task folder structure and configuration",
+  name: "specly_init",
+  title: "🚀 Initialize Specly Workspace", // User-friendly title
+  description: "Initialize a Specly workspace with .task folder structure and configuration",
   inputSchema: zodToJsonSchema(initToolSchema),
   outputSchema: { /* ... */ },
   annotations: {
@@ -723,7 +723,7 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 ```typescript
 // Update tools to return both text and structured content
 export class InitTool {
-  async execute(input: InitToolInput): Promise<TaskPilotToolResult> {
+  async execute(input: InitToolInput): Promise<SpeclyToolResult> {
     // Perform initialization
     const initResult = await this.projectInitializer.initializeProject(input);
     
@@ -731,7 +731,7 @@ export class InitTool {
     return {
       content: [{
         type: 'text',
-        text: `TaskPilot workspace "${initResult.workspace.name}" initialized successfully. Created ${initResult.initialTasks.length} initial tasks.`
+        text: `Specly workspace "${initResult.workspace.name}" initialized successfully. Created ${initResult.initialTasks.length} initial tasks.`
       }],
       structuredContent: {
         operation: 'workspace_init',
@@ -750,9 +750,9 @@ export class InitTool {
         rules_initialized: initResult.rulesApplied,
         setup_complete: true,
         next_steps: [
-          'Run taskpilot_start to begin a session',
-          'Use taskpilot_add to create new tasks',
-          'Check taskpilot_status for project overview'
+          'Run specly_start to begin a session',
+          'Use specly_add to create new tasks',
+          'Check specly_status for project overview'
         ]
       },
       isError: false
@@ -781,14 +781,14 @@ Client/LLM can request prompt generation separately via resources or dedicated p
 ```typescript
 // Move prompt generation to resources
 {
-  uri: "taskpilot://prompts/init-success",
+  uri: "specly://prompts/init-success",
   name: "Initialization Success Prompt",
   description: "User-oriented prompt for successful workspace initialization"
 }
 
 // Or create dedicated prompt tools
 {
-  name: "taskpilot_generate_prompt",
+  name: "specly_generate_prompt",
   description: "Generate user-oriented prompts based on operation results",
   inputSchema: {
     type: "object",
@@ -820,10 +820,10 @@ Client/LLM can request prompt generation separately via resources or dedicated p
    - **Files to modify:** `src/index.ts`, create `src/resources/`
    - **Goal:** Add workspace data as MCP resources
    - **Resources to expose:**
-     - `taskpilot://workspace/{id}/tasks` - Current tasks as JSON
-     - `taskpilot://workspace/{id}/rules` - Workspace rules as Markdown
-     - `taskpilot://workspace/{id}/status` - Project status summary
-     - `taskpilot://workspace/{id}/files` - Connected files list
+     - `specly://workspace/{id}/tasks` - Current tasks as JSON
+     - `specly://workspace/{id}/rules` - Workspace rules as Markdown
+     - `specly://workspace/{id}/status` - Project status summary
+     - `specly://workspace/{id}/files` - Connected files list
 
 4. **✅ Add Structured Content Support**
    - **Files to modify:** All tool implementations
@@ -848,7 +848,7 @@ Client/LLM can request prompt generation separately via resources or dedicated p
 
 8. **Resource Templates**
    - **Goal:** Dynamic resource discovery
-   - **Template:** `taskpilot://workspace/{workspace_id}/tasks/{task_id}`
+   - **Template:** `specly://workspace/{workspace_id}/tasks/{task_id}`
 
 ## Specific File Changes Needed
 
@@ -895,16 +895,16 @@ server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 ### 2. Create `/src/resources/resource-manager.ts`
 
 ```typescript
-export class TaskPilotResourceManager {
+export class SpeclyResourceManager {
   constructor(private globalDb: GlobalDatabaseService) {}
 
   async listResources(): Promise<ResourceListResponse> {
     return {
       resources: [
         {
-          uri: "taskpilot://workspaces",
+          uri: "specly://workspaces",
           name: "All Workspaces",
-          title: "🏢 TaskPilot Workspaces",
+          title: "🏢 Specly Workspaces",
           description: "List of all registered workspaces",
           mimeType: "application/json"
         },
@@ -925,7 +925,7 @@ export class TaskPilotResourceManager {
 
 ```typescript
 // Before
-async execute(input: InitToolInput): Promise<TaskPilotToolResult> {
+async execute(input: InitToolInput): Promise<SpeclyToolResult> {
   const orchestrationResult = await this.orchestrator.orchestratePrompt(/*...*/);
   return {
     content: [{ type: 'text', text: orchestrationResult.prompt_text }]
@@ -933,7 +933,7 @@ async execute(input: InitToolInput): Promise<TaskPilotToolResult> {
 }
 
 // After  
-async execute(input: InitToolInput): Promise<TaskPilotToolResult> {
+async execute(input: InitToolInput): Promise<SpeclyToolResult> {
   const initResult = await this.projectInitializer.initializeProject(input);
   
   return {
@@ -984,5 +984,5 @@ async execute(input: InitToolInput): Promise<TaskPilotToolResult> {
 - **UI Integration:** Frontend can continue using REST API
 - **MCP Clients:** New structured responses provide better integration
 
-This phased approach ensures TaskPilot becomes fully MCP-compliant while maintaining existing functionality and providing a clear upgrade path.
+This phased approach ensures Specly becomes fully MCP-compliant while maintaining existing functionality and providing a clear upgrade path.
 

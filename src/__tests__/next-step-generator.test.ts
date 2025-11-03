@@ -21,11 +21,11 @@ describe('NextStepTemplateGenerator', () => {
 
     describe('generateCompletionInstructions', () => {
         it('should generate completion instructions for known tools', async () => {
-            const result = await generator.generateCompletionInstructions('taskpilot_add');
+            const result = await generator.generateCompletionInstructions('specly_add');
             
             expect(result).toBeDefined();
             expect(result.instructionText).toContain('Task has been successfully added');
-            expect(result.toolName).toBe('taskpilot_add');
+            expect(result.toolName).toBe('specly_add');
         });
 
         it('should generate completion instructions for unknown tools', async () => {
@@ -38,7 +38,7 @@ describe('NextStepTemplateGenerator', () => {
 
         it('should include context when provided', async () => {
             const context = 'Additional workflow context';
-            const result = await generator.generateCompletionInstructions('taskpilot_init', undefined, context);
+            const result = await generator.generateCompletionInstructions('specly_init', undefined, context);
             
             expect(result.instructionText).toContain(context);
             expect(result.context).toBe(context);
@@ -71,12 +71,12 @@ describe('NextStepTemplateGenerator', () => {
     describe('instruction templates', () => {
         it('should have appropriate templates for different completion types', async () => {
             const toolTests = [
-                { tool: 'taskpilot_add', expectedKeyword: 'added' },
-                { tool: 'taskpilot_init', expectedKeyword: 'initialization' },
-                { tool: 'taskpilot_status', expectedKeyword: 'Status' },
-                { tool: 'taskpilot_update', expectedKeyword: 'update' },
-                { tool: 'taskpilot_audit', expectedKeyword: 'Audit' },
-                { tool: 'taskpilot_focus', expectedKeyword: 'Focus' }
+                { tool: 'specly_add', expectedKeyword: 'added' },
+                { tool: 'specly_init', expectedKeyword: 'initialization' },
+                { tool: 'specly_status', expectedKeyword: 'Status' },
+                { tool: 'specly_update', expectedKeyword: 'update' },
+                { tool: 'specly_audit', expectedKeyword: 'Audit' },
+                { tool: 'specly_focus', expectedKeyword: 'Focus' }
             ];
 
             for (const { tool, expectedKeyword } of toolTests) {

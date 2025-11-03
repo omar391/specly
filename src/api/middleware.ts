@@ -1,5 +1,5 @@
 /**
- * Express middleware for TaskPilot REST API
+ * Express middleware for Specly REST API
  */
 
 import { Request, Response, NextFunction } from 'express';

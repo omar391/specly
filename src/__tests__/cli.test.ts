@@ -2,7 +2,7 @@
  * Unit Tests for CLI.ts
  * 
  * Tests CLI tool execution, argument parsing, result formatting,
- * and error handling for the unified single-step TaskPilotToolResult model.
+ * and error handling for the unified single-step SpeclyToolResult model.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
@@ -51,45 +51,45 @@ describe('CLI Tool Execution Tests', () => {
     });
 
     describe('Tool Execution with Valid Arguments', () => {
-        it('should execute taskpilot_start successfully', async () => {
+        it('should execute specly_start successfully', async () => {
             const args = {
                 workspace_path: testWorkspacePath
             };
 
-            const result = await executeToolCall('taskpilot_start', args);
+            const result = await executeToolCall('specly_start', args);
 
             expect(result).toBeDefined();
             expect(result.content).toBeDefined();
             expect(Array.isArray(result.content)).toBe(true);
         }, 10000);
         
-        it('should execute taskpilot_add (single-step)', async () => {
+        it('should execute specly_add (single-step)', async () => {
             const args = {
                 task_description: 'Test task for CLI execution',
                 workspace_path: testWorkspacePath
             };
-            const result = await executeToolCall('taskpilot_add', args);
+            const result = await executeToolCall('specly_add', args);
             expect(result).toBeDefined();
             expect(result.content).toBeDefined();
         }, 15000);
 
-        it('should execute taskpilot_status with workspace', async () => {
+        it('should execute specly_status with workspace', async () => {
             const args = {
                 workspace_path: testWorkspacePath
             };
 
-            const result = await executeToolCall('taskpilot_status', args);
+            const result = await executeToolCall('specly_status', args);
             expect(result).toBeDefined();
         }, 10000);
     });
 
     describe('Argument Validation and Parsing', () => {
         it('should validate required parameters', async () => {
-            // Missing required workspace_path for taskpilot_start
+            // Missing required workspace_path for specly_start
             const invalidArgs = {};
 
             await expect(async () => {
-                await executeToolCall('taskpilot_start', invalidArgs);
+                await executeToolCall('specly_start', invalidArgs);
             }).rejects.toThrow();
         });
 
@@ -100,7 +100,7 @@ describe('CLI Tool Execution Tests', () => {
             };
 
             await expect(async () => {
-                await executeToolCall('taskpilot_start', invalidArgs);
+                await executeToolCall('specly_start', invalidArgs);
             }).rejects.toThrow();
         });
 
@@ -120,7 +120,7 @@ describe('CLI Tool Execution Tests', () => {
             };
 
             // Should not crash, should return error result
-            const result = await executeToolCall('taskpilot_status', args);
+            const result = await executeToolCall('specly_status', args);
             expect(result).toBeDefined();
             expect(result.content).toBeDefined();
         }, 10000);
@@ -132,7 +132,7 @@ describe('CLI Tool Execution Tests', () => {
             };
 
             // The CLI should initialize tools and handle any database errors internally
-            const result = await executeToolCall('taskpilot_start', args);
+            const result = await executeToolCall('specly_start', args);
             expect(result).toBeDefined();
         }, 10000);
     });
@@ -158,7 +158,7 @@ describe('CLI Tool Execution Tests', () => {
                 workspace_path: testWorkspacePath
             };
 
-            const result = await executeToolCall('taskpilot_start', args);
+            const result = await executeToolCall('specly_start', args);
 
             const duration = Date.now() - startTime;
 
@@ -173,9 +173,9 @@ describe('CLI Tool Execution Tests', () => {
 
             // Execute multiple tools concurrently
             const promises = [
-                executeToolCall('taskpilot_start', args),
-                executeToolCall('taskpilot_status', args),
-                executeToolCall('taskpilot_start', { workspace_path: testWorkspacePath + '-2' })
+                executeToolCall('specly_start', args),
+                executeToolCall('specly_status', args),
+                executeToolCall('specly_start', { workspace_path: testWorkspacePath + '-2' })
             ];
 
             const results = await Promise.all(promises);
@@ -193,7 +193,7 @@ describe('CLI Tool Execution Tests', () => {
                 workspace_path: testWorkspacePath
             };
 
-            const result = await executeToolCall('taskpilot_start', args);
+            const result = await executeToolCall('specly_start', args);
             expect(result).toHaveProperty('content');
             expect(Array.isArray(result.content)).toBe(true);
             expect(result.content[0]).toHaveProperty('type');
@@ -209,7 +209,7 @@ describe('CLI Tool Execution Tests', () => {
             };
 
             // Should not throw during initialization
-            const result = await executeToolCall('taskpilot_start', args);
+            const result = await executeToolCall('specly_start', args);
             expect(result).toBeDefined();
         }, 10000);
 
@@ -223,11 +223,11 @@ describe('CLI Tool Execution Tests', () => {
                 };
 
                 // First call should create workspace
-                const firstResult = await executeToolCall('taskpilot_start', args);
+                const firstResult = await executeToolCall('specly_start', args);
                 expect(firstResult).toBeDefined();
 
                 // Second call should use existing workspace
-                const secondResult = await executeToolCall('taskpilot_start', args);
+                const secondResult = await executeToolCall('specly_start', args);
                 expect(secondResult).toBeDefined();
             } finally {
                 if (fs.existsSync(uniqueWorkspace)) {
@@ -245,7 +245,7 @@ describe('CLI Tool Execution Tests', () => {
             };
 
             // Should handle empty string gracefully
-            const result = await executeToolCall('taskpilot_add', args);
+            const result = await executeToolCall('specly_add', args);
             expect(result).toBeDefined();
         }, 10000);
 
@@ -256,7 +256,7 @@ describe('CLI Tool Execution Tests', () => {
                 workspace_path: testWorkspacePath
             };
 
-            const result = await executeToolCall('taskpilot_add', args);
+            const result = await executeToolCall('specly_add', args);
             expect(result).toBeDefined();
         }, 15000);
 
@@ -267,7 +267,7 @@ describe('CLI Tool Execution Tests', () => {
                 workspace_path: testWorkspacePath
             };
 
-            const result = await executeToolCall('taskpilot_add', args);
+            const result = await executeToolCall('specly_add', args);
             expect(result).toBeDefined();
         }, 10000);
     });

@@ -2,7 +2,7 @@
  * Workspace Registry Service
  * 
  * Manages global workspace discovery, registration, and lifecycle.
- * Scans filesystem for TaskPilot workspaces and maintains their status
+ * Scans filesystem for Specly workspaces and maintains their status
  * in the global database for UI discovery.
  */
 
@@ -191,7 +191,7 @@ export class WorkspaceRegistry {
   }
 
   /**
-   * Scan specified paths for TaskPilot workspaces and register them
+   * Scan specified paths for Specly workspaces and register them
    */
   async scanAndRegisterWorkspaces(): Promise<string[]> {
     const registeredIds: string[] = [];
@@ -217,7 +217,7 @@ export class WorkspaceRegistry {
   }
 
   /**
-   * Scan a directory for TaskPilot workspaces
+   * Scan a directory for Specly workspaces
    */
   private async scanForWorkspaces(basePath: string): Promise<string[]> {
     const workspaces: string[] = [];
@@ -236,8 +236,8 @@ export class WorkspaceRegistry {
           const stat = statSync(fullPath);
           
           if (stat.isDirectory()) {
-            // Check if this directory is a TaskPilot workspace
-            if (this.isTaskPilotWorkspace(fullPath)) {
+            // Check if this directory is a Specly workspace
+            if (this.isSpeclyWorkspace(fullPath)) {
               workspaces.push(fullPath);
             }
             
@@ -260,18 +260,18 @@ export class WorkspaceRegistry {
   }
 
   /**
-   * Check if a directory is a TaskPilot workspace
+   * Check if a directory is a Specly workspace
    */
-  private isTaskPilotWorkspace(dirPath: string): boolean {
+  private isSpeclyWorkspace(dirPath: string): boolean {
     // Look for .task directory
     const taskDir = join(dirPath, '.task');
     if (existsSync(taskDir)) {
       return true;
     }
 
-    // Look for .taskpilot directory
-    const taskpilotDir = join(dirPath, '.taskpilot');
-    if (existsSync(taskpilotDir)) {
+    // Look for .specly directory
+    const speclyDir = join(dirPath, '.specly');
+    if (existsSync(speclyDir)) {
       return true;
     }
 
@@ -295,7 +295,7 @@ export class WorkspaceRegistry {
         return 'error';
       }
 
-      if (this.isTaskPilotWorkspace(workspacePath)) {
+      if (this.isSpeclyWorkspace(workspacePath)) {
         return 'disconnected'; // Exists but not currently active
       }
 

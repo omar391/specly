@@ -126,7 +126,7 @@ describe('ExpressServer', () => {
         .expect(200);
 
       expect(response.body).toMatchObject({
-        message: 'TaskPilot Backend API',
+        message: 'Specly Backend API',
         version: '0.1.0',
         mode: 'development',
         endpoints: {

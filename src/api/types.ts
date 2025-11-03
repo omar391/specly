@@ -1,5 +1,5 @@
 /**
- * API Types and Interfaces for TaskPilot REST API
+ * API Types and Interfaces for Specly REST API
  */
 
 // Common response wrapper

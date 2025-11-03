@@ -21,7 +21,7 @@ describe('Database Persistence Investigation', () => {
         // Create unique test workspace
         const uniqueId = Math.random().toString(36).substring(7);
         testWorkspacePath = path.join(os.tmpdir(), `db-test-${uniqueId}`);
-        dbPath = path.join(testWorkspacePath, '.taskpilot', 'task.db');
+        dbPath = path.join(testWorkspacePath, '.specly', 'task.db');
     });
 
     afterEach(() => {

@@ -291,7 +291,7 @@ export class DrizzleDatabaseManager {
           repo_name TEXT NOT NULL,
           github_token TEXT NOT NULL,
           auto_sync INTEGER DEFAULT 0,
-          sync_direction TEXT CHECK(sync_direction IN ('bidirectional', 'github_to_taskpilot', 'taskpilot_to_github')) DEFAULT 'bidirectional',
+          sync_direction TEXT CHECK(sync_direction IN ('bidirectional', 'github_to_specly', 'specly_to_github')) DEFAULT 'bidirectional',
           last_sync TEXT,
           created_at TEXT DEFAULT CURRENT_TIMESTAMP,
           updated_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -508,7 +508,7 @@ let workspaceDbInstances: Map<string, DrizzleDatabaseManager> = new Map();
  */
 export function getGlobalDatabase(): DrizzleDatabaseManager {
   if (!globalDbInstance) {
-    const globalPath = join(process.env.HOME || '/tmp', '.taskpilot', 'global.db');
+    const globalPath = join(process.env.HOME || '/tmp', '.specly', 'global.db');
     globalDbInstance = new DrizzleDatabaseManager(globalPath, DatabaseType.GLOBAL);
   }
   return globalDbInstance;
@@ -518,7 +518,7 @@ export function getGlobalDatabase(): DrizzleDatabaseManager {
  * Get or create workspace database instance
  */
 export function getWorkspaceDatabase(workspacePath: string): DrizzleDatabaseManager {
-  const workspaceDbPath = join(workspacePath, '.taskpilot', 'task.db');
+  const workspaceDbPath = join(workspacePath, '.specly', 'task.db');
 
   // Check if we already have a cached instance for this workspace
   if (!workspaceDbInstances.has(workspaceDbPath)) {

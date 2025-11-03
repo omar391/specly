@@ -318,7 +318,7 @@ describe('Hash Cache', () => {
 
     it('should respect environment variable for default size', () => {
       // This is more of a documentation test
-      // The default size comes from TASKPILOT_HASH_CACHE_SIZE env var
+      // The default size comes from SPECLY_HASH_CACHE_SIZE env var
       configureHashCache({ size: 500 });
       
       // Fill cache to verify size

@@ -1,12 +1,12 @@
 import { z } from 'zod';
 import { v4 as uuidv4 } from 'uuid';
 import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
-import type { TaskPilotToolResult } from '../types/index.js';
+import type { SpeclyToolResult } from '../types/index.js';
 import { PromptOrchestrator } from '../services/prompt-orchestrator.js';
 import { GlobalDatabaseService } from '../database/global-queries.js';
 import type { NewWorkspace, NewSession } from '../database/schema/global-schema.js';
 
-// Input schema for taskpilot_start tool
+// Input schema for specly_start tool
 export const startToolSchema = z.object({
   workspace_path: z.string().describe('Absolute path to the workspace directory')
 });
@@ -14,7 +14,7 @@ export const startToolSchema = z.object({
 export type StartToolInput = z.infer<typeof startToolSchema>;
 
 /**
- * TaskPilot Start Tool - Session Initiation (Pure TypeScript/Drizzle)
+ * Specly Start Tool - Session Initiation (Pure TypeScript/Drizzle)
  * 
  * Core MCP tool that initiates workspace sessions and returns comprehensive 
  * prompt_text for LLM context. Includes workspace setup, active task 
@@ -30,9 +30,9 @@ export class StartTool {
   }
 
   /**
-   * Execute taskpilot_start tool
+   * Execute specly_start tool
    */
-  async execute(input: StartToolInput): Promise<TaskPilotToolResult> {
+  async execute(input: StartToolInput): Promise<SpeclyToolResult> {
     try {
       const { workspace_path } = input;
 
@@ -48,7 +48,7 @@ export class StartTool {
       
       // Generate orchestrated prompt with comprehensive context
       const orchestrationResult = await this.orchestrator.orchestratePrompt(
-        'taskpilot_start',
+        'specly_start',
         workspace.id,
         {
           workspace_name: workspace.name,
@@ -70,11 +70,11 @@ export class StartTool {
         }]
       };
     } catch (error) {
-      console.error('Error in taskpilot_start:', error);
+      console.error('Error in specly_start:', error);
       return {
         content: [{
           type: 'text',
-          text: `Error initiating TaskPilot session: ${error instanceof Error ? error.message : 'Unknown error'}`
+          text: `Error initiating Specly session: ${error instanceof Error ? error.message : 'Unknown error'}`
         }],
         isError: true
       };
@@ -147,8 +147,8 @@ export class StartTool {
    */
   static getToolDefinition() {
     return {
-      name: 'taskpilot_start',
-      description: 'Initialize TaskPilot session for a workspace and provide comprehensive project context',
+      name: 'specly_start',
+      description: 'Initialize Specly session for a workspace and provide comprehensive project context',
       inputSchema: {
         type: 'object',
         properties: {

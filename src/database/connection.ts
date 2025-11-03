@@ -201,7 +201,7 @@ let workspaceDbInstance: DatabaseManager | null = null;
  */
 export function getGlobalDatabase(): DatabaseManager {
   if (!globalDbInstance) {
-    const globalPath = join(process.env.HOME || '/tmp', '.taskpilot', 'global.db');
+    const globalPath = join(process.env.HOME || '/tmp', '.specly', 'global.db');
     globalDbInstance = new DatabaseManager(globalPath, DatabaseType.GLOBAL);
   }
   return globalDbInstance;
@@ -212,7 +212,7 @@ export function getGlobalDatabase(): DatabaseManager {
  */
 export function getWorkspaceDatabase(workspacePath: string): DatabaseManager {
   if (!workspaceDbInstance) {
-    const workspaceDbPath = join(workspacePath, '.taskpilot', 'task.db');
+    const workspaceDbPath = join(workspacePath, '.specly', 'task.db');
     workspaceDbInstance = new DatabaseManager(workspaceDbPath, DatabaseType.WORKSPACE);
   }
   return workspaceDbInstance;
@@ -258,7 +258,7 @@ export async function initializeBothDatabases(workspacePath: string): Promise<{
 export function getDatabase(dbPath?: string): DatabaseManager {
   console.warn('getDatabase() is deprecated. Use getGlobalDatabase() or getWorkspaceDatabase() instead.');
   if (!globalDbInstance) {
-    const defaultPath = dbPath || join(process.env.HOME || '/tmp', '.taskpilot', 'taskpilot.db');
+    const defaultPath = dbPath || join(process.env.HOME || '/tmp', '.specly', 'specly.db');
     globalDbInstance = new DatabaseManager(defaultPath, DatabaseType.GLOBAL);
   }
   return globalDbInstance;

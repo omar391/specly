@@ -11,7 +11,7 @@ import { InstanceManager } from "../instance-manager.js";
 // Helper to generate a unique lock file path and port for each test
 function uniqueTestResource() {
   const id = crypto.randomBytes(6).toString("hex");
-  const lockPath = path.join(os.tmpdir(), `taskpilot-${id}.lock`);
+  const lockPath = path.join(os.tmpdir(), `specly-${id}.lock`);
   const port = 10000 + Math.floor(Math.random() * 10000);
   return { lockPath, port };
 }

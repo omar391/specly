@@ -22,7 +22,7 @@ describe('Instance Manager Root-to-Child Process System', () => {
 
     beforeEach(() => {
         // Create unique test lock path and port for each test
-        testLockPath = path.join(os.tmpdir(), `taskpilot-test-${Date.now()}-${Math.random().toString(36).substring(2)}.lock`);
+        testLockPath = path.join(os.tmpdir(), `specly-test-${Date.now()}-${Math.random().toString(36).substring(2)}.lock`);
         testPort = 9000 + Math.floor(Math.random() * 1000); // Random port between 9000-9999
         instanceManager = new InstanceManager(testLockPath, testPort);
     });

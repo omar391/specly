@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { TaskPilotToolResult } from '../types/index.js';
+import type { SpeclyToolResult } from '../types/index.js';
 import { BaseTool, BaseToolConfig, ToolDefinition, createBaseToolSchema } from './base-tool.js';
 import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
 import { WorkspaceDatabaseService } from '../database/workspace-queries.js';
@@ -11,7 +11,7 @@ export const statusToolSchema = createBaseToolSchema(ToolNames.STATUS, {}, ['wor
 export type StatusToolInput = z.infer<typeof statusToolSchema>;
 
 /**
- * TaskPilot Status Tool (single-step).
+ * Specly Status Tool (single-step).
  * Legacy ToolFlowExecutor and multi-step routing removed; now returns a single
  * consolidated status summary.
  */
@@ -29,9 +29,9 @@ export class StatusToolNew extends BaseTool {
   }
 
   /**
-   * Execute taskpilot_status tool with database-driven step routing
+   * Execute specly_status tool with database-driven step routing
    */
-  async execute(input: any): Promise<TaskPilotToolResult> {
+  async execute(input: any): Promise<SpeclyToolResult> {
     const { workspace_path } = input;
     const workspaceValidation = await this.validateWorkspace(workspace_path);
     if (!workspaceValidation.isValid) {
@@ -52,7 +52,7 @@ export class StatusToolNew extends BaseTool {
   /**
    * Overview step - provide high-level status summary
    */
-  private async handleOverview(workspace: any): Promise<TaskPilotToolResult> {
+  private async handleOverview(workspace: any): Promise<SpeclyToolResult> {
     try {
       const workspaceDb = new WorkspaceDatabaseService(workspace.path);
       await workspaceDb.initialize();

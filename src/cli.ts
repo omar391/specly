@@ -25,36 +25,36 @@ import { RemoteInterfaceTool, remoteInterfaceToolSchema } from './tools/remote-i
 /**
  * CLI tool for testing MCP tool calls programmatically
  * Usage: npm run test:tool -- <toolName> <arguments>
- * Example: npm run test:tool -- taskpilot_start '{"workspace_path": "/tmp/test-workspace"}'
+ * Example: npm run test:tool -- specly_start '{"workspace_path": "/tmp/test-workspace"}'
  */
 
 // TODO: do we need ToolRegistry and SchemaRegistry be defined here or can it be centralized?
 
 // Types for tools and schemas
 interface ToolRegistry {
-    taskpilot_init: InitToolNew;
-    taskpilot_start: StartTool;
-    taskpilot_add: AddToolNew;
-    taskpilot_status: StatusToolNew;
-    taskpilot_update: UpdateToolNew;
-    taskpilot_audit: AuditToolNew;
-    taskpilot_focus: FocusToolNew;
-    taskpilot_github: GitHubTool;
-    taskpilot_rule_update: RuleUpdateTool;
-    taskpilot_remote_interface: RemoteInterfaceTool;
+    specly_init: InitToolNew;
+    specly_start: StartTool;
+    specly_add: AddToolNew;
+    specly_status: StatusToolNew;
+    specly_update: UpdateToolNew;
+    specly_audit: AuditToolNew;
+    specly_focus: FocusToolNew;
+    specly_github: GitHubTool;
+    specly_rule_update: RuleUpdateTool;
+    specly_remote_interface: RemoteInterfaceTool;
 }
 
 interface SchemaRegistry {
-    taskpilot_init: typeof initToolSchema;
-    taskpilot_start: typeof startToolSchema;
-    taskpilot_add: typeof addToolSchema;
-    taskpilot_status: typeof statusToolSchema;
-    taskpilot_update: typeof updateToolSchema;
-    taskpilot_audit: typeof auditToolSchema;
-    taskpilot_focus: typeof focusToolSchema;
-    taskpilot_github: typeof githubToolSchema;
-    taskpilot_rule_update: typeof ruleUpdateToolSchema;
-    taskpilot_remote_interface: typeof remoteInterfaceToolSchema;
+    specly_init: typeof initToolSchema;
+    specly_start: typeof startToolSchema;
+    specly_add: typeof addToolSchema;
+    specly_status: typeof statusToolSchema;
+    specly_update: typeof updateToolSchema;
+    specly_audit: typeof auditToolSchema;
+    specly_focus: typeof focusToolSchema;
+    specly_github: typeof githubToolSchema;
+    specly_rule_update: typeof ruleUpdateToolSchema;
+    specly_remote_interface: typeof remoteInterfaceToolSchema;
 }
 
 // Global variables
@@ -196,45 +196,45 @@ async function executeToolCall(toolName: string, toolArguments: Record<string, u
 
     // Execute the tool based on name
     switch (toolName) {
-        case 'taskpilot_init': {
+        case 'specly_init': {
             const args = validatedArgs as z.infer<typeof initToolSchema>;
-            return await tools.taskpilot_init.execute(args);
+            return await tools.specly_init.execute(args);
         }
-        case 'taskpilot_start': {
+        case 'specly_start': {
             const args = validatedArgs as z.infer<typeof startToolSchema>;
-            return await tools.taskpilot_start.execute(args);
+            return await tools.specly_start.execute(args);
         }
-        case 'taskpilot_add': {
+        case 'specly_add': {
             const args = validatedArgs as z.infer<typeof addToolSchema>;
-            return await tools.taskpilot_add.execute(args);
+            return await tools.specly_add.execute(args);
         }
-        case 'taskpilot_status': {
+        case 'specly_status': {
             const args = validatedArgs as z.infer<typeof statusToolSchema>;
-            return await tools.taskpilot_status.execute(args);
+            return await tools.specly_status.execute(args);
         }
-        case 'taskpilot_update': {
+        case 'specly_update': {
             const args = validatedArgs as z.infer<typeof updateToolSchema>;
-            return await tools.taskpilot_update.execute(args);
+            return await tools.specly_update.execute(args);
         }
-        case 'taskpilot_audit': {
+        case 'specly_audit': {
             const args = validatedArgs as z.infer<typeof auditToolSchema>;
-            return await tools.taskpilot_audit.execute(args as any);
+            return await tools.specly_audit.execute(args as any);
         }
-        case 'taskpilot_focus': {
+        case 'specly_focus': {
             const args = validatedArgs as z.infer<typeof focusToolSchema>;
-            return await tools.taskpilot_focus.execute(args);
+            return await tools.specly_focus.execute(args);
         }
-        case 'taskpilot_github': {
+        case 'specly_github': {
             const args = validatedArgs as z.infer<typeof githubToolSchema>;
-            return await tools.taskpilot_github.execute(args);
+            return await tools.specly_github.execute(args);
         }
-        case 'taskpilot_rule_update': {
+        case 'specly_rule_update': {
             const args = validatedArgs as z.infer<typeof ruleUpdateToolSchema>;
-            return await tools.taskpilot_rule_update.execute(args);
+            return await tools.specly_rule_update.execute(args);
         }
-        case 'taskpilot_remote_interface': {
+        case 'specly_remote_interface': {
             const args = validatedArgs as z.infer<typeof remoteInterfaceToolSchema>;
-            return await tools.taskpilot_remote_interface.execute(args);
+            return await tools.specly_remote_interface.execute(args);
         }
         default:
             throw new Error(`Unhandled tool: ${toolName}`);
@@ -249,19 +249,19 @@ async function main() {
 
     if (args.length < 1) {
         console.error('Usage: npm run test:tool -- <toolName> [arguments]');
-        console.error('Example: npm run test:tool -- taskpilot_start \'{"workspace_path": "/tmp/test-workspace"}\'');
+        console.error('Example: npm run test:tool -- specly_start \'{"workspace_path": "/tmp/test-workspace"}\'');
         console.error('');
         console.error('Available tools:');
-        console.error('  taskpilot_init');
-        console.error('  taskpilot_start');
-        console.error('  taskpilot_add');
-        console.error('  taskpilot_status');
-        console.error('  taskpilot_update');
-        console.error('  taskpilot_audit');
-        console.error('  taskpilot_focus');
-        console.error('  taskpilot_github');
-        console.error('  taskpilot_rule_update');
-        console.error('  taskpilot_remote_interface');
+        console.error('  specly_init');
+        console.error('  specly_start');
+        console.error('  specly_add');
+        console.error('  specly_status');
+        console.error('  specly_update');
+        console.error('  specly_audit');
+        console.error('  specly_focus');
+        console.error('  specly_github');
+        console.error('  specly_rule_update');
+        console.error('  specly_remote_interface');
         process.exit(1);
     }
 

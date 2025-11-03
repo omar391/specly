@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
-import type { TaskPilotToolResult } from '../types/index.js';
+import type { SpeclyToolResult } from '../types/index.js';
 import { PromptOrchestrator } from '../services/prompt-orchestrator.js';
 import { GlobalDatabaseService } from '../database/global-queries.js';
 
-// Input schema for taskpilot_rule_update tool
+// Input schema for specly_rule_update tool
 export const ruleUpdateToolSchema = z.object({
   workspace_path: z.string().describe('Absolute path to the workspace directory'),
   rule_type: z.enum(['coding', 'git', 'testing', 'security', 'performance', 'custom']).describe('Type of rule to update'),
@@ -15,7 +15,7 @@ export const ruleUpdateToolSchema = z.object({
 export type RuleUpdateToolInput = z.infer<typeof ruleUpdateToolSchema>;
 
 /**
- * TaskPilot Rule Update Tool - Workspace Rules Management (Pure TypeScript/Drizzle)
+ * Specly Rule Update Tool - Workspace Rules Management (Pure TypeScript/Drizzle)
  * 
  * MCP tool for managing workspace-specific rules and guidelines.
  * Updates workspace rules based on user interactions and preferences.
@@ -30,9 +30,9 @@ export class RuleUpdateTool {
   }
 
   /**
-   * Execute taskpilot_rule_update tool
+   * Execute specly_rule_update tool
    */
-  async execute(input: RuleUpdateToolInput): Promise<TaskPilotToolResult> {
+  async execute(input: RuleUpdateToolInput): Promise<SpeclyToolResult> {
     try {
       const { workspace_path, rule_type, rule_content, action } = input;
 
@@ -42,7 +42,7 @@ export class RuleUpdateTool {
         return {
           content: [{
             type: 'text',
-            text: `Error: Workspace not found at path: ${workspace_path}. Please run taskpilot_start first to initialize the workspace.`
+            text: `Error: Workspace not found at path: ${workspace_path}. Please run specly_start first to initialize the workspace.`
           }],
           isError: true
         };
@@ -50,7 +50,7 @@ export class RuleUpdateTool {
 
       // Generate orchestrated prompt for rule updates
       const orchestrationResult = await this.orchestrator.orchestratePrompt(
-        'taskpilot_rule_update',
+        'specly_rule_update',
         workspace.id,
         {
           workspace_path,
@@ -72,7 +72,7 @@ export class RuleUpdateTool {
         }]
       };
     } catch (error) {
-      console.error('Error in taskpilot_rule_update:', error);
+      console.error('Error in specly_rule_update:', error);
       return {
         content: [{
           type: 'text',
@@ -88,7 +88,7 @@ export class RuleUpdateTool {
    */
   static getToolDefinition() {
     return {
-      name: 'taskpilot_rule_update',
+      name: 'specly_rule_update',
       description: 'Manage workspace-specific rules and guidelines',
       inputSchema: {
         type: 'object',

@@ -19,7 +19,7 @@ describe('Base Tool Interface Validation', () => {
     const definition = AddToolNew.getToolDefinition();
     
     expect(definition).toBeDefined();
-    expect(definition.name).toBe('taskpilot_add');
+    expect(definition.name).toBe('specly_add');
     expect(definition.description).toContain('Multi-step task creation');
     expect(definition.inputSchema).toBeDefined();
     expect(definition.inputSchema.properties).toHaveProperty('stepId');

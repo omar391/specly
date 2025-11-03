@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
-import type { TaskPilotToolResult } from '../types/index.js';
+import type { SpeclyToolResult } from '../types/index.js';
 import { PromptOrchestrator } from '../services/prompt-orchestrator.js';
 import { GlobalDatabaseService } from '../database/global-queries.js';
 
@@ -32,7 +32,7 @@ export interface ToolDefinition {
 }
 
 /**
- * Abstract base class that all TaskPilot MCP tools should extend
+ * Abstract base class that all Specly MCP tools should extend
  */
 export abstract class BaseTool {
   protected orchestrator: PromptOrchestrator;
@@ -114,7 +114,7 @@ export abstract class BaseTool {
       if (!workspace) {
         return {
           isValid: false,
-          error: `Workspace not found at path: ${workspacePath}. Please run taskpilot_start first to initialize the workspace.`
+          error: `Workspace not found at path: ${workspacePath}. Please run specly_start first to initialize the workspace.`
         };
       }
 
@@ -133,18 +133,18 @@ export abstract class BaseTool {
   /**
    * Create standardized error result
    */
-  protected createErrorResult(message: string, data?: any): TaskPilotToolResult { return { content: [{ type: 'text', text: message }], isError: true }; }
+  protected createErrorResult(message: string, data?: any): SpeclyToolResult { return { content: [{ type: 'text', text: message }], isError: true }; }
 
   /**
    * Create standardized success result
    */
-  protected createSuccessResult(text: string, _details?: any): TaskPilotToolResult { return { content: [{ type: 'text', text }], isError: false }; }
+  protected createSuccessResult(text: string, _details?: any): SpeclyToolResult { return { content: [{ type: 'text', text }], isError: false }; }
 
   /**
    * Execute tool with common validation and error handling
    * Subclasses must implement this method
    */
-  abstract execute(input: any): Promise<TaskPilotToolResult>;
+  abstract execute(input: any): Promise<SpeclyToolResult>;
 
   /**
    * Static method for getting tool definition (for compatibility)
@@ -164,4 +164,4 @@ export function createBaseToolSchema(toolName: string, additionalProperties: Rec
 /**
  * Type guard to check if a result is an error
  */
-export function isToolError(result: TaskPilotToolResult): boolean { return result.isError === true; }
+export function isToolError(result: SpeclyToolResult): boolean { return result.isError === true; }

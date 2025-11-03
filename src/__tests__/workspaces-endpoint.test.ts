@@ -23,7 +23,7 @@ describe('Workspaces Endpoint', () => {
     mkdirSync(testDir, { recursive: true });
     workspaceTestPath = join(testDir, 'test-workspace');
     mkdirSync(workspaceTestPath, { recursive: true });
-    mkdirSync(join(workspaceTestPath, '.taskpilot'), { recursive: true });
+    mkdirSync(join(workspaceTestPath, '.specly'), { recursive: true });
 
     // Initialize in-memory global database
     drizzleDb = new DrizzleDatabaseManager(':memory:', DatabaseType.GLOBAL);
@@ -187,9 +187,9 @@ describe('Workspaces Endpoint', () => {
       const workspace2Path = join(testDir, 'workspace2');
       
       mkdirSync(workspace1Path, { recursive: true });
-      mkdirSync(join(workspace1Path, '.taskpilot'), { recursive: true });
+      mkdirSync(join(workspace1Path, '.specly'), { recursive: true });
       mkdirSync(workspace2Path, { recursive: true });
-      mkdirSync(join(workspace2Path, '.taskpilot'), { recursive: true });
+      mkdirSync(join(workspace2Path, '.specly'), { recursive: true });
 
       await globalDb.createWorkspace({
         id: 'ws-1',
@@ -373,7 +373,7 @@ describe('Workspaces Endpoint', () => {
       for (let i = 0; i < statuses.length; i++) {
         const wsPath = join(testDir, `workspace-${i}`);
         mkdirSync(wsPath, { recursive: true });
-        mkdirSync(join(wsPath, '.taskpilot'), { recursive: true });
+        mkdirSync(join(wsPath, '.specly'), { recursive: true });
         
         await globalDb.createWorkspace({
           id: `ws-${i}`,

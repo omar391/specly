@@ -10,7 +10,7 @@ describe('Workspace Schema Investigation', () => {
 
     beforeEach(() => {
         // Create unique test workspace
-        testWorkspaceDir = mkdtempSync(join(tmpdir(), 'taskpilot-schema-test-'));
+        testWorkspaceDir = mkdtempSync(join(tmpdir(), 'specly-schema-test-'));
     });
 
     afterEach(() => {

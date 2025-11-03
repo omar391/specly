@@ -78,10 +78,10 @@ describe('WorkspaceRegistry', () => {
       expect(workspace?.name).toBe('auto-named-workspace');
     });
 
-    it('should detect workspace with .taskpilot directory', async () => {
-      const workspacePath = join(testDir, 'taskpilot-workspace');
+    it('should detect workspace with .specly directory', async () => {
+      const workspacePath = join(testDir, 'specly-workspace');
       mkdirSync(workspacePath, { recursive: true });
-      mkdirSync(join(workspacePath, '.taskpilot'), { recursive: true });
+      mkdirSync(join(workspacePath, '.specly'), { recursive: true });
 
       const workspaceId = await registry.registerWorkspace(workspacePath);
       expect(workspaceId).toBeDefined();
@@ -112,7 +112,7 @@ describe('WorkspaceRegistry', () => {
     });
 
     it('should not register non-workspace directories', async () => {
-      // Create regular directories without .task or .taskpilot
+      // Create regular directories without .task or .specly
       const regularDir = join(testDir, 'regular-folder');
       mkdirSync(regularDir, { recursive: true });
       writeFileSync(join(regularDir, 'file.txt'), 'content');

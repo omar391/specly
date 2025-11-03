@@ -1,16 +1,16 @@
-import type { TaskPilotToolResult } from '../types/index.js';
+import type { SpeclyToolResult } from '../types/index.js';
 import { BaseTool, BaseToolConfig, ToolDefinition, createBaseToolSchema } from './base-tool.js';
 import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
 import { WorkspaceDatabaseService } from '../database/workspace-queries.js';
 
 // Simplified single-step audit tool schema
-export const auditToolSchema = createBaseToolSchema('taskpilot_audit', {}, ['workspace_path']);
+export const auditToolSchema = createBaseToolSchema('specly_audit', {}, ['workspace_path']);
 export type AuditToolInput = { workspace_path: string };
 
 export class AuditToolNew extends BaseTool {
   constructor(drizzleDb: DrizzleDatabaseManager) {
     const config: BaseToolConfig = {
-      name: 'taskpilot_audit',
+      name: 'specly_audit',
       description: 'Single-step audit of workspace tasks summarizing status and potential blockers.',
       requiredFields: ['workspace_path'],
       additionalProperties: {}
@@ -18,7 +18,7 @@ export class AuditToolNew extends BaseTool {
     super(drizzleDb, config);
   }
 
-  async execute(input: AuditToolInput): Promise<TaskPilotToolResult> {
+  async execute(input: AuditToolInput): Promise<SpeclyToolResult> {
     const { workspace_path } = input;
     const workspaceValidation = await this.validateWorkspace(workspace_path);
     if (!workspaceValidation.isValid) {
@@ -42,7 +42,7 @@ export class AuditToolNew extends BaseTool {
 
   static getToolDefinition(): ToolDefinition {
     return {
-      name: 'taskpilot_audit',
+      name: 'specly_audit',
       description: 'Single-step audit of workspace tasks summarizing status and potential blockers.',
       inputSchema: {
         type: 'object',

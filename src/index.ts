@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * TaskPilot Integrated Server
+ * Specly Integrated Server
  * 
  * Unified server that combines MCP server + UI + REST API
  */
@@ -49,9 +49,9 @@ import { RemoteInterfaceTool, remoteInterfaceToolSchema } from './tools/remote-i
 import { UpdateResourcesTool, updateResourcesToolSchema } from './tools/update-resources.js';
 import { UpdateStepsTool, updateStepsToolSchema } from './tools/update-steps.js';
 import { InstanceManager } from './server/instance-manager.js';
-import { TaskPilotToolResult } from './types/index.js';
+import { SpeclyToolResult } from './types/index.js';
 
-// Legacy multi-step types removed; all tools now return TaskPilotToolResult.
+// Legacy multi-step types removed; all tools now return SpeclyToolResult.
 
 // Global variables
 let seedManager: SeedManager;
@@ -120,12 +120,12 @@ function createMCPToolHandlers(): MCPToolHandlers {
         tools: [
           {
             name: ToolNames.INIT,
-            description: "Initialize a TaskPilot workspace with .task folder structure and configuration",
+            description: "Initialize a Specly workspace with .task folder structure and configuration",
             inputSchema: zodToJsonSchema(initToolSchema),
           },
           {
             name: ToolNames.START,
-            description: "Initialize TaskPilot session for a workspace and provide comprehensive project context",
+            description: "Initialize Specly session for a workspace and provide comprehensive project context",
             inputSchema: zodToJsonSchema(startToolSchema),
           },
           {
@@ -295,12 +295,12 @@ async function startStdioMode(cliOptions: CmdOptions) {
   // POTENTIAL ISSUE: This console.log goes to stdout, violating MCP protocol
   if (cliOptions.mode !== 'stdio') {
     // Allow error logs only in test for debugging
-    console.error('[DEBUG] Starting TaskPilot MCP server in STDIO mode (logging to stderr)');
+    console.error('[DEBUG] Starting Specly MCP server in STDIO mode (logging to stderr)');
   }
 
   const server = new Server(
     {
-      name: "taskpilot",
+      name: "specly",
       version: "0.1.0",
     },
     {
@@ -334,17 +334,17 @@ async function startStdioMode(cliOptions: CmdOptions) {
 
   // POTENTIAL ISSUE: This console.log goes to stdout, violating MCP protocol
   if (cliOptions.mode !== 'stdio') {
-    console.error('[DEBUG] TaskPilot MCP server running on stdio (logging to stderr)');
+    console.error('[DEBUG] Specly MCP server running on stdio (logging to stderr)');
   }
 }
 
 async function startHttpMode(port: number) {
-  console.log(`Starting TaskPilot integrated server on port ${port}`);
+  console.log(`Starting Specly integrated server on port ${port}`);
 
   // Ensure port is free (killing any processes using it)
   const portFree = await ensurePortFree(port);
   if (!portFree) {
-    throw new Error(`Unable to free port ${port} for TaskPilot server`);
+    throw new Error(`Unable to free port ${port} for Specly server`);
   }
 
   // Create Express server
@@ -379,7 +379,7 @@ async function startHttpMode(port: number) {
 
 function setupGracefulShutdown(): void {
   const shutdownHandler = async (signal: string) => {
-    console.log(`\n${signal} received. Shutting down TaskPilot Integrated Server gracefully...`);
+    console.log(`\n${signal} received. Shutting down Specly Integrated Server gracefully...`);
 
     try {
       if (expressServer) {
@@ -389,7 +389,7 @@ function setupGracefulShutdown(): void {
       console.error('Error during shutdown:', error);
     }
 
-    console.log('TaskPilot Integrated Server shutdown complete.');
+    console.log('Specly Integrated Server shutdown complete.');
     process.exit(0);
   };
 

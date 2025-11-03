@@ -37,7 +37,7 @@ export interface Session {
 
 // Legacy prompt orchestration result type removed
 
-export interface TaskPilotToolResult {
+export interface SpeclyToolResult {
   content: Array<{
     type: 'text';
     text: string;

@@ -105,8 +105,8 @@ describe('CLI Parser', () => {
       expect(options.mode).toBe('http');
     });
 
-    it('should respect TASKPILOT_FORCE_SEED env variable', () => {
-      process.env.TASKPILOT_FORCE_SEED = '1';
+    it('should respect SPECLY_FORCE_SEED env variable', () => {
+      process.env.SPECLY_FORCE_SEED = '1';
       const options = parseCliArgs([]);
       
       expect(options.forceSeed).toBe(true);
@@ -194,7 +194,7 @@ describe('CLI Parser', () => {
       expect(consoleLogSpy).toHaveBeenCalled();
       const output = consoleLogSpy.mock.calls.join('\n');
       
-      expect(output).toContain('TaskPilot');
+      expect(output).toContain('Specly');
       expect(output).toContain('USAGE');
       expect(output).toContain('OPTIONS');
       expect(output).toContain('--port');

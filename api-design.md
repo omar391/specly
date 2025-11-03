@@ -1,6 +1,6 @@
-# TaskPilot UI Integration API Design
+# Specly UI Integration API Design
 
-Note: Legacy TaskPilot task schema is deprecated. This document now reflects Specly’s workspace schema (tasks, task_dependencies, sessions). Any references to the old legacy task schema are superseded by this design.
+Note: Legacy Specly task schema is deprecated. This document now reflects Specly’s workspace schema (tasks, task_dependencies, sessions). Any references to the old legacy task schema are superseded by this design.
 
 ## Overview
 # Specly UI Integration API Design

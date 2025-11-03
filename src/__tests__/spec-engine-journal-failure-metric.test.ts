@@ -12,12 +12,12 @@ class InMemoryMetrics implements MetricsCollector {
 /**
  * Verifies that when journal upsert encounters a failure (e.g., DB not initialized and auto-create disabled?)
  * it increments specly_engine_journal_failures_total. We simulate by providing an invalid DB state: we deliberately
- * skip initialization and set TASKPILOT_JOURNAL_AUTOCREATE_SPEC=false to avoid spec auto-creation, then force an upsert.
+ * skip initialization and set SPECLY_JOURNAL_AUTOCREATE_SPEC=false to avoid spec auto-creation, then force an upsert.
  */
 
 describe('PersistentJournalService failure metric', () => {
     it('increments journal failure counter on upsert exception', async () => {
-        process.env.TASKPILOT_JOURNAL_AUTOCREATE_SPEC = 'false';
+        process.env.SPECLY_JOURNAL_AUTOCREATE_SPEC = 'false';
         const metrics = new InMemoryMetrics();
 
         // Do NOT initialize global DB to force potential failure path during ensureInitialized or FK insert

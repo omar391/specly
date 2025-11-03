@@ -1,7 +1,7 @@
 /**
  * Port Management Utilities
  * 
- * Handles port detection, cleanup, and conflict resolution for TaskPilot server
+ * Handles port detection, cleanup, and conflict resolution for Specly server
  */
 
 import { exec } from 'child_process';

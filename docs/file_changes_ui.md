@@ -12,8 +12,8 @@ Legend:
 - `ui/rsbuild.config.ts` [M]: Ensure alias imports for `@specly/*` (new modules) if introduced.
 - `ui/tailwind.config.js` [M]: Add tokens for task status chips (queued, in_progress, awaiting_input, blocked, paused, completed, failed).
 - `ui/eslint.config.js` [M]: Add rule for exhaustive-deps & custom alias import ordering.
-- `ui/index.html` [M]: Update app name branding TaskPilot → Specly.
-- `.env`, `.env.production` [M]: Replace TASKPILOT variables with SPECLY prefix.
+- `ui/index.html` [M]: Update app name branding Specly → Specly.
+- `.env`, `.env.production` [M]: Replace SPECLY variables with SPECLY prefix.
 - `README.md` [M]: Rewrite conceptual doc to reflect Specly profiles & spec engine.
 
 ## Global Assets & Styles

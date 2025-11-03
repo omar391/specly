@@ -1,22 +1,22 @@
 import { z } from 'zod';
-import type { TaskPilotToolResult } from '../types/index.js';
+import type { SpeclyToolResult } from '../types/index.js';
 import { BaseTool, BaseToolConfig, ToolDefinition, createBaseToolSchema } from './base-tool.js';
 import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
 
 // Input schema using the new base pattern
-export const focusToolSchema = createBaseToolSchema('taskpilot_focus', {
+export const focusToolSchema = createBaseToolSchema('specly_focus', {
   task_id: z.string().describe('Task ID to focus on (e.g., TP-001)')
 }, ['task_id', 'workspace_path']);
 
 /**
- * TaskPilot Focus Tool - Refactored using BaseTool interface
+ * Specly Focus Tool - Refactored using BaseTool interface
  * 
  * Enhanced with database-driven stepId enumeration and common error handling.
  */
 export class FocusToolNew extends BaseTool {
   constructor(drizzleDb: DrizzleDatabaseManager) {
     const config: BaseToolConfig = {
-      name: 'taskpilot_focus',
+      name: 'specly_focus',
       description: 'Focus on specific task and provide implementation guidance. Supports multi-step workflow.',
       requiredFields: ['task_id', 'workspace_path'],
       additionalProperties: {
@@ -31,9 +31,9 @@ export class FocusToolNew extends BaseTool {
   }
 
   /**
-   * Execute taskpilot_focus tool with multi-step support using base class validation
+   * Execute specly_focus tool with multi-step support using base class validation
    */
-  async execute(input: any): Promise<TaskPilotToolResult> {
+  async execute(input: any): Promise<SpeclyToolResult> {
     try {
       const { stepId, workspace_path } = input;
       // Single-step simplified focus tool
@@ -55,7 +55,7 @@ export class FocusToolNew extends BaseTool {
       };
 
     } catch (error) {
-      const errorMessage = `Error in taskpilot_focus: ${error instanceof Error ? error.message : String(error)}`;
+      const errorMessage = `Error in specly_focus: ${error instanceof Error ? error.message : String(error)}`;
       return {
         content: [{ type: 'text', text: errorMessage }],
         isError: true
@@ -100,7 +100,7 @@ export class FocusToolNew extends BaseTool {
    */
   static getToolDefinition(): ToolDefinition {
     return {
-      name: 'taskpilot_focus',
+      name: 'specly_focus',
       description: 'Focus on specific task and provide implementation guidance. Supports multi-step workflow.',
       inputSchema: {
         type: 'object',

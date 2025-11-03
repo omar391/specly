@@ -27,7 +27,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Status**: In-Progress
 - **Progress**: 80%
 - **Completed At**: 
-- **Notes**: Canonical JSON serializer + spec & tool version hashing implemented (`canonicalStringify`, `hashSpec`, `hashToolVersion`, `stableHash`). Golden fixture established (`spec-example.json`) with baseline enforcement in `hash.golden.test.ts`. Added negative test verifying ordered_specs reordering changes hash. New: in-memory LRU hash cache added and wired into hash helpers with env knob `TASKPILOT_HASH_CACHE_SIZE` (default 500), plus tests for hit/miss and determinism. Remaining: integrate hashing into spec/tool endpoints (SP-014) [done], collision logging + guard, expand golden vectors (SP-200), documentation of update procedure. Low-priority future: deep nested fuzz test.
+- **Notes**: Canonical JSON serializer + spec & tool version hashing implemented (`canonicalStringify`, `hashSpec`, `hashToolVersion`, `stableHash`). Golden fixture established (`spec-example.json`) with baseline enforcement in `hash.golden.test.ts`. Added negative test verifying ordered_specs reordering changes hash. New: in-memory LRU hash cache added and wired into hash helpers with env knob `SPECLY_HASH_CACHE_SIZE` (default 500), plus tests for hit/miss and determinism. Remaining: integrate hashing into spec/tool endpoints (SP-014) [done], collision logging + guard, expand golden vectors (SP-200), documentation of update procedure. Low-priority future: deep nested fuzz test.
 - **Connected File List**: ./src/utils/hash.ts, ./src/__tests__/hash.test.ts
 
 ## Task ID: SP-003
@@ -116,7 +116,7 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 		- Dead-end routing simulation triggers ROUTE_DEAD_END code
 		Additional Hardening:
 		- Resume token invalidation set (non-persistent; future persistence task pending)
-		- PersistentJournalService always initializes DB and (temporary) auto-creates spec stub; to be gated by env flag `TASKPILOT_JOURNAL_AUTOCREATE_SPEC` (follow-up)
+		- PersistentJournalService always initializes DB and (temporary) auto-creates spec stub; to be gated by env flag `SPECLY_JOURNAL_AUTOCREATE_SPEC` (follow-up)
 		- Retry loop integrated with journal reuse pre-check (part of SP-010 deliverables but leveraged here)
 		Deferred to New Tasks:
 		- Env gating & removal path for auto-create stub (new task)
@@ -396,7 +396,7 @@ Remaining for SP-018: Endpoint audit completed (no other public surfaces throw v
 
 ## Task ID: SP-100
 - **Title**: UI API Client Refactor
-- **Description**: Replace `TaskPilotApiClient` with `SpeclyApiClient`; remove tool-flow & feedback methods; add spec/tool/profile endpoints. Update types (statuses, remove dependencies array). See file_changes_ui.md.
+- **Description**: Replace `SpeclyApiClient` with `SpeclyApiClient`; remove tool-flow & feedback methods; add spec/tool/profile endpoints. Update types (statuses, remove dependencies array). See file_changes_ui.md.
 - **Priority**: High
 - **Dependencies**: SP-006
 - **Status**: Done
@@ -490,18 +490,18 @@ Remaining for SP-018: Endpoint audit completed (no other public surfaces throw v
 - **Status**: Done
 - **Progress**: 100%
 - **Completed At**: 2025-11-03T17:00:00Z
-- **Notes**: Completed: (1) rule-input-form.tsx component exists ✅. (2) workspace-rules-display.tsx component exists ✅. (3) Integration into Rules page ✅. Note: Minor legacy references to 'taskpilot_start' and 'taskpilot_init' remain in getting-started.tsx (documentation context only, not blocking).
+- **Notes**: Completed: (1) rule-input-form.tsx component exists ✅. (2) workspace-rules-display.tsx component exists ✅. (3) Integration into Rules page ✅. Note: Minor legacy references to 'specly_start' and 'specly_init' remain in getting-started.tsx (documentation context only, not blocking).
 - **Connected File List**: ./ui/src/components/rule-input-form.tsx, ./ui/src/components/workspace-rules-display.tsx, ./ui/src/pages/rules.tsx
 
 ## Task ID: SP-109
 - **Title**: Branding & Design Tokens Update
-- **Description**: Rename TaskPilot to Specly across UI, update design-system.json & tailwind tokens for new statuses & session states.
+- **Description**: Rename Specly to Specly across UI, update design-system.json & tailwind tokens for new statuses & session states.
 - **Priority**: Low
 - **Dependencies**: SP-100
 - **Status**: Done
 - **Progress**: 100%
 - **Completed At**: 2025-11-03T17:00:00Z
-- **Notes**: Completed: (1) ui/index.html title updated to 'Specly' ✅. (2) design-system.ts exports brandName = 'Specly' ✅. (3) sessionColors defined for awaiting_input, running, completed, failed with accessible contrast ✅. (4) designSystem.name = 'Specly Design System' ✅. (5) All UI components import and use brandName from design-system ✅. Note: Legacy 'taskpilot_start' and 'taskpilot_init' CLI command references remain in getting-started.tsx documentation (non-blocking, informational context only).
+- **Notes**: Completed: (1) ui/index.html title updated to 'Specly' ✅. (2) design-system.ts exports brandName = 'Specly' ✅. (3) sessionColors defined for awaiting_input, running, completed, failed with accessible contrast ✅. (4) designSystem.name = 'Specly Design System' ✅. (5) All UI components import and use brandName from design-system ✅. Note: Legacy 'specly_start' and 'specly_init' CLI command references remain in getting-started.tsx documentation (non-blocking, informational context only).
 - **Connected File List**: ./ui/src/lib/design-system.ts, ./ui/tailwind.config.js, ./ui/src/index.css, ./ui/index.html
 
 ## Task ID: SP-110
@@ -542,13 +542,13 @@ Remaining for SP-018: Endpoint audit completed (no other public surfaces throw v
 
 ## Task ID: SP-201
 - **Title**: Documentation Overhaul
-- **Description**: Update README, architecture doc, remove legacy references, add quickstart for spec → publish → execute. Rebrand from TaskPilot to Specly branding throughout all documentation.
+- **Description**: Update README, architecture doc, remove legacy references, add quickstart for spec → publish → execute. Rebrand from Specly to Specly branding throughout all documentation.
 - **Priority**: Medium
 - **Dependencies**: SP-006, SP-100
 - **Status**: Done
 - **Progress**: 100%
 - **Completed At**: 2025-11-03T13:30:00Z
-- **Notes**: Completed: (1) README.md fully rebranded with Specly naming, architecture concepts (hash-addressable specs, versioned tool graphs, unified execution), quickstart with curl examples, updated endpoints table, test counts (181/181), environment variables. (2) api-design.md rebranded: title updated to "Specly UI Integration API Design", database paths updated to ~/.specly/specly.db, clarified workspace data storage. (3) specly-architecture.md verified: already fully branded as Specly with no TaskPilot references, state diagrams and error taxonomy match current implementation. All 181 tests passing.
+- **Notes**: Completed: (1) README.md fully rebranded with Specly naming, architecture concepts (hash-addressable specs, versioned tool graphs, unified execution), quickstart with curl examples, updated endpoints table, test counts (181/181), environment variables. (2) api-design.md rebranded: title updated to "Specly UI Integration API Design", database paths updated to ~/.specly/specly.db, clarified workspace data storage. (3) specly-architecture.md verified: already fully branded as Specly with no Specly references, state diagrams and error taxonomy match current implementation. All 181 tests passing.
 - **Connected File List**: ./README.md, ./docs/api-design.md, ./docs/specly-architecture.md
 
 ## Task ID: SP-202

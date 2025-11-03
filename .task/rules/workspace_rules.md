@@ -194,7 +194,7 @@ This rule is mandatory and supersedes any ad-hoc commit practices.
 - Lease ownership changes only via `force_start` with prior lease mismatch.
 
 ## Rule Change Log
-- 2025-09-02: Initial Specly rewrite of workspace rules replacing TaskPilot references.
+- 2025-09-02: Initial Specly rewrite of workspace rules replacing Specly references.
 - 2025-09-02: Added mandate for drastic migration — remove all legacy tool_flow / feedback_step code & tables immediately (no coexistence). Any PR retaining legacy paths is invalid.
 - 2025-09-03: Commit process consolidated. See "Commit Process: General Rule (2025-09-03)" above. Commit message format remains as specified in "Commit Message Format".
 - 2025-09-03: Always follow LLM assistant's recommended next steps

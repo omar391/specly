@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
-import type { TaskPilotToolResult } from '../types/index.js';
+import type { SpeclyToolResult } from '../types/index.js';
 import { PromptOrchestrator } from '../services/prompt-orchestrator.js';
 import { GlobalDatabaseService } from '../database/global-queries.js';
 
-// Input schema for taskpilot_remote_interface tool
+// Input schema for specly_remote_interface tool
 export const remoteInterfaceToolSchema = z.object({
   workspace_path: z.string().describe('Absolute path to the workspace directory'),
   interface_type: z.enum(['github', 'jira', 'linear', 'asana', 'trello', 'custom']).describe('Type of remote interface'),
@@ -15,7 +15,7 @@ export const remoteInterfaceToolSchema = z.object({
 export type RemoteInterfaceToolInput = z.infer<typeof remoteInterfaceToolSchema>;
 
 /**
- * TaskPilot Remote Interface Tool - External System Integration (Pure TypeScript/Drizzle)
+ * Specly Remote Interface Tool - External System Integration (Pure TypeScript/Drizzle)
  * 
  * MCP tool for managing connections to external systems like GitHub, Jira, Linear,
  * Asana, Trello, and custom interfaces for task synchronization.
@@ -30,9 +30,9 @@ export class RemoteInterfaceTool {
   }
 
   /**
-   * Execute taskpilot_remote_interface tool
+   * Execute specly_remote_interface tool
    */
-  async execute(input: RemoteInterfaceToolInput): Promise<TaskPilotToolResult> {
+  async execute(input: RemoteInterfaceToolInput): Promise<SpeclyToolResult> {
     try {
       const { workspace_path, interface_type, action, config } = input;
 
@@ -42,7 +42,7 @@ export class RemoteInterfaceTool {
         return {
           content: [{
             type: 'text',
-            text: `Error: Workspace not found at path: ${workspace_path}. Please run taskpilot_start first to initialize the workspace.`
+            text: `Error: Workspace not found at path: ${workspace_path}. Please run specly_start first to initialize the workspace.`
           }],
           isError: true
         };
@@ -54,7 +54,7 @@ export class RemoteInterfaceTool {
 
       // Generate orchestrated prompt for remote interface management
       const orchestrationResult = await this.orchestrator.orchestratePrompt(
-        'taskpilot_remote_interface',
+        'specly_remote_interface',
         workspace.id,
         {
           workspace_path,
@@ -77,7 +77,7 @@ export class RemoteInterfaceTool {
         }]
       };
     } catch (error) {
-      console.error('Error in taskpilot_remote_interface:', error);
+      console.error('Error in specly_remote_interface:', error);
       return {
         content: [{
           type: 'text',
@@ -93,7 +93,7 @@ export class RemoteInterfaceTool {
    */
   static getToolDefinition() {
     return {
-      name: 'taskpilot_remote_interface',
+      name: 'specly_remote_interface',
       description: 'Manage connections to external systems for task synchronization',
       inputSchema: {
         type: 'object',

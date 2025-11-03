@@ -314,10 +314,10 @@ cpython`;
     });
 
     it('should handle single process', async () => {
-      (exec as any).mockImplementation(mockExecResponse('p99999\ncTaskPilot'));
+      (exec as any).mockImplementation(mockExecResponse('p99999\ncSpecly'));
 
       const result = await portManager.getPortProcessInfo(testPort);
-      expect(result).toEqual([{ pid: '99999', command: 'TaskPilot' }]);
+      expect(result).toEqual([{ pid: '99999', command: 'Specly' }]);
     });
 
     it('should handle malformed output gracefully', async () => {
@@ -342,11 +342,11 @@ cpython`;
     });
 
     it('should handle multiple commands for same PID', async () => {
-      (exec as any).mockImplementation(mockExecResponse('p12345\ncnode\ncTaskPilot'));
+      (exec as any).mockImplementation(mockExecResponse('p12345\ncnode\ncSpecly'));
 
       const result = await portManager.getPortProcessInfo(testPort);
       // Multiple commands can be captured for same PID
-      expect(result).toEqual([{ pid: '12345', command: 'node' }, { pid: '12345', command: 'TaskPilot' }]);
+      expect(result).toEqual([{ pid: '12345', command: 'node' }, { pid: '12345', command: 'Specly' }]);
     });
 
     it('should call lsof with correct flags', async () => {

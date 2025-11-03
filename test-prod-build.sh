@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🏗️  Testing TaskPilot Production Build"
+echo "🏗️  Testing Specly Production Build"
 echo "======================================"
 
 echo "📦 Building server..."

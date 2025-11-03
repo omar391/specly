@@ -13,7 +13,7 @@ export class WorkspacesController {
 
   /**
    * GET /api/workspaces
-   * List all TaskPilot workspaces with summary information
+   * List all Specly workspaces with summary information
    */
   async getWorkspaces(req: Request, res: Response): Promise<void> {
     try {

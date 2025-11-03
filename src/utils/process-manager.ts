@@ -1,7 +1,7 @@
 /**
  * Process Management Utilities
  * 
- * Handles TaskPilot process detection and cleanup
+ * Handles Specly process detection and cleanup
  */
 
 import { exec } from 'child_process';
@@ -10,7 +10,7 @@ import { promisify } from 'util';
 const execAsync = promisify(exec);
 
 /**
- * Ensure the target port is free for TaskPilot server
+ * Ensure the target port is free for Specly server
  * Kills any processes using the port, regardless of what they are
  */
 export async function ensurePortFree(port: number): Promise<boolean> {
@@ -21,7 +21,7 @@ export async function ensurePortFree(port: number): Promise<boolean> {
       return true; // Port is free
     }
 
-    console.log(`Port ${port} is in use. Freeing it for TaskPilot server...`);
+    console.log(`Port ${port} is in use. Freeing it for Specly server...`);
     
     // Get PIDs of processes using the port
     const { stdout: pidOutput } = await execAsync(`lsof -ti :${port}`);
@@ -82,7 +82,7 @@ export async function ensurePortFree(port: number): Promise<boolean> {
 /**
  * Create a graceful shutdown handler
  */
-export function createShutdownHandler(serverName: string = 'TaskPilot Server'): (signal: string) => void {
+export function createShutdownHandler(serverName: string = 'Specly Server'): (signal: string) => void {
   return (signal: string) => {
     console.log(`\n${signal} received. Shutting down ${serverName} gracefully...`);
     
@@ -97,7 +97,7 @@ export function createShutdownHandler(serverName: string = 'TaskPilot Server'): 
 /**
  * Register standard process signal handlers
  */
-export function registerSignalHandlers(serverName: string = 'TaskPilot Server'): void {
+export function registerSignalHandlers(serverName: string = 'Specly Server'): void {
   const handler = createShutdownHandler(serverName);
   
   process.on('SIGINT', () => handler('SIGINT'));

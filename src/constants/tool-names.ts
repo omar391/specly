@@ -1,24 +1,24 @@
 /**
- * Central registry for all TaskPilot tool names
+ * Central registry for all Specly tool names
  * 
  * This file serves as the single source of truth for tool name validation
  * and prevents duplication across CLI, MCP server, and other components.
  */
 
-// String enum for all TaskPilot tools
+// String enum for all Specly tools
 export enum ToolNames {
-    INIT = 'taskpilot_init',
-    START = 'taskpilot_start',
-    ADD = 'taskpilot_add',
-    STATUS = 'taskpilot_status',
-    UPDATE = 'taskpilot_update',
-    AUDIT = 'taskpilot_audit',
-    FOCUS = 'taskpilot_focus',
-    GITHUB = 'taskpilot_github',
-    RULE_UPDATE = 'taskpilot_rule_update',
-    REMOTE_INTERFACE = 'taskpilot_remote_interface',
-    UPDATE_RESOURCES = 'taskpilot_update_resources',
-    UPDATE_STEPS = 'taskpilot_update_steps'
+    INIT = 'specly_init',
+    START = 'specly_start',
+    ADD = 'specly_add',
+    STATUS = 'specly_status',
+    UPDATE = 'specly_update',
+    AUDIT = 'specly_audit',
+    FOCUS = 'specly_focus',
+    GITHUB = 'specly_github',
+    RULE_UPDATE = 'specly_rule_update',
+    REMOTE_INTERFACE = 'specly_remote_interface',
+    UPDATE_RESOURCES = 'specly_update_resources',
+    UPDATE_STEPS = 'specly_update_steps'
 }
 
 // Array of tool names for iteration (derived from enum values)

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🚀 Testing TaskPilot Development Setup"
+echo "🚀 Testing Specly Development Setup"
 echo "======================================"
 
 echo -n "✅ MCP Backend Health Check: "

@@ -69,7 +69,7 @@ bun run dev
 - API requests failing (4xx/5xx): verify `VITE_API_BASE_URL` points to your running backend.
 - SSE connection errors: check `VITE_MCP_SSE_URL` and that the backend SSE endpoint is enabled.
 - Type errors or missing types: ensure dependencies are installed (`bun install`) and you’re on the UI workspace directory before running commands.
-- Theme storage key changed to `specly-theme`. If your browser had a previous TaskPilot theme value, it won’t be reused (by design).
+- Theme storage key changed to `specly-theme`. If your browser had a previous Specly theme value, it won’t be reused (by design).
 
 ## Branding tokens
 

@@ -26,7 +26,7 @@ describe('Prompt Orchestrator', () => {
         { workspace_path: '/path/to/workspace' }
       );
 
-      expect(result.prompt_text).toContain('TaskPilot Session Started');
+      expect(result.prompt_text).toContain('Specly Session Started');
       expect(result.prompt_text).toContain('/path/to/workspace');
       expect(result.session_data).toEqual({
         current_tool: ToolNames.START,
@@ -46,7 +46,7 @@ describe('Prompt Orchestrator', () => {
         }
       );
 
-      expect(result.prompt_text).toContain('TaskPilot Project Initialization');
+      expect(result.prompt_text).toContain('Specly Project Initialization');
       expect(result.prompt_text).toContain('My Project');
       expect(result.prompt_text).toContain('/my/project');
       expect(result.prompt_text).toContain('TypeScript, React, Node.js');
@@ -60,7 +60,7 @@ describe('Prompt Orchestrator', () => {
         {}
       );
 
-      expect(result.prompt_text).toContain('TaskPilot Project');
+      expect(result.prompt_text).toContain('Specly Project');
       expect(result.prompt_text).toContain('current directory');
       expect(result.prompt_text).toContain('Not specified');
       expect(result.prompt_text).toContain('No specific requirements');
@@ -187,9 +187,9 @@ describe('Prompt Orchestrator', () => {
       expect(result.prompt_text).toContain('Use tabs not spaces');
     });
 
-    it('should handle legacy taskpilot_create_task', async () => {
+    it('should handle legacy specly_create_task', async () => {
       const result = await orchestrator.orchestratePrompt(
-        'taskpilot_create_task',
+        'specly_create_task',
         'workspace-123',
         {}
       );
@@ -274,10 +274,10 @@ describe('Prompt Orchestrator', () => {
 
   describe('generateNextStepInstructions', () => {
     it('should generate continuation instructions for any tool', async () => {
-      const result = await orchestrator.generateNextStepInstructions('taskpilot_init');
+      const result = await orchestrator.generateNextStepInstructions('specly_init');
       
       expect(result).toContain('Continue with');
-      expect(result).toContain('taskpilot_init');
+      expect(result).toContain('specly_init');
       expect(result).toContain('workflow');
     });
 
@@ -391,7 +391,7 @@ describe('Prompt Orchestrator', () => {
       );
 
       // Should use defaults
-      expect(result.prompt_text).toContain('TaskPilot Project');
+      expect(result.prompt_text).toContain('Specly Project');
       expect(result.prompt_text).toContain('Not specified');
     });
 
@@ -420,7 +420,7 @@ describe('Prompt Orchestrator', () => {
       );
 
       // Should use defaults for falsy values
-      expect(result.prompt_text).toContain('TaskPilot Project');
+      expect(result.prompt_text).toContain('Specly Project');
       expect(result.prompt_text).toContain('Not specified');
       expect(result.prompt_text).toContain('No specific requirements');
     });
@@ -455,7 +455,7 @@ describe('Prompt Orchestrator', () => {
       );
 
       const result2 = await orchestrator.orchestratePrompt(
-        'TASKPILOT_STATUS' as any,
+        'SPECLY_STATUS' as any,
         'workspace-123',
         {}
       );

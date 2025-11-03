@@ -29,7 +29,7 @@ export interface MCPServerMapping {
 }
 
 export interface FieldMapping {
-    taskpilot_field: string;
+    specly_field: string;
     remote_field: string;
     transformation?: 'direct' | 'uppercase' | 'lowercase' | 'custom';
     custom_transform?: string; // Custom transformation logic
@@ -270,31 +270,31 @@ export class RemoteInterfaceManager {
      */
     private getDefaultFieldMappings(interfaceType: RemoteInterface['interface_type']): FieldMapping[] {
         const baseMapping: FieldMapping[] = [
-            { taskpilot_field: 'title', remote_field: 'title' },
-            { taskpilot_field: 'description', remote_field: 'description' },
-            { taskpilot_field: 'status', remote_field: 'status' }
+            { specly_field: 'title', remote_field: 'title' },
+            { specly_field: 'description', remote_field: 'description' },
+            { specly_field: 'status', remote_field: 'status' }
         ];
 
         switch (interfaceType) {
             case 'github':
                 return [
                     ...baseMapping,
-                    { taskpilot_field: 'status', remote_field: 'state', transformation: 'custom' },
-                    { taskpilot_field: 'priority', remote_field: 'labels', transformation: 'custom' }
+                    { specly_field: 'status', remote_field: 'state', transformation: 'custom' },
+                    { specly_field: 'priority', remote_field: 'labels', transformation: 'custom' }
                 ];
             case 'jira':
                 return [
                     ...baseMapping,
-                    { taskpilot_field: 'priority', remote_field: 'priority.name' },
-                    { taskpilot_field: 'status', remote_field: 'status.name' },
-                    { taskpilot_field: 'assignee', remote_field: 'assignee.displayName' }
+                    { specly_field: 'priority', remote_field: 'priority.name' },
+                    { specly_field: 'status', remote_field: 'status.name' },
+                    { specly_field: 'assignee', remote_field: 'assignee.displayName' }
                 ];
             case 'linear':
                 return [
                     ...baseMapping,
-                    { taskpilot_field: 'priority', remote_field: 'priority', transformation: 'custom' },
-                    { taskpilot_field: 'status', remote_field: 'state.name' },
-                    { taskpilot_field: 'assignee', remote_field: 'assignee.name' }
+                    { specly_field: 'priority', remote_field: 'priority', transformation: 'custom' },
+                    { specly_field: 'status', remote_field: 'state.name' },
+                    { specly_field: 'assignee', remote_field: 'assignee.name' }
                 ];
             default:
                 return baseMapping;
@@ -450,7 +450,7 @@ export class RemoteInterfaceManager {
      */
     private async syncJiraInterface(remoteInterface: RemoteInterface, result: SyncResult): Promise<void> {
         // Placeholder for Jira synchronization logic
-        // This would implement bidirectional sync between TaskPilot tasks and Jira issues
+        // This would implement bidirectional sync between Specly tasks and Jira issues
         throw new Error('Jira synchronization not yet implemented');
     }
 
@@ -459,7 +459,7 @@ export class RemoteInterfaceManager {
      */
     private async syncLinearInterface(remoteInterface: RemoteInterface, result: SyncResult): Promise<void> {
         // Placeholder for Linear synchronization logic
-        // This would implement bidirectional sync between TaskPilot tasks and Linear issues
+        // This would implement bidirectional sync between Specly tasks and Linear issues
         throw new Error('Linear synchronization not yet implemented');
     }
 

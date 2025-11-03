@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
-import type { TaskPilotToolResult } from '../types/index.js';
+import type { SpeclyToolResult } from '../types/index.js';
 import { PromptOrchestrator } from '../services/prompt-orchestrator.js';
 import { GlobalDatabaseService } from '../database/global-queries.js';
 
-// Input schema for taskpilot_github tool
+// Input schema for specly_github tool
 export const githubToolSchema = z.object({
   workspace_path: z.string().describe('Absolute path to the workspace directory'),
   action: z.enum(['create_issue', 'create_pr', 'sync_tasks']).describe('GitHub action to perform'),
@@ -16,7 +16,7 @@ export const githubToolSchema = z.object({
 export type GitHubToolInput = z.infer<typeof githubToolSchema>;
 
 /**
- * TaskPilot GitHub Tool - GitHub Integration (Pure TypeScript/Drizzle)
+ * Specly GitHub Tool - GitHub Integration (Pure TypeScript/Drizzle)
  * 
  * MCP tool for GitHub integration including issue creation, PR management,
  * and task synchronization with GitHub projects.
@@ -31,9 +31,9 @@ export class GitHubTool {
   }
 
   /**
-   * Execute taskpilot_github tool
+   * Execute specly_github tool
    */
-  async execute(input: GitHubToolInput): Promise<TaskPilotToolResult> {
+  async execute(input: GitHubToolInput): Promise<SpeclyToolResult> {
     try {
       const { workspace_path, action, title, description, branch } = input;
 
@@ -43,7 +43,7 @@ export class GitHubTool {
         return {
           content: [{
             type: 'text',
-            text: `Error: Workspace not found at path: ${workspace_path}. Please run taskpilot_start first to initialize the workspace.`
+            text: `Error: Workspace not found at path: ${workspace_path}. Please run specly_start first to initialize the workspace.`
           }],
           isError: true
         };
@@ -51,7 +51,7 @@ export class GitHubTool {
 
       // Generate orchestrated prompt for GitHub integration
       const orchestrationResult = await this.orchestrator.orchestratePrompt(
-        'taskpilot_github',
+        'specly_github',
         workspace.id,
         {
           workspace_path,
@@ -73,7 +73,7 @@ export class GitHubTool {
         }]
       };
     } catch (error) {
-      console.error('Error in taskpilot_github:', error);
+      console.error('Error in specly_github:', error);
       return {
         content: [{
           type: 'text',
@@ -89,7 +89,7 @@ export class GitHubTool {
    */
   static getToolDefinition() {
     return {
-      name: 'taskpilot_github',
+      name: 'specly_github',
       description: 'Integrate with GitHub for issue creation, PR management, and task synchronization',
       inputSchema: {
         type: 'object',

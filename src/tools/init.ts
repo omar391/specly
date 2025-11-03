@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { TaskPilotToolResult } from '../types/index.js';
+import type { SpeclyToolResult } from '../types/index.js';
 import { BaseTool, BaseToolConfig, ToolDefinition, createBaseToolSchema } from './base-tool.js';
 import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
 import { WorkspaceDatabaseService } from '../database/workspace-queries.js';
@@ -13,7 +13,7 @@ export const initToolSchema = createBaseToolSchema(ToolNames.INIT, {
 export type InitToolInput = z.infer<typeof initToolSchema>;
 
 /**
- * TaskPilot Init Tool - Refactored using BaseTool interface
+ * Specly Init Tool - Refactored using BaseTool interface
  * 
  * Single-step simplified initialization tool.
  */
@@ -21,7 +21,7 @@ export class InitToolNew extends BaseTool {
   constructor(drizzleDb: DrizzleDatabaseManager) {
     const config: BaseToolConfig = {
       name: ToolNames.INIT,
-      description: 'Initialize TaskPilot workspace with folder structure and initial configuration (single-step).',
+      description: 'Initialize Specly workspace with folder structure and initial configuration (single-step).',
       requiredFields: ['workspace_path'],
       additionalProperties: {
         project_requirements: {
@@ -35,14 +35,14 @@ export class InitToolNew extends BaseTool {
   }
 
   /**
-   * Execute taskpilot_init tool with multi-step support using base class validation
+   * Execute specly_init tool with multi-step support using base class validation
    */
-  async execute(input: any): Promise<TaskPilotToolResult> { return this.initializeWorkspace(input as InitToolInput); }
+  async execute(input: any): Promise<SpeclyToolResult> { return this.initializeWorkspace(input as InitToolInput); }
 
   /**
    * Initial step - validate workspace and show initialization plan
    */
-  private async initializeWorkspace(input: InitToolInput): Promise<TaskPilotToolResult> {
+  private async initializeWorkspace(input: InitToolInput): Promise<SpeclyToolResult> {
     const { workspace_path, project_requirements } = input;
 
     try {
@@ -51,7 +51,7 @@ export class InitToolNew extends BaseTool {
         const workspace = await this.globalDb.getWorkspaceByPath(workspace_path);
         if (workspace) {
           return this.createErrorResult(
-            'Workspace is already initialized. Use other TaskPilot tools to manage tasks.',
+            'Workspace is already initialized. Use other Specly tools to manage tasks.',
             { workspace_path }
           );
         }
@@ -61,7 +61,7 @@ export class InitToolNew extends BaseTool {
 
       // Generate initialization plan prompt
       const orchestrationResult = await this.orchestrator.orchestratePrompt(
-        'taskpilot_init',
+        'specly_init',
         'global', // Use global context since workspace doesn't exist yet
         {
           workspace_path,
@@ -95,8 +95,8 @@ export class InitToolNew extends BaseTool {
    */
   static getToolDefinition(): ToolDefinition {
     return {
-      name: 'taskpilot_init',
-      description: 'Initialize TaskPilot workspace with folder structure and initial configuration (single-step).',
+      name: 'specly_init',
+      description: 'Initialize Specly workspace with folder structure and initial configuration (single-step).',
       inputSchema: {
         type: 'object',
         properties: {

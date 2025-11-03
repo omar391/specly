@@ -1,7 +1,7 @@
 import { sqliteTable, text, integer, primaryKey } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
-// Workspace-specific database tables - stored in {workspace}/.taskpilot/task.db
+// Workspace-specific database tables - stored in {workspace}/.specly/task.db
 
 // Final Specly tasks table (renamed from tasks_new)
 export const tasks = sqliteTable('tasks', {
@@ -33,7 +33,7 @@ export const githubConfigs = sqliteTable('github_configs', {
   githubToken: text('github_token').notNull(),
   autoSync: integer('auto_sync', { mode: 'boolean' }).default(false),
   syncDirection: text('sync_direction', {
-    enum: ['bidirectional', 'github_to_taskpilot', 'taskpilot_to_github']
+    enum: ['bidirectional', 'github_to_specly', 'specly_to_github']
   }).default('bidirectional'),
   lastSync: text('last_sync'),
   createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),

@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
-import type { TaskPilotToolResult } from '../types/index.js';
+import type { SpeclyToolResult } from '../types/index.js';
 import { PromptOrchestrator } from '../services/prompt-orchestrator.js';
 import { GlobalDatabaseService } from '../database/global-queries.js';
 
-// Input schema for taskpilot_update_steps tool
+// Input schema for specly_update_steps tool
 export const updateStepsToolSchema = z.object({
     workspace_path: z.string().describe('Absolute path to the workspace directory'),
     step_name: z.string().describe('Name of the feedback step to update (e.g., workspace_rules_feedback)'),
@@ -15,7 +15,7 @@ export const updateStepsToolSchema = z.object({
 export type UpdateStepsToolInput = z.infer<typeof updateStepsToolSchema>;
 
 /**
- * TaskPilot Update Steps Tool - Feedback Step Updates
+ * Specly Update Steps Tool - Feedback Step Updates
  * 
  * MCP tool for updating workspace-specific feedback steps, particularly for 
  * dynamic workspace rules and custom validation steps.
@@ -30,9 +30,9 @@ export class UpdateStepsTool {
     }
 
     /**
-     * Execute taskpilot_update_steps tool
+     * Execute specly_update_steps tool
      */
-    async execute(input: UpdateStepsToolInput): Promise<TaskPilotToolResult> {
+    async execute(input: UpdateStepsToolInput): Promise<SpeclyToolResult> {
         try {
             const { workspace_path, step_name, content, reason } = input;
 
@@ -42,7 +42,7 @@ export class UpdateStepsTool {
                 return {
                     content: [{
                         type: 'text',
-                        text: `Error: Workspace not found at path: ${workspace_path}. Please run taskpilot_init first to initialize the workspace.`
+                        text: `Error: Workspace not found at path: ${workspace_path}. Please run specly_init first to initialize the workspace.`
                     }],
                     isError: true
                 };
@@ -50,7 +50,7 @@ export class UpdateStepsTool {
 
             // Generate orchestrated prompt for feedback step update
             const orchestrationResult = await this.orchestrator.orchestratePrompt(
-                'taskpilot_update_steps',
+                'specly_update_steps',
                 workspace.id,
                 {
                     workspace_path,
@@ -71,7 +71,7 @@ export class UpdateStepsTool {
                 }]
             };
         } catch (error) {
-            console.error('Error in taskpilot_update_steps:', error);
+            console.error('Error in specly_update_steps:', error);
             return {
                 content: [{
                     type: 'text',
@@ -87,7 +87,7 @@ export class UpdateStepsTool {
      */
     static getToolDefinition() {
         return {
-            name: 'taskpilot_update_steps',
+            name: 'specly_update_steps',
             description: 'Update workspace-specific feedback steps and validation rules',
             inputSchema: {
                 type: 'object',

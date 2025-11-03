@@ -1,10 +1,10 @@
 import { z } from 'zod';
 import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
-import type { TaskPilotToolResult } from '../types/index.js';
+import type { SpeclyToolResult } from '../types/index.js';
 import { PromptOrchestrator } from '../services/prompt-orchestrator.js';
 import { GlobalDatabaseService } from '../database/global-queries.js';
 
-// Input schema for taskpilot_update_resources tool
+// Input schema for specly_update_resources tool
 export const updateResourcesToolSchema = z.object({
     workspace_path: z.string().describe('Absolute path to the workspace directory'),
     resource_type: z.enum(['project.md', 'design.md']).describe('Resource file to update'),
@@ -15,10 +15,10 @@ export const updateResourcesToolSchema = z.object({
 export type UpdateResourcesToolInput = z.infer<typeof updateResourcesToolSchema>;
 
 /**
- * TaskPilot Update Resources Tool - Project Documentation Updates
+ * Specly Update Resources Tool - Project Documentation Updates
  * 
  * MCP tool for updating project documentation resources like project.md and design.md
- * files in the .taskpilot directory structure.
+ * files in the .specly directory structure.
  */
 export class UpdateResourcesTool {
     private orchestrator: PromptOrchestrator;
@@ -30,9 +30,9 @@ export class UpdateResourcesTool {
     }
 
     /**
-     * Execute taskpilot_update_resources tool
+     * Execute specly_update_resources tool
      */
-    async execute(input: UpdateResourcesToolInput): Promise<TaskPilotToolResult> {
+    async execute(input: UpdateResourcesToolInput): Promise<SpeclyToolResult> {
         try {
             const { workspace_path, resource_type, content, reason } = input;
 
@@ -42,7 +42,7 @@ export class UpdateResourcesTool {
                 return {
                     content: [{
                         type: 'text',
-                        text: `Error: Workspace not found at path: ${workspace_path}. Please run taskpilot_init first to initialize the workspace.`
+                        text: `Error: Workspace not found at path: ${workspace_path}. Please run specly_init first to initialize the workspace.`
                     }],
                     isError: true
                 };
@@ -50,7 +50,7 @@ export class UpdateResourcesTool {
 
             // Generate orchestrated prompt for resource update
             const orchestrationResult = await this.orchestrator.orchestratePrompt(
-                'taskpilot_update_resources',
+                'specly_update_resources',
                 workspace.id,
                 {
                     workspace_path,
@@ -60,8 +60,8 @@ export class UpdateResourcesTool {
                     workspace_name: workspace.name,
                     timestamp: new Date().toISOString(),
                     // Include instructions for file operations
-                    resource_file_path: `${workspace_path}/.taskpilot/${resource_type}`,
-                    update_instructions: `Create or update the ${resource_type} file in the .taskpilot directory with the provided content`
+                    resource_file_path: `${workspace_path}/.specly/${resource_type}`,
+                    update_instructions: `Create or update the ${resource_type} file in the .specly directory with the provided content`
                 }
             );
 
@@ -72,7 +72,7 @@ export class UpdateResourcesTool {
                 }]
             };
         } catch (error) {
-            console.error('Error in taskpilot_update_resources:', error);
+            console.error('Error in specly_update_resources:', error);
             return {
                 content: [{
                     type: 'text',
@@ -88,7 +88,7 @@ export class UpdateResourcesTool {
      */
     static getToolDefinition() {
         return {
-            name: 'taskpilot_update_resources',
+            name: 'specly_update_resources',
             description: 'Update project documentation resources like project.md and design.md',
             inputSchema: {
                 type: 'object',

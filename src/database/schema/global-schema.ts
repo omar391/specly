@@ -1,7 +1,7 @@
 import { sqliteTable, text, integer, blob } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
-// Global database tables - stored in ~/.taskpilot/global.db
+// Global database tables - stored in ~/.specly/global.db
 
 export const workspaces = sqliteTable('workspaces', {
   id: text('id').primaryKey(),

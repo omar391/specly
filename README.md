@@ -10,7 +10,7 @@ A Model Context Protocol server for deterministic, hash-addressable multi-step a
 
 ```bash
 git clone <repository-url>
-cd taskpilot-mcp
+cd specly-mcp
 npm install
 npm run build
 ```
@@ -95,7 +95,7 @@ For Claude Desktop:
 {
   "mcpServers": {
     "specly": {
-      "command": "/path/to/taskpilot-mcp/build/index.js",
+      "command": "/path/to/specly-mcp/build/index.js",
       "args": ["--stdio"]
     }
   }
@@ -175,7 +175,7 @@ On startup the server automatically seeds the Specly baseline (specs, tools, roo
 Force a re-seed on startup using either:
 
 ```bash
-TASKPILOT_FORCE_SEED=1 npm run serve
+SPECLY_FORCE_SEED=1 npm run serve
 # or
 node build/index.js --force-seed
 ```

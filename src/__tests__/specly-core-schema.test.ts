@@ -38,7 +38,7 @@ describe('Specly Core Schema (SP-001)', () => {
 
   it('should have new workspace tables (tasks_new, task_dependencies, sessions_new)', async () => {
     const tempDir = await fs.mkdtemp('/tmp/specly-workspace-test-');
-    const workspaceDbPath = path.join(tempDir, '.taskpilot', 'task.db');
+    const workspaceDbPath = path.join(tempDir, '.specly', 'task.db');
     await initializeWorkspaceDatabase(tempDir);
     const tables = await getWorkspaceTables(workspaceDbPath);
     expect(tables).toContain('tasks');

@@ -2,7 +2,7 @@
 
 ## 1. Project's eventual purpose
 
-This project, **Specly** (renaming from taskpilot), serves as a **[Model Context Protocol (MCP)](https://modelcontextprotocol.io/specification/2025-06-18/server/tools) server** that delivers structured instruction flows to MCP-compliant clients (e.g., GitHub Copilot, Cursor). Clients make a `tools/call`, and the server responds with a multi-step **spec flow**: a sequence of templated instructions. The client advances through them until all steps are consumed.
+This project, **Specly** (renaming from specly), serves as a **[Model Context Protocol (MCP)](https://modelcontextprotocol.io/specification/2025-06-18/server/tools) server** that delivers structured instruction flows to MCP-compliant clients (e.g., GitHub Copilot, Cursor). Clients make a `tools/call`, and the server responds with a multi-step **spec flow**: a sequence of templated instructions. The client advances through them until all steps are consumed.
 
 Backend-side logic, such as saving to a database or making third-party API calls, remains part of the internal implementation of **built-in tools** and is *not* part of the spec flow exposed to the client.
 
