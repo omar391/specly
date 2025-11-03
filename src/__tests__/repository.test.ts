@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { GlobalDatabaseService } from '../database/global-queries.js';
 import { SpecRepositoryImpl, ToolVersionRepositoryImpl } from '../repositories/spec-repository.js';
 import { ProfileRepository } from '../repositories/profile-repository.js';
@@ -170,5 +170,208 @@ describe('Repository Layer (Spec & ToolVersion)', () => {
     expect(first.created).toBe(true);
     expect(second.created).toBe(false);
     await journalRepo.updateStatus(first.id, 'success', { resultJson: { ok: true } });
+  });
+});
+
+describe('Repository Enhancements (SP-021)', () => {
+  beforeAll(async () => {
+    globalDb = new GlobalDatabaseService();
+    await globalDb.initialize();
+    const db = globalDb.getDrizzleManager().getDb();
+    await db.insert(workspaces).values([
+      { id: 'ws-sp021', path: '/tmp/ws-sp021', name: 'SP-021 Test Workspace' }
+    ] as any).onConflictDoNothing();
+  });
+
+  it('should log collision when spec hash already exists', async () => {
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const repo = new SpecRepositoryImpl(globalDb);
+    
+    const input = {
+      executorType: 'test-executor',
+      executorVersion: '1.0.0',
+      intent: 'autonomous' as const,
+      metadata: { collision_test: crypto.randomUUID() }
+    };
+
+    await repo.createOrGet(input); // First create
+    await repo.createOrGet(input); // Second call should log collision
+
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[SpecRepository] Hash collision detected (idempotent):')
+    );
+    
+    consoleLogSpy.mockRestore();
+  });
+
+  it('should log collision when tool version hash already exists', async () => {
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const specRepo = new SpecRepositoryImpl(globalDb);
+    const toolRepo = new ToolVersionRepositoryImpl(globalDb);
+    
+    const spec = await specRepo.createOrGet({
+      executorType: 'test-executor',
+      executorVersion: '1.0.0',
+      intent: 'autonomous',
+      metadata: { tool_collision_test: crypto.randomUUID() }
+    });
+
+    const toolInput = {
+      toolName: 'collision-test-tool',
+      ordered_specs: [spec.hash],
+      edges: [],
+      entry_spec: spec.hash
+    };
+
+    await toolRepo.create(toolInput); // First create
+    await toolRepo.create(toolInput); // Second call should log collision
+
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[ToolVersionRepository] Tool version hash collision detected (idempotent): tool=collision-test-tool')
+    );
+    
+    consoleLogSpy.mockRestore();
+  });
+
+  it('should return typed SpecDTO from get method', async () => {
+    const repo = new SpecRepositoryImpl(globalDb);
+    const input = {
+      executorType: 'typed-executor',
+      executorVersion: '2.0.0',
+      intent: 'human' as const,
+      contentTemplate: 'Test template',
+      staticParams: { key: 'value' },
+      retryPolicy: { maxAttempts: 3, strategy: 'exponential' as const },
+      metadata: { typed_dto_test: crypto.randomUUID() }
+    };
+
+    const { hash } = await repo.createOrGet(input);
+    const retrieved = await repo.get(hash);
+
+    expect(retrieved).toBeDefined();
+    expect(retrieved?.hash).toBe(hash);
+    expect(retrieved?.executorType).toBe('typed-executor');
+    expect(retrieved?.executorVersion).toBe('2.0.0');
+    expect(retrieved?.intent).toBe('human');
+    // Verify it's a proper DTO with all expected fields
+    // Note: Drizzle ORM may return boolean for integer fields (0/1 -> false/true)
+    expect(retrieved?.sideEffect === 0 || retrieved?.sideEffect === false).toBe(true);
+    expect(typeof retrieved?.staticParams).toBe('string'); // JSON string
+    expect(retrieved?.createdAt).toBeDefined();
+  });
+
+  it('should return typed ToolVersionDTO from get method', async () => {
+    const specRepo = new SpecRepositoryImpl(globalDb);
+    const toolRepo = new ToolVersionRepositoryImpl(globalDb);
+    
+    const spec = await specRepo.createOrGet({
+      executorType: 'test-executor',
+      executorVersion: '1.0.0',
+      intent: 'autonomous',
+      metadata: { tool_dto_test: crypto.randomUUID() }
+    });
+
+    const toolInput = {
+      toolName: 'dto-test-tool',
+      ordered_specs: [spec.hash],
+      edges: [{ from: spec.hash, to: spec.hash, priority: 1 }],
+      entry_spec: spec.hash
+    };
+
+    const { hash } = await toolRepo.create(toolInput);
+    const retrieved = await toolRepo.get(hash);
+
+    expect(retrieved).toBeDefined();
+    expect(retrieved?.hash).toBe(hash);
+    expect(retrieved?.toolName).toBe('dto-test-tool');
+    expect(typeof retrieved?.graphManifest).toBe('string'); // JSON string
+    expect(retrieved?.createdAt).toBeDefined();
+  });
+
+  it('should return array of typed ToolVersionDTO from listByTool', async () => {
+    const specRepo = new SpecRepositoryImpl(globalDb);
+    const toolRepo = new ToolVersionRepositoryImpl(globalDb);
+    
+    const spec1 = await specRepo.createOrGet({
+      executorType: 'test-executor',
+      executorVersion: '1.0.0',
+      intent: 'autonomous',
+      metadata: { list_test_v1: crypto.randomUUID() }
+    });
+
+    const spec2 = await specRepo.createOrGet({
+      executorType: 'test-executor',
+      executorVersion: '2.0.0',
+      intent: 'autonomous',
+      metadata: { list_test_v2: crypto.randomUUID() }
+    });
+
+    const toolName = `list-test-tool-${crypto.randomUUID().substring(0, 8)}`;
+
+    await toolRepo.create({
+      toolName,
+      ordered_specs: [spec1.hash],
+      edges: [],
+      entry_spec: spec1.hash
+    });
+
+    await toolRepo.create({
+      toolName,
+      ordered_specs: [spec2.hash],
+      edges: [],
+      entry_spec: spec2.hash
+    });
+
+    const versions = await toolRepo.listByTool(toolName);
+
+    expect(Array.isArray(versions)).toBe(true);
+    expect(versions.length).toBe(2);
+    expect(versions[0].toolName).toBe(toolName);
+    expect(versions[1].toolName).toBe(toolName);
+    expect(typeof versions[0].graphManifest).toBe('string');
+    expect(typeof versions[1].graphManifest).toBe('string');
+  });
+
+  it('should handle graph manifest round-trip with canonical ordering', async () => {
+    const specRepo = new SpecRepositoryImpl(globalDb);
+    const toolRepo = new ToolVersionRepositoryImpl(globalDb);
+    
+    const specA = await specRepo.createOrGet({
+      executorType: 'test',
+      executorVersion: '1.0.0',
+      intent: 'autonomous',
+      metadata: { roundtrip_a: crypto.randomUUID() }
+    });
+
+    const specB = await specRepo.createOrGet({
+      executorType: 'test',
+      executorVersion: '1.0.0',
+      intent: 'autonomous',
+      metadata: { roundtrip_b: crypto.randomUUID() }
+    });
+
+    const inputManifest = {
+      ordered_specs: [specA.hash, specB.hash],
+      edges: [
+        { from: specB.hash, to: specA.hash, priority: 2 }, // Intentional reverse order
+        { from: specA.hash, to: specB.hash, priority: 1 }
+      ],
+      entry_spec: specA.hash
+    };
+
+    const { hash } = await toolRepo.create({
+      toolName: 'roundtrip-tool',
+      ...inputManifest
+    });
+
+    const retrieved = await toolRepo.get(hash);
+    expect(retrieved).toBeDefined();
+
+    const parsedManifest = JSON.parse(retrieved!.graphManifest);
+    expect(parsedManifest.ordered_specs).toEqual(inputManifest.ordered_specs);
+    expect(parsedManifest.entry_spec).toBe(inputManifest.entry_spec);
+    // Edges should be present (order normalization handled by validator)
+    expect(parsedManifest.edges).toBeDefined();
+    expect(parsedManifest.edges.length).toBe(2);
   });
 });

@@ -3,20 +3,58 @@ import { specs, toolVersions, tools } from "../database/schema/global-schema.js"
 import { eq } from "drizzle-orm";
 import { hashSpec, hashToolVersion } from "../utils/hash.js";
 
+// SP-021: Typed DTOs replacing 'any'
+export interface RetryPolicyDTO {
+  maxAttempts: number;
+  strategy?: 'immediate' | 'exponential';
+  baseDelayMs?: number;
+}
+
+export interface SecurityDTO {
+  allowedOrigins?: string[];
+  requireAuth?: boolean;
+  [key: string]: unknown;
+}
+
+export interface SpecDTO {
+  hash: string;
+  executorType: string;
+  executorVersion: string;
+  intent: 'human' | 'autonomous';
+  sideEffect: number; // 0 or 1 (SQLite)
+  contentTemplate: string | null;
+  staticParams: string; // JSON string
+  inputSchema: string | null; // JSON string
+  outputSchema: string | null; // JSON string
+  idempotencyKeyTemplate: string | null;
+  retryPolicy: string | null; // JSON string
+  showOutput: number; // 0 or 1
+  security: string | null; // JSON string
+  metadata: string; // JSON string
+  createdAt: string | null;
+}
+
+export interface ToolVersionDTO {
+  hash: string;
+  toolName: string;
+  graphManifest: string; // JSON string
+  createdAt: string | null;
+}
+
 export interface CreateSpecInput {
   executorType: string;
   executorVersion: string;
   intent: 'human' | 'autonomous';
   sideEffect?: boolean;
   contentTemplate?: string;
-  staticParams?: any;
-  inputSchema?: any;
-  outputSchema?: any;
+  staticParams?: Record<string, unknown>;
+  inputSchema?: Record<string, unknown>;
+  outputSchema?: Record<string, unknown>;
   idempotencyKeyTemplate?: string;
-  retryPolicy?: any;
+  retryPolicy?: RetryPolicyDTO;
   showOutput?: boolean;
-  security?: any;
-  metadata?: any;
+  security?: SecurityDTO;
+  metadata?: Record<string, unknown>;
 }
 
 export interface CreateToolVersionInput {
@@ -28,13 +66,13 @@ export interface CreateToolVersionInput {
 
 export interface SpecRepository {
   createOrGet(input: CreateSpecInput): Promise<{ hash: string; created: boolean }>; 
-  get(hash: string): Promise<any | null>;
+  get(hash: string): Promise<SpecDTO | null>;
 }
 
 export interface ToolVersionRepository {
   create(input: CreateToolVersionInput): Promise<{ hash: string; created: boolean }>;
-  get(hash: string): Promise<any | null>;
-  listByTool(toolName: string): Promise<any[]>;
+  get(hash: string): Promise<ToolVersionDTO | null>;
+  listByTool(toolName: string): Promise<ToolVersionDTO[]>;
 }
 
 export class SpecRepositoryImpl implements SpecRepository {
@@ -60,6 +98,8 @@ export class SpecRepositoryImpl implements SpecRepository {
     const db = this.globalDb.getDrizzleManager().getDb();
     const existing = await db.select().from(specs).where(eq(specs.hash, hash)).limit(1);
     if (existing.length > 0) {
+      // SP-021: Collision logging
+      console.log(`[SpecRepository] Hash collision detected (idempotent): ${hash.substring(0, 16)}...`);
       return { hash, created: false };
     }
     await db.insert(specs).values({
@@ -81,10 +121,10 @@ export class SpecRepositoryImpl implements SpecRepository {
     return { hash, created: true };
   }
 
-  async get(hash: string): Promise<any | null> {
+  async get(hash: string): Promise<SpecDTO | null> {
     const db = this.globalDb.getDrizzleManager().getDb();
     const [row] = await db.select().from(specs).where(eq(specs.hash, hash)).limit(1);
-    return row || null;
+    return (row as SpecDTO) || null;
   }
 }
 
@@ -102,6 +142,8 @@ export class ToolVersionRepositoryImpl implements ToolVersionRepository {
     const db = this.globalDb.getDrizzleManager().getDb();
     const existing = await db.select().from(toolVersions).where(eq(toolVersions.hash, hash)).limit(1);
     if (existing.length > 0) {
+      // SP-021: Collision logging for tool versions
+      console.log(`[ToolVersionRepository] Tool version hash collision detected (idempotent): tool=${input.toolName}, hash=${hash.substring(0, 16)}...`);
       return { hash, created: false };
     }
     // Ensure tool exists (create if missing minimal row)
@@ -121,14 +163,15 @@ export class ToolVersionRepositoryImpl implements ToolVersionRepository {
     return { hash, created: true };
   }
 
-  async get(hash: string): Promise<any | null> {
+  async get(hash: string): Promise<ToolVersionDTO | null> {
     const db = this.globalDb.getDrizzleManager().getDb();
     const [row] = await db.select().from(toolVersions).where(eq(toolVersions.hash, hash)).limit(1);
-    return row || null;
+    return (row as ToolVersionDTO) || null;
   }
 
-  async listByTool(toolName: string): Promise<any[]> {
+  async listByTool(toolName: string): Promise<ToolVersionDTO[]> {
     const db = this.globalDb.getDrizzleManager().getDb();
-    return db.select().from(toolVersions).where(eq(toolVersions.toolName, toolName));
+    const rows = await db.select().from(toolVersions).where(eq(toolVersions.toolName, toolName));
+    return rows as ToolVersionDTO[];
   }
 }

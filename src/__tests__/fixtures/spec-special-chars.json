@@ -1,0 +1,15 @@
+{
+  "name": "special_chars",
+  "intent": "Test special character handling",
+  "inputs": {
+    "text": {
+      "type": "string",
+      "pattern": "^[\\w\\s\\-_\\.\\,\\!\\?]+$"
+    }
+  },
+  "outputs": { "escaped": { "type": "string" } },
+  "metadata": {
+    "version": 1,
+    "special": "Test\nNewline\tTab\"Quote'Single\\Backslash"
+  }
+}

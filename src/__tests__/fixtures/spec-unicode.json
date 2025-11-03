@@ -1,0 +1,11 @@
+{
+  "name": "unicode_edge_case",
+  "intent": "Test unicode normalization stability",
+  "inputs": {
+    "emoji": { "type": "string", "example": "🚀" },
+    "chinese": { "type": "string", "example": "测试" },
+    "rtl": { "type": "string", "example": "مرحبا" }
+  },
+  "outputs": { "result": { "type": "string" } },
+  "metadata": { "version": 2, "tags": ["unicode", "i18n"] }
+}

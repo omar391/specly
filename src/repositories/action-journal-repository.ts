@@ -34,7 +34,7 @@ export class ActionJournalRepository {
     return { id: row.id, created: true, status: row.status };
   }
 
-  async updateStatus(id: string, status: 'pending' | 'success' | 'failed', data?: { resultJson?: any; errorJson?: any; lastErrorCode?: string }): Promise<void> {
+  async updateStatus(id: string, status: 'pending' | 'success' | 'failed', data?: { resultJson?: unknown; errorJson?: unknown; lastErrorCode?: string }): Promise<void> {
     const db = this.globalDb.getDrizzleManager().getDb();
     await db.update(actionJournal).set({
       status,

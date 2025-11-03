@@ -1,0 +1,20 @@
+{
+  "name": "array_ordering",
+  "intent": "Test that array order matters in canonicalization",
+  "inputs": {
+    "items": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "outputs": {
+    "sorted": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "metadata": {
+    "version": 1,
+    "test_values": ["zebra", "alpha", "beta"]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "empty_values",
+  "intent": "Test handling of empty strings, arrays, and objects",
+  "inputs": {
+    "empty_string": { "type": "string", "default": "" },
+    "empty_array": { "type": "array", "default": [] },
+    "empty_object": { "type": "object", "default": {} }
+  },
+  "outputs": {
+    "has_content": { "type": "boolean" }
+  },
+  "metadata": {
+    "version": 1,
+    "note": "Empty values should hash consistently"
+  }
+}

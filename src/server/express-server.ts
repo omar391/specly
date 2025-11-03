@@ -342,9 +342,9 @@ export class ExpressServer {
   /**
    * Setup health check and root endpoints
    */
-  setupHealthCheck(): void {
+  setupHealthCheck(metricsCollector?: any): void {
     this.app.get('/health', (req, res) => {
-      res.json({
+      const baseHealth = {
         status: 'healthy',
         timestamp: new Date().toISOString(),
         version: '0.1.0',
@@ -355,7 +355,15 @@ export class ExpressServer {
           mcp_sse: '/sse',
           health: '/health'
         }
-      });
+      };
+
+      // Include metrics snapshot if collector provided (SP-012)
+      if (metricsCollector && typeof metricsCollector.snapshot === 'function') {
+        const metrics = metricsCollector.snapshot();
+        res.json({ ...baseHealth, metrics });
+      } else {
+        res.json(baseHealth);
+      }
     });
 
     // Root endpoint for API discovery
