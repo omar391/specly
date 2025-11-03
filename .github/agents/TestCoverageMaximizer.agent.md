@@ -107,18 +107,23 @@ For each test case in the plan, auto-resolve:
 - Use existing `describe`/`it` hierarchy patterns
 - Follow naming conventions from similar tests
 
-**Mocking Strategy** (Prefer Concrete over Mocks):
-- **CRITICAL PRINCIPLE**: Always prefer concrete implementations over mocks
-- **Use real instances** when possible (e.g., real database with test data, real services)
-- **Mock only when necessary**: External APIs, file system, time-dependent operations, expensive computations
-- Check `src/test-utils/` for existing mock utilities and concrete test helpers
-- Use same mocking libraries as existing tests (vitest, sinon)
-- Follow established mock patterns from similar test files
-- **BaseTool children**: Spy on `validateWorkspace` method instead of mocking GlobalDatabaseService
-- **Non-BaseTool classes**: Use module-level `vi.mock()` for dependencies only when concrete testing isn't feasible
-- **Sequential behaviors**: Use `mockImplementationOnce()` chains for different call behaviors
-- **Error testing**: First call succeeds (during addClient/init), subsequent calls fail (during test)
-- **When in doubt**: Try concrete first, mock only if it causes issues (slow tests, external dependencies, non-determinism)
+**Mocking Strategy** (Internal vs External — Prefer Concrete):
+- CRITICAL RULE: Only mock external, third‑party modules or true system boundaries. For our own code (“internal” modules), write concrete tests.
+- Internal modules (owned code): do NOT mock. Use concrete implementations:
+   - Database ops: use in‑memory DBs (e.g., Drizzle + SQLite :memory:) and real repositories/services.
+   - Web server: real Express app with supertest.
+   - Filesystem: real temp directories/files (os tmp), kept deterministic and cleaned up.
+   - Orchestrators/services that are fully in‑process and deterministic: use concrete if they do not call external APIs.
+- External third‑party modules: MUST mock (network APIs like GitHub, OpenAI/LLM, cloud SDKs, OS‑level commands you don’t control). Keep tests fast, deterministic, and offline.
+- If a dependency has mixed behavior, prefer a minimal concrete path (feature‑flag or in‑memory mode). If not possible without network or nondeterminism, then mock that dependency only.
+- Check `src/test-utils/` for concrete helpers (DB init, data factories) and minimal stubs.
+- Use same mocking libraries as existing tests (vitest, sinon) where mocking is required.
+- Established patterns:
+   - BaseTool children: prefer concrete DB; spy on `validateWorkspace` if you must intercept behavior; don’t mock GlobalDatabaseService unless unavoidable.
+   - Non‑BaseTool classes: mock only truly external modules; keep our internal modules concrete.
+   - Sequential behaviors: use `mockImplementationOnce()` chains when mocking external calls with different outcomes.
+   - Error testing: first call succeeds (during add/init), subsequent calls fail (during test) — when mocking externals.
+   - When in doubt: choose concrete for internal code; mock only if it’s external or would cause nondeterminism/slowness.
 
 **Test Data**:
 - Create minimal but realistic test data
@@ -167,9 +172,9 @@ For each test case in the plan, auto-resolve:
    - Document any deliberately untested lines (with reason)
 
 3. **Self-Optimization check (pre-commit, if needed)**:
-   - Quickly review session learnings and this file’s patterns
-   - If the agent guidance needs an update (new mock pattern, efficiency tip, or rule like concrete-over-mocks), run Phase 4 steps 1–3 now (Update This Agent File and Refine Documentation), but defer Phase 4’s own commit until the file commit below, bundling doc changes with this file’s commit when appropriate
-   - Perform a brief duplicate-content pass (deduplicate overlapping bullets; keep one authoritative version)
+   - Internal vs External mocking audit: ensure internal modules (DB, repos, services, Express, filesystem) are tested concretely; only external 3rd‑party modules are mocked.
+   - Update this agent file if a new concrete testing pattern was used (e.g., new in‑memory DB helper) or if mocks were replaced by concretes.
+   - Perform a brief duplicate‑content pass (deduplicate overlapping bullets; keep one authoritative version).
 
 4. **Commit progress** (after user approval):
    ```
@@ -243,6 +248,8 @@ At the end of each session (or after completing 5+ files), optimize the agent it
    - Update "Efficiency Tips" with proven practices
    - Add examples to commit message format
    - Document any new edge cases handled
+   - Remove redundant or outdated guidance
+   - Reiterate internal vs external mocking rule where relevant
 
 3. **Refine Documentation**:
    - Remove verbose or redundant explanations
@@ -329,10 +336,10 @@ Acceptable gaps (document in tracking):
 ### Auto-resolve Test Implementation Decisions
 
 1. **Test file location**: Match existing structure (`__tests__/` or `*.test.ts` co-located)
-2. **Mocking approach**: Use utilities from `src/test-utils/` (vitest, sinon, etc.)
+2. **Mocking approach**: Mock only external 3rd‑party modules; keep our internal modules concrete. Use utilities from `src/test-utils/` (vitest, sinon, etc.) to set up in‑memory DBs and concrete helpers.
 3. **Test data**: Create minimal valid data based on TypeScript types
 4. **Assertion depth**: Match thoroughness of similar existing tests
-5. **Coverage targets**: 
+5. **Coverage targets**:
    - Critical code (auth, security, data integrity): 100%
    - Business logic: 95%+
    - Utilities: 95%+
