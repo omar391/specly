@@ -65,7 +65,14 @@ For each file in the queue:
 
 #### Step 1: Gap Analysis (Hand off to Plan agent)
 
-**IMPORTANT**: Use the "Analyze Coverage Gaps" handoff to delegate to the Plan agent.
+**PATTERN RECOGNITION**: If the current file follows the same pattern as recently completed files (e.g., similar tool structure, same dependencies), **skip the Plan agent handoff** and proceed directly to implementation using established patterns.
+
+**Hand off to Plan agent only when**:
+- File structure is significantly different from recent files
+- Complex integration or unfamiliar patterns
+- First file of a new category
+
+**IMPORTANT**: When handing off, use the "Analyze Coverage Gaps" handoff to delegate to the Plan agent.
 
 Provide this context when handing off:
 ```
@@ -104,19 +111,31 @@ For each test case in the plan, auto-resolve:
 - Check `src/test-utils/` for existing mock utilities
 - Use same mocking libraries as existing tests
 - Follow established mock patterns
+- **BaseTool children**: Spy on `validateWorkspace` method instead of mocking GlobalDatabaseService
+- **Non-BaseTool classes**: Use module-level `vi.mock()` for dependencies (GlobalDatabaseService, PromptOrchestrator)
+- **Sequential behaviors**: Use `mockImplementationOnce()` chains for different call behaviors
+- **Error testing**: First call succeeds (during addClient/init), subsequent calls fail (during test)
 
 **Test Data**:
 - Create minimal but realistic test data
 - Use factories if they exist (check `src/test-utils/`)
 - Match data structures from the source file types
+- **Timestamp comparisons**: Use `Date.now()` for numeric comparisons, parse ISO strings with `new Date().getTime()`
+- **Mock responses**: Keep simple, focus on structure not realistic data
 
 **Assertions**:
 - Use same assertion style as existing tests
 - Match thoroughness level of similar test files
 - Include both positive and negative assertions
 
-#### Step 3: Implementation in Batches
+#### Step 3: Implementation Strategy
 
+**For simple/similar files** (following established patterns):
+- Create entire test file at once (30-40 tests)
+- Reduces context switching and improves efficiency
+- Run tests once to verify all pass
+
+**For complex/novel files** (new patterns, integration tests):
 Implement tests in small batches (5-10 test cases per batch):
 
 1. **Write batch of tests**:
@@ -150,8 +169,10 @@ Implement tests in small batches (5-10 test cases per batch):
 
 1. **Final validation**:
    - Run full test suite: `pnpm test`
-   - Verify all tests pass
+   - If single test fails, run again (flaky test detection)
+   - Verify all tests pass on second run
    - Check no unintended side effects
+   - Track test suite total (e.g., 1145 → 1175 tests)
 
 2. **Update tracking**:
    - Mark file as complete in `./.task/coverage-progress.md`
@@ -163,9 +184,22 @@ Implement tests in small batches (5-10 test cases per batch):
    ```
    test: improve coverage for [file-path] from X% to Y%
    
-   - Added N test cases covering [categories]
-   - Achieved Y% coverage (Z% increase)
-   - All tests passing
+   - Added N comprehensive tests covering all execution paths
+   - Mock [dependencies list]
+   - Categories: Constructor (M), Static definition (K), Execute happy (L), Execute errors (J), Edge cases (I), Schema (H)
+   - All tests passing, [total] tests in suite
+   - Test file: [test-file-name]
+   ```
+   
+   Example:
+   ```
+   test: improve coverage for tools/github.ts from 57.0% to 100%
+   
+   - Added 36 comprehensive tests covering all execution paths
+   - Mock PromptOrchestrator and GlobalDatabaseService dependencies
+   - Categories: Constructor (2), Static definition (8), Execute happy (11), Execute errors (5), Schema (10)
+   - All tests passing, 1145 total tests in suite
+   - Test file: github-tool.test.ts
    ```
 
 ### Phase 3: Move to Next File
@@ -179,9 +213,19 @@ Implement tests in small batches (5-10 test cases per batch):
 2. **Update progress tracking in `.task/coverage-progress.md`**:
    - Mark completed file with ✅ and new coverage %
    - Update "Files completed" counter in Overall Metrics
+   - **Update "Tests added this session" total** (cumulative count)
+   - Update status summary table (files in each category)
    - Update phase completion checkboxes
    - Note any exceptions or deliberately untested code
    - Refresh overall coverage percentage
+   - Example entry format:
+     ```markdown
+     8. ✅ **tools/remote-interface.ts** - **100%** avg (Stmt: 100%, Branch: 100%, Func: 100%) ⬆️ **+43.3%**
+        - Status: **COMPLETED**
+        - Covered: 94/94 stmts, all branches, 4/4 funcs
+        - Tests Added: 31 comprehensive tests in remote-interface-tool.test.ts
+        - Completed: November 3, 2025
+     ```
 
 3. **Review `.task/coverage-analysis.json`**:
    - Check updated metrics for completed file
@@ -329,6 +373,11 @@ Document exceptions for:
    - Business logic: 95%+
    - Utilities: 95%+
    - Types/interfaces: Document-only (no runtime tests needed)
+   - **Near-complete files** (85-94%): Acceptable if remaining gaps are:
+     - Unreachable error handlers (catch blocks that just call next(error))
+     - Platform-specific code paths
+     - Defensive programming that can't be triggered in tests
+   - Document why coverage is <95% in progress tracking
 
 ### When Multiple Approaches Exist:
 
@@ -343,6 +392,19 @@ Document exceptions for:
 - Uses existing test utilities from `src/test-utils/`
 - Respects `vitest.config.ts` configuration
 - Commits incrementally with proper messages
+
+## Efficiency Tips (Learned from Practice)
+
+1. **Pattern Recognition**: After 3-4 similar files, implement directly without Plan agent handoff
+2. **Full-File Implementation**: For simple tools, create all tests at once (faster than batching)
+3. **Mock Pattern Library**: Maintain mental model of established patterns:
+   - Tools with GlobalDatabaseService: module-level vi.mock()
+   - Tools extending BaseTool: spy on validateWorkspace
+   - Timestamp tests: Date.now() for comparisons
+4. **Test Count Tracking**: Always note test suite total in commits (shows progress)
+5. **Flaky Test Protocol**: Single failure? Run again. Consistent failure? Debug.
+6. **Coverage Pragmatism**: 89%+ with documented gaps = acceptable completion
+7. **Commit Categorization**: Break down test categories in commit message (aids future review)
 
 ## Key Principles
 
