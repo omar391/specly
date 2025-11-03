@@ -7,3 +7,4 @@ build/
 /worktree/
 .DS_Store
 test-output.txt
+coverage/
