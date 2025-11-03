@@ -1,11 +1,24 @@
 # Next Steps (as of 2025-11-03)
 
 ## Current Focus
-**SP-101: Remove Legacy UI Pages & Components** (In-Progress - 50%)
+**SP-101: Remove Legacy UI Pages & Components** (Done - 100%) ✅
 - Prerequisite SP-100 complete: All 18 API methods implemented, typed errors, api-types.ts extracted ✅
-- Current state: Legacy pages stubbed (return null) but files still exist
-- Next: (1) Delete tool-flows.tsx, feedback-steps.tsx, tool-flow-card.tsx, feedback-editor.tsx, (2) Remove router imports, (3) Clean CSS, (4) Update navigation
-- Unblocks: SP-102-110 can proceed after SP-101 completion
+- Completed: (1) Deleted 4 legacy files (tool-flows.tsx, feedback-steps.tsx, tool-flow-card.tsx, feedback-editor.tsx) ✅
+- Router already cleaned (line 69 comment) ✅
+- Navigation already updated (floating-nav.tsx clean) ✅
+- Verification: grep searches confirmed no code dependencies ✅
+- Ready for git commit
+
+**Next Task: SP-102 - Specs & Tools Pages Scaffold** (TBD - 0%)
+- Prerequisites: SP-100 complete ✅, SP-101 complete ✅
+- Description: Create pages/specs.tsx & pages/tools.tsx listing specs (hash, intent) and tool versions (hash, entry_spec)
+- Next Steps:
+  1. Review SP-102 requirements in current.md and docs/task.md
+  2. Plan component structure for specs and tools pages
+  3. Implement basic list/table views with API integration (createSpec, createTool methods available)
+  4. Add simple search by hash prefix
+  5. Update router with new routes
+  6. Test with backend endpoints
 
 ## Completed in Current Session
 - ✅ SP-011: Background Jobs (GC, Purge & Retry Scheduling) (100%) - BackgroundJobsService with hourly sweeps, ENV config, 10 comprehensive tests, all 218/218 tests passing
