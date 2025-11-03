@@ -23,6 +23,8 @@
 - Use React Query (or TanStack Query) with query keys including hash or version to avoid stale collisions.
 - SSE event names unified: `session.update`, `task.update`, `rule.update`.
 - Provide skeleton/loading + error boundaries per page.
+- **Type Organization**: Extract types to separate files (e.g., `api-types.ts`) when inline definitions exceed ~50 lines or become unwieldy. Keep related types grouped logically.
+- **Error Handling**: Use typed error classes matching backend error codes (e.g., `409_DEPENDENCY_CYCLE`, `422_VALIDATION_ERROR`). Never use generic `Error` objects for API errors.
 
 ## Git Workflow
 

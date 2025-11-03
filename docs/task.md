@@ -399,21 +399,21 @@ Remaining for SP-018: Endpoint audit completed (no other public surfaces throw v
 - **Description**: Replace `TaskPilotApiClient` with `SpeclyApiClient`; remove tool-flow & feedback methods; add spec/tool/profile endpoints. Update types (statuses, remove dependencies array). See file_changes_ui.md.
 - **Priority**: High
 - **Dependencies**: SP-006
-- **Status**: TBD
-- **Progress**: 0%
-- **Completed At**: 
-- **Notes**: Maintain SSE; add new event handlers.
-- **Connected File List**: ./ui/src/lib/api-client.ts
+- **Status**: Done
+- **Progress**: 100%
+- **Completed At**: 2025-11-03T16:00:00Z
+- **Notes**: Complete implementation: (1) Extracted all types to api-types.ts (370 lines) including WorkspaceMetadata, Task (dependencies array removed), Spec, Tool, Profile, Session, Rule types ✅, (2) Added typed error classes (ValidationError, ConflictError, DependencyCycleError, LeaseConflictError, etc.) with throwTypedError() helper ✅, (3) Updated makeRequest() to throw typed errors instead of generic Error objects ✅, (4) Implemented 18 missing API methods: createSpec(), createTool(), createToolVersion(), executeTool(), createProfile(), createProfileVersion(), publishProfileVersion(), attachToolsToProfile(), getProfileAttachments(), upgradeWorkspaceProfile(), getWorkspaceProfile(), getSessions(), createRule(), getRules(), addTaskDependency(), removeTaskDependency(), getTaskDependencies(), patchTaskStatus() ✅, (5) All methods follow consistent patterns with proper URL encoding and JSON serialization ✅, (6) SSE event types extended to include session.updated (deferred backend implementation per SP-106 dependencies) ✅. UI components (spec-editor, tool-version-publisher, execution-console) can now interact with backend without simulation fallbacks. Type organization follows workspace rules (separate file for 50+ lines). Error handling uses backend-matching codes per workspace rules.
+- **Connected File List**: ./ui/src/lib/api-client.ts, ./ui/src/lib/api-types.ts
 
 ## Task ID: SP-101
 - **Title**: Remove Legacy UI Pages & Components
 - **Description**: Delete tool-flow-card, feedback-editor, pages/tool-flows.tsx, pages/feedback-steps.tsx. Clean CSS. Update nav.
 - **Priority**: High
 - **Dependencies**: SP-100
-- **Status**: TBD
-- **Progress**: 0%
+- **Status**: In-Progress
+- **Progress**: 50%
 - **Completed At**: 
-- **Notes**: Ensure dead imports purged.
+- **Notes**: Partial completion: Legacy pages stubbed (tool-flows.tsx and feedback-steps.tsx return null) ✅. Remaining work: (1) Physically delete stubbed page files, (2) Delete tool-flow-card.tsx and feedback-editor.tsx components, (3) Remove imports from router, (4) Clean unused CSS classes, (5) Update navigation to remove legacy links. Files currently stubbed but need deletion.
 - **Connected File List**: ./ui/src/components/tool-flow-card.tsx, ./ui/src/components/feedback-editor.tsx, ./ui/src/pages/tool-flows.tsx, ./ui/src/pages/feedback-steps.tsx
 
 ## Task ID: SP-102

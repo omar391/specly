@@ -1,5 +1,12 @@
 # Next Steps (as of 2025-11-03)
 
+## Current Focus
+**SP-101: Remove Legacy UI Pages & Components** (In-Progress - 50%)
+- Prerequisite SP-100 complete: All 18 API methods implemented, typed errors, api-types.ts extracted ✅
+- Current state: Legacy pages stubbed (return null) but files still exist
+- Next: (1) Delete tool-flows.tsx, feedback-steps.tsx, tool-flow-card.tsx, feedback-editor.tsx, (2) Remove router imports, (3) Clean CSS, (4) Update navigation
+- Unblocks: SP-102-110 can proceed after SP-101 completion
+
 ## Completed in Current Session
 - ✅ SP-011: Background Jobs (GC, Purge & Retry Scheduling) (100%) - BackgroundJobsService with hourly sweeps, ENV config, 10 comprehensive tests, all 218/218 tests passing
 

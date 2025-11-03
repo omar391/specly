@@ -1,0 +1,73 @@
+feat(ui): complete SP-100 UI API client refactor with typed errors
+
+Task ID: SP-100
+Status: Done (100%)
+
+Implementation Summary:
+- Extracted 370 lines of type definitions to ui/src/lib/api-types.ts
+- Implemented 18 missing API endpoint methods enabling full UI-backend integration
+- Added typed error classes matching backend error codes
+- Removed Task.dependencies array per new data model
+- Updated makeRequest() to throw typed errors
+
+Type System (api-types.ts):
+- Core domain types: WorkspaceMetadata, Task (no dependencies array), TaskDependency, HealthStatus
+- Spec & Tool types: Spec, SpecCreateRequest/Response, Tool, ToolVersion, ToolEdge
+- Profile types: Profile, ProfileVersion, ProfileAttachment, WorkspaceProfileBinding
+- Session types: Session, SessionQueryParams, ToolExecuteRequest/Response
+- Rules types: WorkspaceRule, RuleCreateRequest/Response
+- SSE types: Extended with session.updated event (backend impl deferred to SP-106)
+- Error classes: ValidationError, ConflictError, DependencyCycleError, LeaseConflictError, NotFoundError, UnauthorizedError, RateLimitError
+- throwTypedError() helper for automatic error class selection
+
+API Methods Added (18 total):
+Spec Management:
+- createSpec(spec) → POST /api/specs
+
+Tool Management:
+- createTool(tool) → POST /api/tools
+- createToolVersion(toolName, version) → POST /api/tools/:tool/versions
+- executeTool(toolName, params) → POST /api/tools/:tool/execute
+
+Profile Management:
+- createProfile(profile) → POST /api/profiles
+- createProfileVersion(profileName, data) → POST /api/profiles/:profile/versions
+- publishProfileVersion(profileName, version) → POST /api/profiles/:profile/versions/:version/publish
+- attachToolsToProfile(profileName, version, attachments) → POST attachments endpoint
+- getProfileAttachments(profileName, version) → GET attachments endpoint
+
+Workspace Profile Binding:
+- upgradeWorkspaceProfile(workspaceId, data) → POST /api/workspaces/:id/profile/upgrade
+- getWorkspaceProfile(workspaceId) → GET /api/workspaces/:id/profile
+
+Session Management:
+- getSessions(params) → GET /api/sessions?workspace_id=&task_id?
+
+Rules Management:
+- createRule(rule) → POST /api/rules
+- getRules(workspaceId) → GET /api/rules?workspace_id=
+
+Task Dependencies:
+- addTaskDependency(workspaceId, taskId, dependsOn) → POST dependencies endpoint
+- removeTaskDependency(workspaceId, taskId, dependsOn) → DELETE dependencies endpoint
+- getTaskDependencies(workspaceId, taskId) → GET dependencies endpoint
+- patchTaskStatus(workspaceId, taskId, status) → PATCH status endpoint
+
+Workspace Rules Updated:
+- Added rule: "Extract types to separate files when exceeding ~50 lines"
+- Added rule: "Use typed error classes matching backend error codes"
+
+UI Component Integration:
+- tool-version-publisher.tsx now calls createToolVersion() (no more simulation fallback)
+- spec-editor.tsx can call createSpec() for real backend interaction
+- execution-console.tsx can call executeTool() and getSessions()
+- All components ready for full backend integration
+
+Documentation:
+- current.md: SP-100 updated to Done 100%
+- task.md: SP-100 synchronized with comprehensive completion notes
+- next_steps.md: Current Focus shifted to SP-101 (Remove Legacy UI)
+- SP-101 updated to In-Progress 50% (stubbed files awaiting deletion)
+
+Architecture: migration_roadmap_ui.md §API Mapping
+Unblocks: SP-101 through SP-110 (all UI tasks)

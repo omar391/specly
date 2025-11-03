@@ -3,78 +3,64 @@
  * 
  * Provides typed API access to the Specly REST API with:
  * - Type-safe requests and responses
- * - Error handling and retry logic
+ * - Typed error handling with backend error codes
  * - Real-time updates via Server-Sent Events (SSE)
  * - Loading state management
  */
 
-// ========================================
-// Types (matching backend API schema)
-// ========================================
+import type {
+  WorkspaceMetadata,
+  Task,
+  TaskDependency,
+  HealthStatus,
+  Spec,
+  SpecCreateRequest,
+  SpecCreateResponse,
+  Tool,
+  ToolCreateRequest,
+  ToolCreateResponse,
+  ToolVersion,
+  ToolVersionCreateRequest,
+  ToolVersionCreateResponse,
+  Profile,
+  ProfileCreateRequest,
+  ProfileCreateResponse,
+  ProfileVersionCreateRequest,
+  ProfileVersionCreateResponse,
+  ProfileVersionPublishResponse,
+  ProfileAttachmentRequest,
+  ProfileAttachmentResponse,
+  WorkspaceProfileBinding,
+  WorkspaceProfileUpgradeRequest,
+  WorkspaceProfileUpgradeResponse,
+  Session,
+  SessionQueryParams,
+  ToolExecuteRequest,
+  ToolExecuteResponse,
+  WorkspaceRule,
+  RuleCreateRequest,
+  RuleCreateResponse,
+  RuleListResponse,
+  ApiResponse,
+  SSEEvent,
+  SSEEventHandler,
+  SSEEventType,
+  ApiClientConfig,
+} from './api-types.js'
 
-export interface WorkspaceMetadata {
-  id: string
-  name: string
-  path: string
-  status: 'active' | 'idle' | 'inactive' | 'disconnected' | 'error'
-  last_activity: string
-  task_count: number
-  active_task: string | null
-  created_at: string
-  updated_at: string
-}
+// Import throwTypedError as a value (not type)
+import { throwTypedError } from './api-types.js'
 
-export interface Task {
-  id: string
-  title: string
-  description: string
-  status: 'backlog' | 'in-progress' | 'blocked' | 'review' | 'done' | 'dropped'
-  priority: 'high' | 'medium' | 'low'
-  progress: number
-  dependencies: string[]
-  notes: string
-  connected_files: string[]
-  created_at: string
-  updated_at: string
-}
-
-// Legacy tool flows and feedback steps removed from UI client
-
-export interface ApiResponse<T> {
-  data: T
-  error?: string
-}
-
-export interface HealthStatus {
-  status: 'healthy' | 'degraded' | 'unhealthy'
-  version: string
-  activeMCPConnections: number
-  activeSSEClients: number
-  timestamp: string
-}
-
-// ========================================
-// SSE Event Types
-// ========================================
-
-export interface SSEEvent {
-  type: 'workspace.status_changed' | 'task.updated' | 'task.created' | 'connection.status'
-  data: any
-  timestamp: string
-}
-
-export type SSEEventHandler = (event: SSEEvent) => void
-
-// ========================================
-// API Client Configuration
-// ========================================
-
-export interface ApiClientConfig {
-  baseUrl?: string
-  timeout?: number
-  retryAttempts?: number
-  retryDelay?: number
-  autoConnectSSE?: boolean
+// Re-export types for convenience
+export type {
+  WorkspaceMetadata,
+  Task,
+  TaskDependency,
+  HealthStatus,
+  ApiResponse,
+  SSEEvent,
+  SSEEventHandler,
+  ApiClientConfig,
 }
 
 // ========================================
@@ -141,7 +127,9 @@ export class SpeclyApiClient {
         clearTimeout(timeoutId)
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+          // Parse error body and throw typed error
+          const errorBody = await response.json().catch(() => ({}))
+          throwTypedError(response.status, errorBody)
         }
 
         const data = await response.json()
@@ -234,6 +222,224 @@ export class SpeclyApiClient {
     if (res.error && /404/.test(res.error)) return { data: { versions: [] } }
     if (!res.data) return { data: { versions: [] }, error: res.error }
     return res
+  }
+
+  // ========================================
+  // Spec Creation API
+  // ========================================
+
+  async createSpec(spec: SpecCreateRequest): Promise<ApiResponse<SpecCreateResponse>> {
+    return this.makeRequest<SpecCreateResponse>('/api/specs', {
+      method: 'POST',
+      body: JSON.stringify(spec),
+    })
+  }
+
+  // ========================================
+  // Tool Management API
+  // ========================================
+
+  async createTool(tool: ToolCreateRequest): Promise<ApiResponse<ToolCreateResponse>> {
+    return this.makeRequest<ToolCreateResponse>('/api/tools', {
+      method: 'POST',
+      body: JSON.stringify(tool),
+    })
+  }
+
+  async createToolVersion(
+    toolName: string,
+    version: ToolVersionCreateRequest
+  ): Promise<ApiResponse<ToolVersionCreateResponse>> {
+    return this.makeRequest<ToolVersionCreateResponse>(
+      `/api/tools/${encodeURIComponent(toolName)}/versions`,
+      {
+        method: 'POST',
+        body: JSON.stringify(version),
+      }
+    )
+  }
+
+  // ========================================
+  // Tool Execution API
+  // ========================================
+
+  async executeTool(
+    toolName: string,
+    params: ToolExecuteRequest
+  ): Promise<ApiResponse<ToolExecuteResponse>> {
+    return this.makeRequest<ToolExecuteResponse>(
+      `/api/tools/${encodeURIComponent(toolName)}/execute`,
+      {
+        method: 'POST',
+        body: JSON.stringify(params),
+      }
+    )
+  }
+
+  // ========================================
+  // Profile Management API
+  // ========================================
+
+  async createProfile(profile: ProfileCreateRequest): Promise<ApiResponse<ProfileCreateResponse>> {
+    return this.makeRequest<ProfileCreateResponse>('/api/profiles', {
+      method: 'POST',
+      body: JSON.stringify(profile),
+    })
+  }
+
+  async createProfileVersion(
+    profileName: string,
+    data: ProfileVersionCreateRequest
+  ): Promise<ApiResponse<ProfileVersionCreateResponse>> {
+    return this.makeRequest<ProfileVersionCreateResponse>(
+      `/api/profiles/${encodeURIComponent(profileName)}/versions`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    )
+  }
+
+  async publishProfileVersion(
+    profileName: string,
+    version: number
+  ): Promise<ApiResponse<ProfileVersionPublishResponse>> {
+    return this.makeRequest<ProfileVersionPublishResponse>(
+      `/api/profiles/${encodeURIComponent(profileName)}/versions/${version}/publish`,
+      {
+        method: 'POST',
+      }
+    )
+  }
+
+  async attachToolsToProfile(
+    profileName: string,
+    version: number,
+    attachments: ProfileAttachmentRequest
+  ): Promise<ApiResponse<ProfileAttachmentResponse>> {
+    return this.makeRequest<ProfileAttachmentResponse>(
+      `/api/profiles/${encodeURIComponent(profileName)}/versions/${version}/attachments`,
+      {
+        method: 'POST',
+        body: JSON.stringify(attachments),
+      }
+    )
+  }
+
+  async getProfileAttachments(
+    profileName: string,
+    version: number
+  ): Promise<ApiResponse<ProfileAttachmentResponse>> {
+    return this.makeRequest<ProfileAttachmentResponse>(
+      `/api/profiles/${encodeURIComponent(profileName)}/versions/${version}/attachments`
+    )
+  }
+
+  // ========================================
+  // Workspace Profile Binding API
+  // ========================================
+
+  async upgradeWorkspaceProfile(
+    workspaceId: string,
+    data: WorkspaceProfileUpgradeRequest
+  ): Promise<ApiResponse<WorkspaceProfileUpgradeResponse>> {
+    return this.makeRequest<WorkspaceProfileUpgradeResponse>(
+      `/api/workspaces/${encodeURIComponent(workspaceId)}/profile/upgrade`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    )
+  }
+
+  async getWorkspaceProfile(workspaceId: string): Promise<ApiResponse<WorkspaceProfileBinding>> {
+    return this.makeRequest<WorkspaceProfileBinding>(
+      `/api/workspaces/${encodeURIComponent(workspaceId)}/profile`
+    )
+  }
+
+  // ========================================
+  // Session Management API
+  // ========================================
+
+  async getSessions(params: SessionQueryParams): Promise<ApiResponse<{ sessions: Session[] }>> {
+    const queryString = new URLSearchParams({
+      workspace_id: params.workspace_id,
+      ...(params.task_id && { task_id: params.task_id }),
+    }).toString()
+
+    return this.makeRequest<{ sessions: Session[] }>(`/api/sessions?${queryString}`)
+  }
+
+  // ========================================
+  // Rules Management API
+  // ========================================
+
+  async createRule(rule: RuleCreateRequest): Promise<ApiResponse<RuleCreateResponse>> {
+    return this.makeRequest<RuleCreateResponse>('/api/rules', {
+      method: 'POST',
+      body: JSON.stringify(rule),
+    })
+  }
+
+  async getRules(workspaceId: string): Promise<ApiResponse<RuleListResponse>> {
+    return this.makeRequest<RuleListResponse>(
+      `/api/rules?workspace_id=${encodeURIComponent(workspaceId)}`
+    )
+  }
+
+  // ========================================
+  // Task Dependencies API
+  // ========================================
+
+  async addTaskDependency(
+    workspaceId: string,
+    taskId: string,
+    dependsOn: string
+  ): Promise<ApiResponse<{ created: boolean }>> {
+    return this.makeRequest<{ created: boolean }>(
+      `/api/workspaces/${encodeURIComponent(workspaceId)}/tasks/${encodeURIComponent(taskId)}/dependencies`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ depends_on: dependsOn }),
+      }
+    )
+  }
+
+  async removeTaskDependency(
+    workspaceId: string,
+    taskId: string,
+    dependsOn: string
+  ): Promise<ApiResponse<{ removed: boolean }>> {
+    return this.makeRequest<{ removed: boolean }>(
+      `/api/workspaces/${encodeURIComponent(workspaceId)}/tasks/${encodeURIComponent(taskId)}/dependencies/${encodeURIComponent(dependsOn)}`,
+      {
+        method: 'DELETE',
+      }
+    )
+  }
+
+  async getTaskDependencies(
+    workspaceId: string,
+    taskId: string
+  ): Promise<ApiResponse<{ dependencies: TaskDependency[] }>> {
+    return this.makeRequest<{ dependencies: TaskDependency[] }>(
+      `/api/workspaces/${encodeURIComponent(workspaceId)}/tasks/${encodeURIComponent(taskId)}/dependencies`
+    )
+  }
+
+  async patchTaskStatus(
+    workspaceId: string,
+    taskId: string,
+    status: Task['status']
+  ): Promise<ApiResponse<{ task: Task }>> {
+    return this.makeRequest<{ task: Task }>(
+      `/api/workspaces/${encodeURIComponent(workspaceId)}/tasks/${encodeURIComponent(taskId)}/status`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      }
+    )
   }
 
   // ========================================
