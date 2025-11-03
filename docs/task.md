@@ -545,10 +545,10 @@ Remaining for SP-018: Endpoint audit completed (no other public surfaces throw v
 - **Description**: Update README, architecture doc, remove legacy references, add quickstart for spec → publish → execute. Rebrand from TaskPilot to Specly branding throughout all documentation.
 - **Priority**: Medium
 - **Dependencies**: SP-006, SP-100
-- **Status**: In-Progress
-- **Progress**: 75%
-- **Completed At**: 
-- **Notes**: Completed: (1) README.md fully rebranded with Specly naming, architecture concepts, quickstart with curl examples, endpoints table, test counts (181). (2) api-design.md rebranded: title updated, database paths to ~/.specly/specly.db. Remaining: review specly-architecture.md for TaskPilot references.
+- **Status**: Done
+- **Progress**: 100%
+- **Completed At**: 2025-11-03T13:30:00Z
+- **Notes**: Completed: (1) README.md fully rebranded with Specly naming, architecture concepts (hash-addressable specs, versioned tool graphs, unified execution), quickstart with curl examples, updated endpoints table, test counts (181/181), environment variables. (2) api-design.md rebranded: title updated to "Specly UI Integration API Design", database paths updated to ~/.specly/specly.db, clarified workspace data storage. (3) specly-architecture.md verified: already fully branded as Specly with no TaskPilot references, state diagrams and error taxonomy match current implementation. All 181 tests passing.
 - **Connected File List**: ./README.md, ./docs/api-design.md, ./docs/specly-architecture.md
 
 ## Task ID: SP-202
