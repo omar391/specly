@@ -3,7 +3,12 @@
 Note: Legacy TaskPilot task schema is deprecated. This document now reflects Specly’s workspace schema (tasks, task_dependencies, sessions). Any references to the old legacy task schema are superseded by this design.
 
 ## Overview
-This document defines the minimal REST API endpoints required for TaskPilot UI integration, based on analysis of UI pages: home, tasks, tool-flows, and feedback-steps.
+# Specly UI Integration API Design
+
+Note: This document reflects Specly's unified architecture with workspace schema (tasks, task_dependencies, sessions), hash-addressable specs, versioned tool graphs, and unified execution model.
+
+
+This document defines the REST API endpoints for Specly UI integration, supporting workspaces, tasks, profiles, specs, tool versions, and unified execution.
 
 ## API Design Principles
 - **Minimal endpoint set**: Target 6 core endpoints to avoid bloat
@@ -498,8 +503,8 @@ Legend: * denotes codes defined in engine design but not yet surfaced through HT
 ## Implementation Notes
 
 ### Database Mapping
-- **Global data**: Use global database (`~/.taskpilot/global.db`)
-- **Workspace data**: Use workspace database (`{workspace}/.taskpilot/task.db`)
+- **Global data**: Use global database (`~/.specly/specly.db`)
+- **Workspace data**: Task/session data stored in global database with workspace_id associations
 - **Cross-database queries**: Use DatabaseService for coordinated access
 
 ### Caching Strategy
