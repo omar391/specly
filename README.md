@@ -1,6 +1,8 @@
-# TaskPilot MCP Server
+# Specly MCP Server
 
-A comprehensive Model Context Protocol server for task management, project documentation, and development workflow automation. TaskPilot provides an integrated solution combining MCP protocol support, REST API, and web UI in a single unified server.
+A Model Context Protocol server for deterministic, hash-addressable multi-step automation. Specly provides immutable execution specs, versioned tool graphs, profile inheritance, and idempotent side-effect handling through an integrated MCP protocol, REST API, and web UI.
+
+**Status**: Backend core complete (validation, execution, API endpoints). UI migration in progress.
 
 ## 🚀 Quick Start
 
@@ -34,36 +36,58 @@ npm run dev
 
 ## 🏗️ Architecture
 
-TaskPilot runs as a unified server supporting multiple interaction modes:
+Specly is built on three core concepts:
 
-### 1. MCP Protocol Support
-- **STDIO Mode**: Full compatibility with MCP clients (Claude Desktop, etc.)
-- **HTTP/SSE Mode**: Server-Sent Events transport for web-based MCP clients
-- **All 11 Tools Available**: Complete feature parity across both transports
+### 1. Hash-Addressable Specs
+- **Immutable Definitions**: Each spec is content-addressed by hash
+- **Deterministic Execution**: Same spec + input = same execution path
+- **Profile Inheritance**: Workspaces bind to profiles which reference tool versions
 
-### 2. REST API
-- **Workspace Management**: `/api/workspaces`
-- **Task Operations**: `/api/workspaces/{id}/tasks`
-- **Unified Tool Execution**: `POST /api/tools/{tool}/execute` (start or resume inferred) (replaces legacy tool-flows & feedback-steps)
+### 2. Versioned Tool Graphs
+- **DAG Structure**: Tool versions define directed acyclic graphs of spec execution
+- **Validation**: Cycles, unreachable nodes, and invalid transitions rejected at publish time
+- **Normalized Hashing**: Sorted edges ensure consistent graph hashes
 
-### 3. Web UI
-- **React-based Dashboard**: Modern interface for task management
-- **Real-time Updates**: SSE integration for live task status
-- **SPA Routing**: Full client-side navigation support
+### 3. Unified Execution Model
+- **Single Endpoint**: `POST /api/tools/{tool}/execute` for all execution modes
+- **Session Leases**: Ownership tracking prevents concurrent modification conflicts
+- **Action Journal**: Idempotent side-effects with replay capability
+
+See [`docs/specly-architecture.md`](./docs/specly-architecture.md) for detailed design documentation.
 
 ## 🛠️ Usage Modes
 
+### Direct Command Line Usage
+
+```bash
+# HTTP mode (default, port 8989)
+node build/index.js
+
+# Custom port
+node build/index.js --port=9000
+
+# Force re-seed baseline specs/tools
+node build/index.js --force-seed
+
+# Development mode (additional logging)
+node build/index.js --dev
+
+# Show help
+node build/index.js --help
+```
+
 ### MCP Client Integration (STDIO)
 
-For Claude Desktop and other MCP clients:
+**Note**: MCP STDIO support retained but primary focus is REST API for UI integration.
+
+For Claude Desktop:
 
 **MacOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-**Windows**: `%APPDATA%/Claude/claude_desktop_config.json`
 
 ```json
 {
   "mcpServers": {
-    "taskpilot": {
+    "specly": {
       "command": "/path/to/taskpilot-mcp/build/index.js",
       "args": ["--stdio"]
     }
@@ -71,37 +95,35 @@ For Claude Desktop and other MCP clients:
 }
 ```
 
-### Direct Command Line Usage
+## 🔄 Core Workflow
+
+Specly uses a unified execution model via `POST /api/tools/{tool}/execute`:
 
 ```bash
-# STDIO mode (for MCP clients)
-node build/index.js --stdio
+# Create a spec (hash-addressable definition)
+curl -X POST http://localhost:8989/api/specs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "create_user",
+    "steps": [
+      {"tool": "validate_email", "args": {"email": "{{input.email}}"}},
+      {"tool": "hash_password", "args": {"password": "{{input.password}}"}},
+      {"tool": "insert_user", "args": {"email": "{{input.email}}", "hash": "{{step1.output}}"}}
+    ]
+  }'
 
-# HTTP mode with custom port
-node build/index.js --port=8989
+# Publish a tool version (versioned graph node)
+curl -X POST http://localhost:8989/api/tools/create_user/versions \
+  -H "Content-Type: application/json" \
+  -d '{"specHash": "3a7f8...", "version": "1.0.0", "edges": []}'
 
-# Development mode (additional logging)
-node build/index.js --port=8989 --dev
-
-# Show help
-node build/index.js --help
+# Execute the tool
+curl -X POST http://localhost:8989/api/tools/create_user/execute \
+  -H "Content-Type: application/json" \
+  -d '{"input": {"email": "user@example.com", "password": "secret123"}}'
 ```
 
-## 📋 Available Tools
-
-TaskPilot provides 11 comprehensive tools for project management:
-
-1. **`taskpilot_init`** - Initialize workspace with .task folder structure
-2. **`taskpilot_start`** - Begin TaskPilot session with project context
-3. **`taskpilot_add`** - Orchestrate task creation with validation
-4. **`taskpilot_create_task`** - Create validated tasks
-5. **`taskpilot_status`** - Generate project status reports
-6. **`taskpilot_update`** - Update task properties with audit trails
-7. **`taskpilot_audit`** - Perform comprehensive project audits
-8. **`taskpilot_focus`** - Focus on specific tasks with context
-9. **`taskpilot_github`** - GitHub integration for issues and PRs
-10. **`taskpilot_rule_update`** - Manage workspace-specific rules
-11. **`taskpilot_remote_interface`** - External system integrations
+See [`docs/api-design.md`](./docs/api-design.md) for complete API reference.
 
 ## 🔧 Development
 
@@ -123,20 +145,19 @@ cd ui && npm run dev
 ```text
 .
 ├── src/                  # TypeScript source code
-│   ├── tools/           # MCP tool implementations
-│   ├── services/        # Core business logic
+│   ├── api/             # REST API endpoints (specs, tools, profiles, tasks, sessions)
+│   ├── services/        # SpecEngine, validators, lease provider, action journal
 │   ├── database/        # Drizzle ORM setup
-│   ├── server/          # Express server integration
-│   ├── utils/           # Utility functions
-│   └── api/             # REST API endpoints
-├── ui/                  # React web interface
+│   ├── repositories/    # Data access layer
+│   ├── utils/           # Hashing, graph validation, error mapping
+│   └── __tests__/       # Comprehensive test suite (181 tests)
+├── ui/                  # React web interface (migration in progress)
 │   ├── src/             # React components
 │   └── dist/            # Built UI assets
 ├── build/               # Compiled JavaScript
-└── .task/               # TaskPilot workspace data
-    ├── todo/            # Task tracking
-    ├── rules/           # Workspace rules
-    └── project.md       # Project documentation
+└── docs/                # Technical documentation
+    ├── api-design.md    # REST API specification
+    └── specly-architecture.md  # Core concepts and design
 ```
 
 ### Database
@@ -167,10 +188,10 @@ Successful initial or forced seeding emits a single JSON line:
 Subsequent runs (without force) produce no output unless new workspaces require binding.
 
 
-TaskPilot uses SQLite with Drizzle ORM:
-- **Global Database**: `~/.taskpilot/global.db`
-- **Workspace Database**: `.task/workspace.db` (per project)
+Specly uses SQLite with Drizzle ORM and programmatic migrations:
+- **Database**: `~/.specly/specly.db`
 - **Schema**: Fully managed through TypeScript types
+- **Migrations**: Applied programmatically on startup (see `src/database/run-migrations.ts`)
 
 ## 🚀 Deployment
 
@@ -186,25 +207,25 @@ npm run serve
 1. **Environment Variables**:
    ```bash
    NODE_ENV=production
-   TASKPILOT_PORT=8989
-   TASKPILOT_HOST=0.0.0.0
+   SPECLY_PORT=8989
+   SPECLY_HOST=0.0.0.0
    ```
 
 2. **Process Management**:
    ```bash
    # Using PM2
-   pm2 start build/index.js --name "taskpilot" -- --port=8989
+   pm2 start build/index.js --name "specly" -- --port=8989
    
    # Using systemd (create service file)
-   sudo systemctl enable taskpilot
-   sudo systemctl start taskpilot
+   sudo systemctl enable specly
+   sudo systemctl start specly
    ```
 
 3. **Reverse Proxy** (nginx example):
    ```nginx
    server {
        listen 80;
-       server_name taskpilot.example.com;
+       server_name specly.example.com;
        
        location / {
            proxy_pass <http://localhost:8989>;
@@ -221,30 +242,27 @@ npm run serve
 
 ### Port Conflicts
 
-TaskPilot automatically detects and resolves port conflicts:
+Specly automatically detects and resolves port conflicts:
 
 ```bash
 # Check what's using port 8989
 lsof -i :8989
 
-# TaskPilot will automatically kill existing processes
+# Specly will automatically kill existing processes
 npm run serve  # Auto-cleanup enabled
-```
-
-### STDIO Mode Issues
-
-```bash
-# Test STDIO directly
-echo '{"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}}' | node build/index.js --stdio
-
-# Expected: JSON response with 11 tools
 ```
 
 ### HTTP Mode Issues
 
 ```bash
 # Health check
-curl <http://localhost:8989/health>
+curl http://localhost:8989/health
+
+# List all specs
+curl http://localhost:8989/api/specs
+
+# Check active sessions
+curl http://localhost:8989/api/sessions
 
 # Expected: {"status":"healthy",...}
 ```
@@ -252,13 +270,9 @@ curl <http://localhost:8989/health>
 ### Database Issues
 
 ```bash
-# Reset global database
-rm ~/.taskpilot/global.db
-npm run serve  # Auto-recreates
-
-# Reset workspace database
-rm .task/workspace.db
-# Run taskpilot_init tool to recreate
+# Reset database (WARNING: destroys all data)
+rm ~/.specly/specly.db
+npm run serve  # Auto-recreates schema and seeds baseline
 ```
 
 ## 📚 Documentation
@@ -273,6 +287,7 @@ rm .task/workspace.db
 | `--dev` | Development mode | `node build/index.js --dev` |
 | `--help` | Show help | `node build/index.js --help` |
 | `--no-kill` | Don't kill existing processes | `node build/index.js --no-kill` |
+| `--force-seed` | Force re-seed of baseline specs/tools | `node build/index.js --force-seed` |
 
 ### API Reference
 
@@ -280,78 +295,25 @@ rm .task/workspace.db
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/workspaces` | GET | List all workspaces |
+| `/specs` | GET, POST | Manage specs (hash-addressable definitions) |
+| `/tools` | GET | List all tools |
+| `/tools/{tool}/versions` | GET, POST | Manage tool versions |
+| `/tools/{tool}/execute` | POST | Unified execute endpoint (start or resume) |
+| `/workspaces` | GET, POST | Manage workspaces |
 | `/workspaces/{id}/tasks` | GET, POST | Manage tasks |
-| `/workspaces/{id}/tasks/{taskId}` | PUT | Update specific task |
-| `/tools/{tool}/execute` | POST | Start execution (graph provided) or resume (resumeToken provided) |
+| `/workspaces/{id}/profile/upgrade` | POST | Upgrade workspace profile |
+| `/sessions` | GET | List active sessions |
 
-Legacy endpoints `/tool-flows` and `/feedback-steps` have been removed (404). Use the unified execute endpoint.
+See [`docs/api-design.md`](./docs/api-design.md) for complete endpoint documentation.
 
-#### Unified Execute Endpoint
+#### Execution Model
 
-Run (start new execution):
-```bash
-curl -X POST "http://localhost:8989/api/tools/specly_execute/execute" \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "graph": {
-      "entry": "specA",
-      "nodes": {
-        "specA": {"intent": "autonomous"},
-        "specHuman": {"intent": "human"},
-        "specB": {"intent": "autonomous"}
-      },
-      "edges": [
-        {"from": "specA", "to": "specHuman"},
-        {"from": "specHuman", "to": "specB"}
-      ]
-    }
-  }'
-```
+Specly uses a unified `POST /api/tools/{tool}/execute` endpoint that supports:
+- **Start**: Provide `graph` to begin new execution
+- **Resume**: Provide `resumeToken` + `human_input` to continue paused execution
+- **Versioned**: Provide `tool_version_id` to execute persisted graph
 
-Possible Paused Response:
-```json
-{
-  "status": "awaiting_input",
-  "awaitingSpec": "specHuman",
-  "resumeToken": "abc123",
-  "executed": ["specA"],
-  "results": {"specA": {"status": "completed"}}
-}
-```
-
-Resume after providing human output:
-```bash
-curl -X POST "http://localhost:8989/api/tools/specly_execute/execute" \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "resumeToken": "abc123",
-    "human_input": {"specHash": "specHuman", "output": {"text": "Ok, proceed"}},
-    "graph": {
-      "entry": "specA",
-      "nodes": {
-        "specA": {"intent": "autonomous"},
-        "specHuman": {"intent": "human"},
-        "specB": {"intent": "autonomous"}
-      },
-      "edges": [
-        {"from": "specA", "to": "specHuman"},
-        {"from": "specHuman", "to": "specB"}
-      ]
-    }
-  }'
-```
-
-Completion Response:
-```json
-{
-  "status": "completed",
-  "executed": ["specA", "specHuman", "specB"],
-  "results": { /* per spec statuses */ }
-}
-```
-
-Error Mapping (current):
+**Error Codes:**
 
 | Error Code | HTTP | Meaning |
 |------------|------|---------|
@@ -360,28 +322,10 @@ Error Mapping (current):
 | LEASE_ACQUIRE_FAILED | 409 | Session ownership conflict |
 | LEASE_RENEW_FAILED | 409 | Session lease renewal failed |
 | RESUME_TOKEN_INVALID | 404 | Resume token not found or expired |
-| ROUTE_DEAD_END | 500 | No executable path forward (unexpected dead-end) |
+| ROUTE_DEAD_END | 500 | No executable path forward |
 | EXECUTOR_FAILED | 500 | Tool execution runtime failure |
-| (other) | 500 | Unclassified internal error |
-| (none) | 200 | Completed or awaiting_input (success path) |
 
-
-`tool_version_id` path is active: sending only that field (without graph or resumeToken) executes the persisted manifest. If both `graph` and `tool_version_id` are supplied the explicit `graph` wins. Supplying deprecated `mode` query param returns 400.
-
-Graph validation and error mapping
-- Tool version publishing performs strict graph validation and normalization before hashing. See `docs/specly-architecture.md` §13.1 for invariants and normalized hashing guarantees.
-- Public validation errors are surfaced as HTTP 422 with codes: `GRAPH_CYCLE`, `GRAPH_MISSING_NODE`, or `GRAPH_INVALID`.
-
-### Tool Schema
-
-All tools accept JSON parameters and return structured responses:
-
-```typescript
-interface ToolResult {
-  content: Array<{type: "text", text: string}>;
-  isError: boolean;
-}
-```
+Complete examples available in [`docs/api-design.md`](./docs/api-design.md).
 
 ## 🤝 Contributing
 
@@ -395,7 +339,7 @@ interface ToolResult {
 
 ## 🧪 Testing
 
-TaskPilot includes comprehensive test coverage with **175/175 tests passing (100% success rate)** (40 test files):
+Specly includes comprehensive test coverage with **181/181 tests passing (100% success rate)**:
 
 ```bash
 # Run all tests
@@ -408,26 +352,16 @@ npm run test:coverage
 npm run test:watch
 ```
 
-**Test Suites (representative breakdown):**
-- ✅ **Instance Manager Integration**: 23/23 – process management, port conflict handling, multi-instance orchestration
-- ✅ **Spec Engine Planning & Execution**: 8 (planner + execution loop)
-- ✅ **Graph Validation**: 8 – structural invariants & normalization
-- ✅ **Repository & Persistence**: 5 repository + 8 persistence + 3 seed + 2 schema + 2 specly-core schema (multiple files, total 20)
-- ✅ **CLI & Tooling**: 17 cli + 4 base tool + 1 multi-step legacy + 1 tool-flow executor + 8 next-step generator (31) – legacy multi-step slated for removal
-- ✅ **Hashing & Golden Vectors**: 4 hash + 2 golden (6)
-- ✅ **Workspace Schema Investigations**: 3 – introspection & table guarantees
-  (All remaining single-purpose investigative tests included in totals.)
+**Test Suites:**
+- ✅ **Spec Engine**: Execution, retry logic, resume, journal persistence, metrics, lease enforcement (40+ tests)
+- ✅ **Graph Validation**: Cycles, unreachable specs, priority validation, normalization (9 tests)
+- ✅ **Session Leases**: Ownership, force_start, idle state, conflict handling (5 tests)
+- ✅ **API Endpoints**: Tasks, profiles, sessions, tool execution (20+ tests)
+- ✅ **Repositories & Persistence**: CRUD operations, database migrations, seed management (15+ tests)
+- ✅ **Hashing & Canonicalization**: Deterministic hashing, golden vectors (6 tests)
+- ✅ **CLI & Tooling**: Multi-step tools, next-step generator, base tool (25+ tests)
 
-**Test Environment:** Automated in-memory SQLite database with proper environment detection ensures isolated test runs.
-
-### Test Environment (Specly Migration Note)
-During the ongoing Specly migration some tests rely on the native `better-sqlite3` module. Running the suite with Bun currently triggers an ABI / symbol mismatch (e.g. "Module did not self-register" or similar native load error). Use Node + Vitest via `npm test` until we explicitly add Bun support.
-
-Known symptoms when using Bun (do not open an issue – switch to Node):
-- Native module load failure referencing `better-sqlite3`
-- `vi.mock is not a function` due to mismatched test environment shims
-
-Recommended commands:
+**Test Environment:** In-memory SQLite with programmatic migrations ensures isolated test runs. Use Node.js + Vitest (Bun support pending due to native module compatibility).
 ```bash
 npm install
 npm test
