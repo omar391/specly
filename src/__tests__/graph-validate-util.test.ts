@@ -517,57 +517,51 @@ describe('Graph Validation Utility', () => {
     });
 
     describe('GraphValidationError Class', () => {
-        it('should include error code', () => {
-            try {
-                validateToolGraph({
-                    ordered_specs: ['a', 'a'],
-                    entry_spec: 'a',
-                    edges: []
-                });
-                fail('Should have thrown');
-            } catch (err: any) {
-                expect(err).toBeInstanceOf(GraphValidationError);
-                expect(err.code).toBe('ERR_DUP_SPEC');
-            }
+    it('should include error code', () => {
+      try {
+        validateToolGraph({
+          ordered_specs: ['a', 'a'],
+          entry_spec: 'a',
+          edges: []
         });
-
-        it('should include error message', () => {
-            try {
-                validateToolGraph({
-                    ordered_specs: ['a', 'b'],
-                    entry_spec: 'c',
-                    edges: []
-                });
-                fail('Should have thrown');
-            } catch (err: any) {
-                expect(err).toBeInstanceOf(GraphValidationError);
-                expect(err.message).toContain('entry_spec not found');
-            }
+        expect.fail('Should have thrown');
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(GraphValidationError);
+        expect(err.code).toBe('ERR_DUP_SPEC');
+      }
+    });    it('should include error message', () => {
+      try {
+        validateToolGraph({
+          ordered_specs: ['a', 'b'],
+          entry_spec: 'c',
+          edges: []
         });
-
-        it('should include error details when provided', () => {
-            try {
-                validateToolGraph({
-                    ordered_specs: ['a', 'b', 'a'],
-                    entry_spec: 'a',
-                    edges: []
-                });
-                fail('Should have thrown');
-            } catch (err: any) {
-                expect(err).toBeInstanceOf(GraphValidationError);
-                expect(err.details).toBeDefined();
-                expect(err.details.spec).toBe('a');
-            }
+        expect.fail('Should have thrown');
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(GraphValidationError);
+        expect(err.message).toContain('entry_spec not found');
+      }
+    });    it('should include error details when provided', () => {
+      try {
+        validateToolGraph({
+          ordered_specs: ['a', 'b', 'a'],
+          entry_spec: 'a',
+          edges: []
         });
-
-        it('should be instanceof Error', () => {
+        expect.fail('Should have thrown');
+      } catch (err: any) {
+        expect(err).toBeInstanceOf(GraphValidationError);
+        expect(err.details).toBeDefined();
+        expect(err.details.spec).toBe('a');
+      }
+    });        it('should be instanceof Error', () => {
             try {
                 validateToolGraph({
                     ordered_specs: [],
                     entry_spec: 'a',
                     edges: []
                 } as any);
-                fail('Should have thrown');
+                expect.fail('Should have thrown');
             } catch (err: any) {
                 expect(err).toBeInstanceOf(Error);
             }

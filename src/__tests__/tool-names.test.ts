@@ -255,7 +255,7 @@ describe('Tool Names', () => {
     it('should throw Error type', () => {
       try {
         validateToolName('invalid');
-        fail('Should have thrown');
+        expect.fail('Should have thrown');
       } catch (error) {
         expect(error).toBeInstanceOf(Error);
       }
@@ -283,8 +283,8 @@ describe('Tool Names', () => {
     });
 
     it('should allow enum in switch statements', () => {
-      const tool = ToolNames.INIT;
-      let result: string;
+      const tool = ToolNames.INIT as ToolNames;
+      let result: string = 'other';
       
       switch (tool) {
         case ToolNames.INIT:
@@ -292,6 +292,9 @@ describe('Tool Names', () => {
           break;
         case ToolNames.START:
           result = 'start';
+          break;
+        case ToolNames.ADD:
+          result = 'add';
           break;
         default:
           result = 'other';
