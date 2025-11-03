@@ -360,3 +360,126 @@ Rules:
 - Separation of `session_id` and `client_state_id` preserves internal integrity + lease semantics.
 - Linear profile inheritance avoids conflict resolution heuristics (no diamond merges).
 - Soft delete + time-based purge ensures auditability without unbounded growth.
+
+---
+
+## Appendix A: Security & Validation Limits
+
+### A.1 Executor Type Whitelist
+Only the following executor types are permitted for spec definitions:
+- `function` - JavaScript function execution (sandboxed)
+- `bash` - Shell script execution
+- `rest` - HTTP REST API calls
+- `graphql` - GraphQL query execution
+- `noop` - No-op executor (testing/placeholder)
+- `node` - Node.js script execution
+
+**Enforcement:** Spec creation (POST /api/specs) validates `executor_type` against this whitelist. Attempts to register specs with unlisted executors (e.g., `python`, `ruby`, arbitrary strings) are rejected with HTTP 422 and error code `ERR_INVALID_EXECUTOR_TYPE`.
+
+**Rationale:** Limits attack surface by restricting execution vectors to known, validated executor implementations. Future executor types require explicit whitelist addition and security review.
+
+### A.2 Size Limits
+
+#### Spec Content Template
+- **Limit:** 1 MB (1,048,576 bytes) default
+- **ENV Variable:** `SPECLY_MAX_SPEC_CONTENT_SIZE`
+- **Enforcement:** POST /api/specs validates `content_template` size before hashing
+- **Error:** HTTP 422, code `ERR_SPEC_CONTENT_TOO_LARGE`
+- **Rationale:** Prevents memory exhaustion from maliciously large prompt templates
+
+#### Input/Output Schemas
+- **Limit:** 100 KB (102,400 bytes) each, default
+- **ENV Variables:** `SPECLY_MAX_INPUT_SCHEMA_SIZE`, `SPECLY_MAX_OUTPUT_SCHEMA_SIZE`
+- **Enforcement:** POST /api/specs validates `input_schema` and `output_schema` sizes
+- **Errors:** HTTP 422, codes `ERR_INPUT_SCHEMA_TOO_LARGE`, `ERR_OUTPUT_SCHEMA_TOO_LARGE`
+- **Rationale:** JSON schema validation complexity scales with schema size; limits prevent DoS via schema bomb attacks
+
+#### Graph Constraints
+- **Max Nodes:** 1000 specs per tool version (default)
+  - **ENV Variable:** `SPECLY_MAX_GRAPH_NODES`
+  - **Error:** HTTP 422, code `ERR_GRAPH_TOO_MANY_NODES`
+  
+- **Max Depth:** 50 levels from entry_spec (default)
+  - **ENV Variable:** `SPECLY_MAX_GRAPH_DEPTH`
+  - **Error:** HTTP 422, code `ERR_GRAPH_TOO_DEEP`
+  
+- **Max Edges:** Implicitly bounded by nodes (each node can reference any other)
+  - **Error:** HTTP 422, code `ERR_GRAPH_TOO_MANY_EDGES`
+
+- **Enforcement:** POST /api/tools/:tool/versions validates graph size/depth during structural validation (before hash computation)
+- **Rationale:** Prevents cycle detection algorithms (O(V+E)) from becoming DoS vectors; ensures planning completes in bounded time
+
+### A.3 Command Alias Uniqueness
+
+**Constraint:** `command_alias` must be unique across all tool registrations (global namespace)
+
+**Enforcement:** 
+- POST /api/tools validates alias uniqueness before tool creation
+- Duplicate alias attempts return HTTP 409 with error code `ERR_COMMAND_ALIAS_CONFLICT`
+- `null` aliases are permitted (tools without CLI shortcuts)
+
+**Rationale:** Command aliases provide CLI convenience layer shortcuts. Global uniqueness prevents ambiguity when resolving tool invocations from command-line interfaces. Profile-level tool attachment may reference the same tool version multiple times with different workspace-local names, but the underlying tool's `command_alias` remains globally unique.
+
+**Example Conflict:**
+```bash
+# Tool A registered with command_alias="analyze"
+POST /api/tools { name: "data-analyzer", command_alias: "analyze" } → 201 Created
+
+# Tool B attempts same alias
+POST /api/tools { name: "log-analyzer", command_alias: "analyze" } → 409 Conflict
+{
+  "error": "ERR_COMMAND_ALIAS_CONFLICT",
+  "message": "Command alias 'analyze' already registered to tool 'data-analyzer'"
+}
+```
+
+### A.4 Configuration Reference
+
+All security limits are configurable via environment variables:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `SPECLY_MAX_SPEC_CONTENT_SIZE` | 1048576 (1 MB) | Maximum spec content_template size in bytes |
+| `SPECLY_MAX_INPUT_SCHEMA_SIZE` | 102400 (100 KB) | Maximum input_schema size in bytes |
+| `SPECLY_MAX_OUTPUT_SCHEMA_SIZE` | 102400 (100 KB) | Maximum output_schema size in bytes |
+| `SPECLY_MAX_GRAPH_NODES` | 1000 | Maximum specs per tool version graph |
+| `SPECLY_MAX_GRAPH_DEPTH` | 50 | Maximum depth from entry_spec to any reachable node |
+
+**Configuration Example:**
+```bash
+# Increase limits for trusted internal deployment
+export SPECLY_MAX_SPEC_CONTENT_SIZE=5242880  # 5 MB
+export SPECLY_MAX_GRAPH_NODES=5000
+export SPECLY_MAX_GRAPH_DEPTH=100
+
+# Start server with custom limits
+pnpm start
+```
+
+### A.5 Validation Test Coverage
+
+Security validation is comprehensively tested in `src/__tests__/security-validation.test.ts`:
+- ✅ Executor type whitelist (reject python, accept whitelisted types)
+- ✅ Spec size limits (reject oversized content_template/input_schema/output_schema, accept within limits)
+- ✅ Graph constraints (reject graphs exceeding node count or depth limits, accept valid graphs)
+- ✅ Command alias uniqueness (reject duplicate aliases, allow unique and null aliases)
+- ✅ Environment configuration validation (override defaults, verify limits respected)
+
+**Total Security Tests:** 15 passing (included in 218/218 test suite)
+
+### A.6 Security Posture Summary
+
+| Dimension | Implementation | Status |
+|-----------|----------------|--------|
+| **Input Validation** | Whitelist + size limits | ✅ Complete |
+| **Resource Limits** | Graph size/depth constraints | ✅ Complete |
+| **Namespace Integrity** | Command alias uniqueness | ✅ Complete |
+| **Configuration** | ENV-based overrides | ✅ Complete |
+| **Test Coverage** | 15 dedicated security tests | ✅ Complete |
+
+**Production Recommendations:**
+1. Deploy with default limits unless specific use cases require adjustment
+2. Monitor rejected requests (422/409 codes) for potential attack patterns
+3. Consider additional rate limiting at reverse proxy layer for public-facing deployments
+4. Regularly audit executor implementations for sandbox escape vulnerabilities
+5. Log all ERR_COMMAND_ALIAS_CONFLICT events for namespace collision detection

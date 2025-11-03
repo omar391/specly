@@ -556,10 +556,10 @@ Remaining for SP-018: Endpoint audit completed (no other public surfaces throw v
 - **Description**: Document command_alias rules, template size limit, executor registry restrictions.
 - **Priority**: Low
 - **Dependencies**: SP-013
-- **Status**: TBD
-- **Progress**: 0%
-- **Completed At**: 
-- **Notes**: Add to architecture doc appendix.
+- **Status**: Done
+- **Progress**: 100%
+- **Completed At**: 2025-11-03T18:15:00Z
+- **Notes**: Added comprehensive Appendix A to specly-architecture.md documenting: (A.1) Executor type whitelist (function, bash, rest, graphql, noop, node) with enforcement details and ERR_INVALID_EXECUTOR_TYPE error code, (A.2) Size limits (1MB specs, 100KB schemas, 1000 nodes, depth 50) with ENV variables (SPECLY_MAX_SPEC_CONTENT_SIZE, SPECLY_MAX_INPUT_SCHEMA_SIZE, SPECLY_MAX_OUTPUT_SCHEMA_SIZE, SPECLY_MAX_GRAPH_NODES, SPECLY_MAX_GRAPH_DEPTH) and error codes (ERR_SPEC_CONTENT_TOO_LARGE, ERR_INPUT_SCHEMA_TOO_LARGE, ERR_OUTPUT_SCHEMA_TOO_LARGE, ERR_GRAPH_TOO_MANY_NODES, ERR_GRAPH_TOO_DEEP, ERR_GRAPH_TOO_MANY_EDGES), (A.3) Command alias uniqueness constraint with global namespace enforcement, HTTP 409 conflict handling, and ERR_COMMAND_ALIAS_CONFLICT error code with example, (A.4) Configuration reference table with all ENV variables and defaults, (A.5) Validation test coverage summary (15 security tests in security-validation.test.ts), (A.6) Security posture summary table and 5 production recommendations. Essential reference for operations and security teams complete.
 - **Connected File List**: ./docs/specly-architecture.md
 
 ## Task ID: SP-203
