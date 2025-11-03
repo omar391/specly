@@ -107,14 +107,18 @@ For each test case in the plan, auto-resolve:
 - Use existing `describe`/`it` hierarchy patterns
 - Follow naming conventions from similar tests
 
-**Mocking Strategy**:
-- Check `src/test-utils/` for existing mock utilities
-- Use same mocking libraries as existing tests
-- Follow established mock patterns
+**Mocking Strategy** (Prefer Concrete over Mocks):
+- **CRITICAL PRINCIPLE**: Always prefer concrete implementations over mocks
+- **Use real instances** when possible (e.g., real database with test data, real services)
+- **Mock only when necessary**: External APIs, file system, time-dependent operations, expensive computations
+- Check `src/test-utils/` for existing mock utilities and concrete test helpers
+- Use same mocking libraries as existing tests (vitest, sinon)
+- Follow established mock patterns from similar test files
 - **BaseTool children**: Spy on `validateWorkspace` method instead of mocking GlobalDatabaseService
-- **Non-BaseTool classes**: Use module-level `vi.mock()` for dependencies (GlobalDatabaseService, PromptOrchestrator)
+- **Non-BaseTool classes**: Use module-level `vi.mock()` for dependencies only when concrete testing isn't feasible
 - **Sequential behaviors**: Use `mockImplementationOnce()` chains for different call behaviors
 - **Error testing**: First call succeeds (during addClient/init), subsequent calls fail (during test)
+- **When in doubt**: Try concrete first, mock only if it causes issues (slow tests, external dependencies, non-determinism)
 
 **Test Data**:
 - Create minimal but realistic test data
