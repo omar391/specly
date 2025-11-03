@@ -8,3 +8,21 @@ build/
 .DS_Store
 test-output.txt
 coverage/
+
+# Package manager lock files (keep only pnpm-lock.yaml)
+package-lock.json
+bun.lock
+yarn.lock
+
+# Temporary files
+*.swp
+*.swo
+*~
+
+# Database journals (transient)
+*.db-journal
+*.db-shm
+*.db-wal
+
+# OS files
+Thumbs.db

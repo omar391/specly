@@ -175,13 +175,15 @@ This rule is mandatory and supersedes any ad-hoc commit practices.
 - **Backend**: Node.js 18+, TypeScript 5+, Express, Drizzle ORM, SQLite3
 - **Frontend**: React 18, Rsbuild, Tailwind CSS, React Query
 - **Build Tools**: Rsbuild (UI) & tsc (backend)
-- **Package Manager**: pnpm for tests/scripts; bun allowed for UI build/dev; npm fallback if necessary
+- **Package Manager**: **pnpm only** for all operations (install, scripts, tests, dev, build)
 - **Deployment**: Container image with deterministic build (lockfile pinned)
 
-## Package Management Rules
-- Prefer pnpm for workspace installs and backend scripts.
-- Use bun only for UI dev/build commands; do not use bun for tests.
-- Keep lockfiles committed; no manual edits.
+## Package Management Rules (Updated 2025-11-03)
+- **MANDATORY: Use pnpm exclusively** for all package management operations across backend and UI.
+- **NEVER use bun, npm, or yarn** - this repository standardizes on pnpm only.
+- All scripts should be run with `pnpm` prefix (e.g., `pnpm test`, `pnpm dev`, `pnpm build`).
+- Keep `pnpm-lock.yaml` committed; no manual edits to lockfile.
+- Other package manager lock files (package-lock.json, bun.lock, yarn.lock) are gitignored.
 - Add new dependency only with justification referencing SP task.
 - Remove unused deps promptly (tracked in SP-201 doc overhaul if discovered).
 

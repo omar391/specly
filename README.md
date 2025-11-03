@@ -157,15 +157,23 @@ cd ui && npm run dev
 │   ├── database/        # Drizzle ORM setup
 │   ├── repositories/    # Data access layer
 │   ├── utils/           # Hashing, graph validation, error mapping
-│   └── __tests__/       # Comprehensive test suite (181 tests)
-├── ui/                  # React web interface (migration in progress)
+│   └── __tests__/       # Comprehensive test suite (218 tests)
+├── scripts/             # Development and automation scripts
+├── ui/                  # React web interface (separate build, integrated deployment)
 │   ├── src/             # React components
-│   └── dist/            # Built UI assets
+│   └── dist/            # Built UI assets (served by main server)
 ├── build/               # Compiled JavaScript
+├── api-design.md        # REST API specification (root-level for quick discovery)
 └── docs/                # Technical documentation
-    ├── api-design.md    # REST API specification
-    └── specly-architecture.md  # Core concepts and design
+    ├── specly-architecture.md  # Core concepts and design
+    ├── task.md          # Development task tracking
+    └── archive/         # Historical documentation (migrations, brainstorms)
 ```
+
+**Structural Notes:**
+- **`ui/` at root level**: Separate frontend application with independent build system (Rsbuild), but deployed as integrated part of main server
+- **`scripts/` at root level**: Development utilities and automation scripts shared across backend and UI
+- **`api-design.md` at root**: Quick reference for API consumers without navigating into docs/
 
 ### Database
 ### Seeding (Specly Baseline)
