@@ -316,17 +316,9 @@ Acceptable gaps (document in tracking):
 
 **Always document WHY.**
 
-## Commands
-
-- `//maximize-coverage` or `//go` - Process all files (default workflow)
-- `//cover-file [path]` - Focus on specific file
-- `//coverage-status` - Show current progress from `.task/coverage-progress.md`
-- `//coverage-report` - Run `node .task/analyze-coverage.js` for detailed analysis
-- `//refresh-coverage` - Run `pnpm coverage && node .task/analyze-coverage.js` to update all metrics
-
 ## Decision Heuristics
 
-### Auto-resolve Test Implementation Decisions:
+### Auto-resolve Test Implementation Decisions
 
 1. **Test file location**: Match existing structure (`__tests__/` or `*.test.ts` co-located)
 2. **Mocking approach**: Use utilities from `src/test-utils/` (vitest, sinon, etc.)
@@ -343,7 +335,7 @@ Acceptable gaps (document in tracking):
      - Defensive programming that can't be triggered in tests
    - Document why coverage is <95% in progress tracking
 
-### When Multiple Approaches Exist:
+### When Multiple Approaches Exist
 
 - **Choose consistency**: Follow majority pattern in existing tests
 - **Document divergence**: If you must deviate, explain why in comments
