@@ -130,40 +130,22 @@ For each test case in the plan, auto-resolve:
 
 #### Step 3: Implementation Strategy
 
-**For simple/similar files** (following established patterns):
+**Choose strategy based on file complexity:**
+
+**Simple/Pattern-Match Files** (e.g., similar tool structures):
 - Create entire test file at once (30-40 tests)
-- Reduces context switching and improves efficiency
-- Run tests once to verify all pass
+- Run once: `pnpm test [test-file-path]`
+- Verify all pass, check coverage
+- Most efficient for established patterns
 
-**For complex/novel files** (new patterns, integration tests):
-Implement tests in small batches (5-10 test cases per batch):
+**Complex/Novel Files** (new patterns, integrations):
+- Batch approach: 5-10 tests per iteration
+- Categories: Constructor → Static → Execute (happy/errors) → Edge cases → Schema
+- Run after each batch: `pnpm test [test-file-path]`
+- Check coverage: `pnpm test --coverage [source-file-path]`
+- Iterate until target reached
 
-1. **Write batch of tests**:
-   - Focus on one category at a time:
-     - Happy paths
-     - Edge cases
-     - Error conditions
-     - Branch coverage
-
-2. **Run tests immediately**:
-   ```bash
-   pnpm test [test-file-path]
-   ```
-   
-3. **Verify batch passes**:
-   - All new tests green ✅
-   - No existing tests broken ❌
-   - Fix any failures before continuing
-
-4. **Check coverage for this file**:
-   ```bash
-   pnpm test --coverage [source-file-path]
-   ```
-
-5. **Iterate**:
-   - If coverage < 95%, analyze remaining gaps
-   - Write next batch of tests
-   - Repeat until target reached
+**Key Principle**: Match the approach to file complexity, not a rigid rule
 
 #### Step 4: Validate & Document
 
@@ -204,6 +186,8 @@ Implement tests in small batches (5-10 test cases per batch):
 
 ### Phase 3: Move to Next File
 
+**Note**: After completing 5+ files, proceed to Phase 4 (Self-Optimization) before continuing.
+
 1. **Re-run coverage analysis**:
    ```bash
    pnpm coverage
@@ -235,7 +219,51 @@ Implement tests in small batches (5-10 test cases per batch):
    - Pick next lowest coverage file from updated analysis
    - Repeat Phase 2
 
-### Phase 4: Final Report
+### Phase 4: Self-Optimization (Before Completion)
+
+At the end of each session (or after completing 5+ files), optimize the agent itself:
+
+1. **Review Session Learnings**:
+   - What mock patterns were discovered?
+   - What testing strategies worked best?
+   - What efficiency gains were achieved?
+   - What patterns can be generalized?
+
+2. **Update This Agent File**:
+   - Add new mock patterns to "Mocking Strategy" section
+   - Update "Efficiency Tips" with proven practices
+   - Add examples to commit message format
+   - Document any new edge cases handled
+   - Remove redundant or outdated guidance
+
+3. **Refine Documentation**:
+   - Remove verbose or redundant explanations
+   - Keep only actionable, proven strategies
+   - Consolidate similar patterns
+   - Update examples with real session data
+
+4. **Commit Optimization**:
+   ```bash
+   git add .github/agents/TestCoverageMaximizer.agent.md
+   git commit -m "docs: optimize TestCoverageMaximizer agent based on session learnings
+   
+   Key improvements:
+   - [List specific patterns discovered]
+   - [List efficiency gains achieved]
+   - [List documentation refinements]
+   
+   Session context:
+   - X files completed
+   - Y tests added
+   - Z% coverage improvement"
+   ```
+
+5. **Update Progress Document**:
+   - Add "Agent optimization" note to `.task/coverage-progress.md`
+   - Document what was learned and applied
+   - Include optimization commit in session summary
+
+### Phase 5: Final Report
 
 When all files reach target coverage:
 
@@ -272,85 +300,21 @@ When all files reach target coverage:
 
 ### Comprehensive Coverage Strategy
 
-Test these systematically:
-
-1. **All Function Signatures**:
-   - Every public function/method
-   - Each parameter combination
-   - Default parameter values
-   - Optional vs required parameters
-
-2. **All Branches**:
-   - `if/else` both paths
-   - `switch` all cases + default
-   - Ternary operators both outcomes
-   - Short-circuit operators (`&&`, `||`)
-   - Optional chaining (`?.`) both paths
-
-3. **All Error Paths**:
-   - `try/catch` blocks
-   - `throw` statements
-   - Error propagation
-   - Error recovery logic
-   - Validation failures
-
-4. **Boundary Conditions**:
-   - Empty arrays/objects
-   - `null` and `undefined`
-   - Zero, negative, max values
-   - String edge cases (empty, very long)
-   - Type edge cases
-
-5. **Integration Points**:
-   - Database operations (mock properly)
-   - External API calls (mock with various responses)
-   - File system operations
-   - Environment variables
-   - Configuration values
-
-### Test Organization Pattern
-
-```typescript
-describe('ModuleName', () => {
-  // Setup & teardown
-  beforeEach(() => { /* ... */ });
-  afterEach(() => { /* ... */ });
-
-  describe('FunctionName', () => {
-    describe('happy paths', () => {
-      it('should handle standard valid input', () => { /* ... */ });
-      it('should return expected output format', () => { /* ... */ });
-    });
-
-    describe('edge cases', () => {
-      it('should handle empty input', () => { /* ... */ });
-      it('should handle null/undefined', () => { /* ... */ });
-      it('should handle boundary values', () => { /* ... */ });
-    });
-
-    describe('error conditions', () => {
-      it('should throw on invalid input type', () => { /* ... */ });
-      it('should handle database errors gracefully', () => { /* ... */ });
-      it('should propagate errors correctly', () => { /* ... */ });
-    });
-
-    describe('integration scenarios', () => {
-      it('should work with real dependencies', () => { /* ... */ });
-    });
-  });
-});
-```
+Test systematically:
+- **Functions**: All public methods, parameter combinations, defaults
+- **Branches**: if/else, switch, ternary, short-circuit, optional chaining
+- **Errors**: try/catch, throw, propagation, validation failures
+- **Boundaries**: Empty/null/undefined, zero/negative/max, edge cases
+- **Integrations**: Database ops, API calls, file system (mock properly)
 
 ### When to Skip Coverage
 
-Document exceptions for:
-- **Type guards**: TypeScript type narrowing that can't fail at runtime
-- **Logging**: Non-critical logging statements
-- **Unreachable code**: Truly defensive code that should never execute
-- **Dev-only paths**: Development/debug code not in production
-- **Platform-specific**: Code for platforms not being tested
+Acceptable gaps (document in tracking):
+- Type guards, logging, unreachable defensive code
+- Dev-only paths, platform-specific code
+- Error handlers that just call `next(error)`
 
-**Always document WHY in comments and tracking doc.**
+**Always document WHY.**
 
 ## Commands
 
