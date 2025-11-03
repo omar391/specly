@@ -1,6 +1,6 @@
-// Design system constants based on the TaskPilot design language
+// Design system constants based on the Specly design language
 export const designSystem = {
-    name: 'TaskPilot Design System',
+    name: 'Specly Design System',
     version: '1.1.0',
     spacing: {
         xs: '0.25rem',
@@ -175,6 +175,15 @@ export const designSystem = {
     }
 } as const
 
+export const brandName = 'Specly'
+export const brandColor = '#0B5FFF'
+export const sessionColors = {
+    awaiting_input: '#F59E0B',
+    running: '#0EA5E9',
+    completed: '#10B981',
+    failed: '#EF4444',
+}
+
 // Helper function to get nested design system values
 export function getDesignToken(path: string): any {
     return path.split('.').reduce((obj: any, key) => obj?.[key], designSystem)
@@ -191,11 +200,13 @@ export const spacing = {
     '3xl': getDesignToken('spacing.3xl'),
 }
 
-// Color utilities
-export const colors = {
-    accent: getDesignToken('colors.accent'),
-    neutral: getDesignToken('colors.neutral'),
-}
+ // Color utilities
+ export const colors = {
+     accent: getDesignToken('colors.accent'),
+     neutral: getDesignToken('colors.neutral'),
+     brand: brandColor,
+     session: sessionColors,
+ }
 
 // Typography utilities
 export const typography = {

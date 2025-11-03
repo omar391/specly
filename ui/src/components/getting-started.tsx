@@ -18,7 +18,7 @@ export function GettingStarted() {
             className={`${tailwindClasses.typography.title} mb-4`}
             style={{ fontSize: '2rem', fontWeight: '700' }}
           >
-            Welcome to TaskPilot!
+            Welcome to Specly!
           </h2>
           <p 
             className={`${tailwindClasses.typography.subtitle} mb-8 max-w-lg mx-auto`}
@@ -53,7 +53,7 @@ export function GettingStarted() {
               className={`${tailwindClasses.typography.subtitle} mb-4`}
               style={{ fontSize: '1rem' }}
             >
-              To activate TaskPilot, run this command in your IDE or CLI:
+              To activate Specly, run this command in your IDE or CLI:
             </p>
             <div 
               className="px-4 py-3 rounded-lg font-mono text-lg text-center"
@@ -104,7 +104,7 @@ export function GettingStarted() {
                     Open your IDE (VS Code, Cursor, etc.)
                   </p>
                   <p className={`${tailwindClasses.typography.caption}`} style={{ color: designSystem.colors.neutral[600] }}>
-                    Make sure TaskPilot MCP is configured in your settings
+                    Make sure Specly MCP is configured in your settings
                   </p>
                 </div>
               </div>
@@ -129,7 +129,7 @@ export function GettingStarted() {
                     Run the activation command
                   </p>
                   <p className={`${tailwindClasses.typography.caption}`} style={{ color: designSystem.colors.neutral[600] }}>
-                    This connects your workspace to TaskPilot
+                    This connects your workspace to Specly
                   </p>
                 </div>
               </div>

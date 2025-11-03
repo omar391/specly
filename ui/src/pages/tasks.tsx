@@ -6,6 +6,9 @@ import { PageHeader } from '@/components/page-header'
 import { CheckCircle, Clock, AlertCircle, Calendar, CheckSquare } from 'lucide-react'
 import { TaskCreationDialog } from '@/components/task-creation-dialog'
 import { SectionWithContent } from '@/components/ui/section-with-content'
+import { Button } from '@/components/ui/button'
+import StatusBadge from '@/components/status-badge'
+import TaskDependenciesPanel from '@/components/task-dependencies-panel'
 import { apiClient, type Task, type WorkspaceMetadata } from '@/lib/api-client'
 
 export function TasksPage() {
@@ -18,6 +21,10 @@ export function TasksPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [, setIsCreatingTask] = useState(false)
+
+  // Dependencies panel state
+  const [depsOpen, setDepsOpen] = useState(false)
+  const [depsTaskId, setDepsTaskId] = useState<string | number | null>(null)
 
   // Load tasks from API
   useEffect(() => {
@@ -216,8 +223,13 @@ export function TasksPage() {
             <div className="text-lg font-bold text-primary">
               {task.progress}%
             </div>
-            <div className="text-xs text-muted-foreground uppercase tracking-wide">
-              {task.status.replace('-', ' ').toUpperCase()}
+            <div className="mt-1">
+              <StatusBadge status={task.status} small />
+            </div>
+            <div className="mt-2">
+              <Button size="sm" onClick={() => { setDepsTaskId(task.id); setDepsOpen(true); }}>
+                Dependencies ({task.dependencies ? task.dependencies.length : 0})
+              </Button>
             </div>
           </div>
         </div>
@@ -372,6 +384,41 @@ export function TasksPage() {
           </SectionWithContent>
         </TabsContent>
       </Tabs>
+
+      {/* Dependencies Panel */}
+      <TaskDependenciesPanel
+        taskId={depsTaskId || ''}
+        open={depsOpen}
+        onClose={() => { setDepsOpen(false); setDepsTaskId(null) }}
+        onUpdated={(updatedTask: any) => {
+          // Update lists conservatively
+          setCurrentTasks(prev => {
+            if (prev.some(t => t.id === updatedTask.id)) {
+              return prev.map(t => t.id === updatedTask.id ? updatedTask : t)
+            }
+            // If updated task now active, add to current
+            if (updatedTask.status !== 'done' && updatedTask.status !== 'dropped') {
+              return [...prev, updatedTask]
+            }
+            return prev
+          })
+
+          setHistoryTasks(prev => {
+            if (prev.some(t => t.id === updatedTask.id)) {
+              return prev.map(t => t.id === updatedTask.id ? updatedTask : t)
+            }
+            // If updated task now completed/dropped, add to history
+            if (updatedTask.status === 'done' || updatedTask.status === 'dropped') {
+              return [...prev, updatedTask]
+            }
+            return prev
+          })
+
+          // Close panel after update
+          setDepsOpen(false)
+          setDepsTaskId(null)
+        }}
+      />
     </div>
   )
 }

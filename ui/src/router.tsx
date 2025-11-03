@@ -1,8 +1,8 @@
 import { createRouter, createRoute, createRootRoute, Outlet } from '@tanstack/react-router'
 import { HomePage } from './pages/home'
 import { TasksPage } from './pages/tasks'
-import { ToolFlowsPage } from './pages/tool-flows'
-import { FeedbackStepsPage } from './pages/feedback-steps'
+import { SpecsPage } from './pages/specs'
+import { ToolsPage } from './pages/tools'
 import { FloatingNav } from './components/floating-nav'
 
 // Root route
@@ -23,7 +23,7 @@ const indexRoute = createRoute({
       <div className="space-y-8">
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">TaskPilot</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Specly</h1>
           <p className="text-gray-600">Model Context Protocol Task Manager</p>
         </div>
         
@@ -32,6 +32,18 @@ const indexRoute = createRoute({
       </div>
     </div>
   ),
+})
+
+const specsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/specs',
+  component: SpecsPage,
+})
+
+const toolsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/tools',
+  component: ToolsPage,
 })
 
 // Workspace routes
@@ -54,25 +66,15 @@ const tasksRoute = createRoute({
   component: TasksPage,
 })
 
-const toolFlowsRoute = createRoute({
-  getParentRoute: () => workspaceRoute,
-  path: '/tool-flows',
-  component: ToolFlowsPage,
-})
-
-const feedbackStepsRoute = createRoute({
-  getParentRoute: () => workspaceRoute,
-  path: '/feedback-steps',
-  component: FeedbackStepsPage,
-})
+// Legacy routes removed: tool-flows and feedback-steps
 
 // Create the route tree
 const routeTree = rootRoute.addChildren([
   indexRoute,
+  specsRoute,
+  toolsRoute,
   workspaceRoute.addChildren([
     tasksRoute,
-    toolFlowsRoute,
-    feedbackStepsRoute,
   ]),
 ])
 

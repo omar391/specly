@@ -4,7 +4,7 @@ import { router } from './router'
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="system" storageKey="taskpilot-theme">
+  <ThemeProvider defaultTheme="system" storageKey="specly-theme">
       <RouterProvider router={router} />
     </ThemeProvider>
   )
