@@ -5,6 +5,7 @@ import { specs, tools, toolVersions } from '../database/schema/global-schema.js'
 import { hashSpec, hashToolVersion } from '../utils/hash.js';
 import { validateToolGraph, GraphValidationError } from '../utils/graph-validate.js';
 import { mapGraphValidationToPublicError } from '../utils/graph-error-map.js';
+import { validateSpecSecurity, validateCommandAliasUniqueness, validateGraphSizeLimits, validateGraphDepth, SecurityValidationError } from '../utils/security-validators.js';
 import { eq } from 'drizzle-orm';
 
 // Minimal Zod-like manual validation (avoid new dep): trust shapes; rely on DB + validator for safety.
@@ -47,6 +48,13 @@ export class SpecsController {
         if (!specForHash.executor_type || !specForHash.executor_version || !specForHash.intent) {
             return res.status(400).json({ error: 'Missing required spec fields', required: ['executor_type', 'executor_version', 'intent'] });
         }
+
+        // SP-013: Security validation
+        const securityErr = validateSpecSecurity(specForHash);
+        if (securityErr) {
+            return res.status(422).json({ error: securityErr.message, code: securityErr.code, details: securityErr.details });
+        }
+
         const { hash } = hashSpec(specForHash);
         const dbService = resolveDbService(req, this.defaultDbService);
         await dbService.initialize();
@@ -85,6 +93,15 @@ export class ToolsController {
         if (!name) return res.status(400).json({ error: 'name required' });
         const dbService = resolveDbService(req, this.defaultDbService);
         await dbService.initialize();
+
+        // SP-013: Validate command_alias uniqueness
+        if (command_alias) {
+            const aliasErr = await validateCommandAliasUniqueness(dbService, command_alias);
+            if (aliasErr) {
+                return res.status(409).json({ error: aliasErr.message, code: aliasErr.code, details: aliasErr.details });
+            }
+        }
+
         const db = dbService.getDrizzleManager().getDb();
         const existing = await db.select().from(tools).where(eq(tools.name, name)).limit(1);
         if (existing.length) return res.status(409).json({ error: 'tool exists', name });
@@ -114,9 +131,26 @@ export class ToolsController {
         for (const h of ordered_specs) {
             if (!specSet.has(h)) return res.status(422).json({ error: 'spec missing', spec: h, code: 'GRAPH_MISSING_NODE' });
         }
+        // SP-013: Graph size & depth validation
+        const graphManifest = {
+            ordered_specs,
+            entry_spec,
+            edges: edges.map((e: any) => ({ from: e.from, to: e.to, condition_type: e.condition_type || 'always', condition_value: e.condition_value, priority: e.priority }))
+        };
+
+        const sizeErr = validateGraphSizeLimits(graphManifest);
+        if (sizeErr) {
+            return res.status(422).json({ error: sizeErr.message, code: sizeErr.code, details: sizeErr.details });
+        }
+
+        const depthErr = validateGraphDepth(graphManifest);
+        if (depthErr) {
+            return res.status(422).json({ error: depthErr.message, code: depthErr.code, details: depthErr.details });
+        }
+
         // Structural validation via existing validator (maps cycles/missing). Use try/catch.
         try {
-            validateToolGraph({ ordered_specs, entry_spec, edges: edges.map((e: any) => ({ from: e.from, to: e.to, condition_type: e.condition_type || 'always', condition_value: e.condition_value, priority: e.priority })) });
+            validateToolGraph(graphManifest);
         } catch (e: any) {
             if (e instanceof GraphValidationError) {
                 const pub = mapGraphValidationToPublicError(e);

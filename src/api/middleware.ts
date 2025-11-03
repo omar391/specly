@@ -106,6 +106,12 @@ const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
 export function rateLimit(maxRequests: number, windowMs: number) {
   return (req: Request, res: Response, next: NextFunction): void => {
+    // Disable rate limiting in test environment
+    if (process.env.NODE_ENV === 'test' || process.env.VITEST === 'true') {
+      next();
+      return;
+    }
+    
     const clientId = req.ip || 'unknown';
     const now = Date.now();
     

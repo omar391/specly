@@ -53,6 +53,13 @@ Specly is built on three core concepts:
 - **Session Leases**: Ownership tracking prevents concurrent modification conflicts
 - **Action Journal**: Idempotent side-effects with replay capability
 
+### 4. Security & Validation
+- **Executor Type Whitelist**: Only approved executor types (`function`, `bash`, `rest`, `graphql`, `noop`, `node`) accepted
+- **Content Size Limits**: Configurable max sizes for spec content, input/output schemas
+- **Graph Constraints**: Maximum depth and node count enforced on tool version creation
+- **Command Alias Uniqueness**: Pre-checked globally to prevent collisions
+- **Schema Validation**: Comprehensive validation with detailed error messages
+
 See [`docs/specly-architecture.md`](./docs/specly-architecture.md) for detailed design documentation.
 
 ## 🛠️ Usage Modes
@@ -209,6 +216,13 @@ npm run serve
    NODE_ENV=production
    SPECLY_PORT=8989
    SPECLY_HOST=0.0.0.0
+   
+   # Security & validation limits (optional, defaults shown)
+   SPECLY_MAX_SPEC_CONTENT_SIZE=1048576      # 1MB spec content limit
+   SPECLY_MAX_INPUT_SCHEMA_SIZE=102400        # 100KB input schema limit
+   SPECLY_MAX_OUTPUT_SCHEMA_SIZE=102400       # 100KB output schema limit
+   SPECLY_MAX_GRAPH_DEPTH=50                   # Maximum graph depth from entry node
+   SPECLY_MAX_GRAPH_NODES=1000                 # Maximum nodes per tool graph
    ```
 
 2. **Process Management**:
@@ -339,7 +353,7 @@ Complete examples available in [`docs/api-design.md`](./docs/api-design.md).
 
 ## 🧪 Testing
 
-Specly includes comprehensive test coverage with **181/181 tests passing (100% success rate)**:
+Specly includes comprehensive test coverage with **196/196 tests passing (100% success rate)**:
 
 ```bash
 # Run all tests
@@ -354,9 +368,10 @@ npm run test:watch
 
 **Test Suites:**
 - ✅ **Spec Engine**: Execution, retry logic, resume, journal persistence, metrics, lease enforcement (40+ tests)
+- ✅ **Security & Validation**: Executor type whitelist, content size limits, graph constraints, command alias uniqueness (15 tests)
 - ✅ **Graph Validation**: Cycles, unreachable specs, priority validation, normalization (9 tests)
 - ✅ **Session Leases**: Ownership, force_start, idle state, conflict handling (5 tests)
-- ✅ **API Endpoints**: Tasks, profiles, sessions, tool execution (20+ tests)
+- ✅ **API Endpoints**: Tasks, profiles, sessions, tool execution, specs/tools (25+ tests)
 - ✅ **Repositories & Persistence**: CRUD operations, database migrations, seed management (15+ tests)
 - ✅ **Hashing & Canonicalization**: Deterministic hashing, golden vectors (6 tests)
 - ✅ **CLI & Tooling**: Multi-step tools, next-step generator, base tool (25+ tests)

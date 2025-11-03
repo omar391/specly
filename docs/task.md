@@ -255,11 +255,11 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Description**: Enforce command_alias uniqueness pre-check, spec size limits, executor_type whitelist, input/output schema validation errors.
 - **Priority**: High
 - **Dependencies**: SP-006, SP-005
-- **Status**: TBD
-- **Progress**: 0%
-- **Completed At**: 
-- **Notes**: Add negative tests (invalid schema, oversize template). CRITICAL for production safety - prevents malicious/malformed specs.
-- **Connected File List**: ./src/services/spec-engine.ts, ./src/__tests__/security-validation.test.ts
+- **Status**: Done
+- **Progress**: 100%
+- **Completed At**: 2025-11-03T14:05:00Z
+- **Notes**: Completed: (1) Created security-validators.ts utility module with comprehensive validation: executor_type whitelist (function, bash, rest, graphql, noop, node), spec content_template size limit (1MB default via SPECLY_MAX_SPEC_CONTENT_SIZE env var), input/output schema size limits (100KB each via env vars), graph size limits (max 1000 nodes, max depth 50 from entry via SPECLY_MAX_GRAPH_NODES/SPECLY_MAX_GRAPH_DEPTH env vars), command_alias uniqueness check (prevents collision across tool registrations). (2) Integrated validators into specs-tools.ts: POST /api/specs validates executor type and size limits before hashing (returns 422 with detailed error codes ERR_INVALID_EXECUTOR_TYPE, ERR_SPEC_CONTENT_TOO_LARGE, ERR_INPUT_SCHEMA_TOO_LARGE, ERR_OUTPUT_SCHEMA_TOO_LARGE); POST /api/tools validates command_alias uniqueness (returns 409 with ERR_COMMAND_ALIAS_CONFLICT if already registered); POST /api/tools/:tool/versions validates graph size/depth before structural validation (returns 422 with ERR_GRAPH_TOO_MANY_NODES, ERR_GRAPH_TOO_DEEP, or ERR_GRAPH_TOO_MANY_EDGES). (3) Created comprehensive negative test suite security-validation.test.ts with 15 tests covering: executor type whitelist (reject python, accept whitelisted types), spec size limits (reject oversized content_template/input_schema/output_schema, accept within limits), graph constraints (reject graphs exceeding node count or depth limits, accept valid graphs), command alias uniqueness (reject duplicate aliases, allow unique and null aliases), environment configuration validation. (4) Updated README.md with security section describing validation features, added environment variable documentation for all configurable limits. (5) All 196/196 tests passing (15 new security tests + 181 existing). CRITICAL production safety validation complete - prevents malicious/malformed specs from entering system.
+- **Connected File List**: ./src/utils/security-validators.ts, ./src/api/specs-tools.ts, ./src/__tests__/security-validation.test.ts, ./README.md
 
 ## Task ID: SP-014
 - **Title**: Spec & Tool API Endpoints
