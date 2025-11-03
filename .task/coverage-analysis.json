@@ -1,33 +1,5 @@
 [
   {
-    "file": "tools/update.ts",
-    "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/tools/update.ts",
-    "stmtPct": 33.07692307692307,
-    "branchPct": 100,
-    "funcPct": 20,
-    "avgPct": 51.02564102564102,
-    "totalStmts": 130,
-    "coveredStmts": 43,
-    "totalBranches": 1,
-    "coveredBranches": 1,
-    "totalFuncs": 5,
-    "coveredFuncs": 1
-  },
-  {
-    "file": "tools/init.ts",
-    "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/tools/init.ts",
-    "stmtPct": 33.76623376623377,
-    "branchPct": 100,
-    "funcPct": 20,
-    "avgPct": 51.25541125541125,
-    "totalStmts": 77,
-    "coveredStmts": 26,
-    "totalBranches": 1,
-    "coveredBranches": 1,
-    "totalFuncs": 5,
-    "coveredFuncs": 1
-  },
-  {
     "file": "database/workspace-queries.ts",
     "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/database/workspace-queries.ts",
     "stmtPct": 38.333333333333336,
@@ -182,20 +154,6 @@
     "coveredFuncs": 7
   },
   {
-    "file": "tools/base-tool.ts",
-    "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/tools/base-tool.ts",
-    "stmtPct": 48.05194805194805,
-    "branchPct": 85.71428571428571,
-    "funcPct": 54.54545454545454,
-    "avgPct": 62.77056277056277,
-    "totalStmts": 77,
-    "coveredStmts": 37,
-    "totalBranches": 7,
-    "coveredBranches": 6,
-    "totalFuncs": 11,
-    "coveredFuncs": 6
-  },
-  {
     "file": "database/global-queries.ts",
     "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/database/global-queries.ts",
     "stmtPct": 57.14285714285714,
@@ -308,6 +266,20 @@
     "coveredFuncs": 4
   },
   {
+    "file": "tools/base-tool.ts",
+    "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/tools/base-tool.ts",
+    "stmtPct": 76.62337662337663,
+    "branchPct": 80,
+    "funcPct": 72.72727272727273,
+    "avgPct": 76.45021645021644,
+    "totalStmts": 77,
+    "coveredStmts": 59,
+    "totalBranches": 10,
+    "coveredBranches": 8,
+    "totalFuncs": 11,
+    "coveredFuncs": 8
+  },
+  {
     "file": "api/rules.ts",
     "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/api/rules.ts",
     "stmtPct": 76.36363636363637,
@@ -381,13 +353,13 @@
     "file": "services/spec-engine.ts",
     "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/services/spec-engine.ts",
     "stmtPct": 87.01923076923077,
-    "branchPct": 78.6096256684492,
+    "branchPct": 78.37837837837837,
     "funcPct": 80,
-    "avgPct": 81.87628547922667,
+    "avgPct": 81.79920304920306,
     "totalStmts": 416,
     "coveredStmts": 362,
-    "totalBranches": 187,
-    "coveredBranches": 147,
+    "totalBranches": 185,
+    "coveredBranches": 145,
     "totalFuncs": 20,
     "coveredFuncs": 16
   },
@@ -672,6 +644,20 @@
     "coveredFuncs": 8
   },
   {
+    "file": "tools/update.ts",
+    "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/tools/update.ts",
+    "stmtPct": 100,
+    "branchPct": 96.29629629629629,
+    "funcPct": 100,
+    "avgPct": 98.76543209876543,
+    "totalStmts": 130,
+    "coveredStmts": 130,
+    "totalBranches": 27,
+    "coveredBranches": 26,
+    "totalFuncs": 5,
+    "coveredFuncs": 5
+  },
+  {
     "file": "constants/tool-names.ts",
     "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/constants/tool-names.ts",
     "stmtPct": 100,
@@ -740,6 +726,20 @@
     "coveredBranches": 4,
     "totalFuncs": 4,
     "coveredFuncs": 4
+  },
+  {
+    "file": "tools/init.ts",
+    "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/tools/init.ts",
+    "stmtPct": 100,
+    "branchPct": 100,
+    "funcPct": 100,
+    "avgPct": 100,
+    "totalStmts": 77,
+    "coveredStmts": 77,
+    "totalBranches": 12,
+    "coveredBranches": 12,
+    "totalFuncs": 5,
+    "coveredFuncs": 5
   },
   {
     "file": "tools/status.ts",
