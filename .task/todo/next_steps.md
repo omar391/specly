@@ -1,44 +1,51 @@
 # Next Steps (as of 2025-11-03)
 
-Update (2025-11-03 Final): SP-018 and SP-019 completed. Full test suite passing (181/181). Backend core validation and lease enforcement tests complete.
+## Completed in Previous Session
+- ✅ SP-018: Graph & Transition Validation (100%)
+- ✅ SP-019: Session Lease & Force-Start Enforcement Tests (100%)
+- ✅ SP-201: Documentation Overhaul (100%) - README, api-design.md, specly-architecture.md fully rebranded to Specly
+- ✅ SP-009: Profile Inheritance (100%) - API complete in SP-015, CLI deferred
+- ✅ Full test suite: 181/181 passing
 
-Completed in this session:
-- SP-018: Graph & Transition Validation (100%) - 9 validation tests including float priority rejection
-- SP-019: Session Lease & Force-Start Enforcement Tests (100%) - 5 lease tests covering conflict, force_start, ownership, idle state
-- SP-008: Status corrected to Done 100% in current.md
-- Full test suite validated: 181 tests passing
+## Backend Completion Plan (Before UI Migration)
 
-Backend readiness checkpoint:
-- Core execution complete: SP-001, SP-003, SP-004, SP-005, SP-006, SP-010
-- API endpoints complete: SP-014, SP-015, SP-016
-- Validation complete: SP-018, SP-019
-- Hashing functional (SP-002 at 80%, optimizations deferred)
+Execute sequentially by priority to complete backend before starting UI:
 
-Immediate next actions (post-checkpoint):
-1) Documentation sync (SP-201 partial)
-   - Update README with quickstart showing spec → tool version → execute flow
-   - Sync api-design.md with completed endpoint examples
-   - Update specly-architecture.md references
+### High Priority (Production Critical)
+1. **SP-013: Security & Validation Pass** [NEXT]
+   - Enforce command_alias uniqueness, spec size limits, executor_type whitelist
+   - Production safety critical - prevents malicious/malformed specs
+   - Dependencies: SP-006, SP-005 ✅
+   - Status: TBD, 0%
 
-3) Document explicit decision on external_references and tags
-   - Keep as first-class columns alongside assets and metadata; use metadata for free-form
-   - Update docs where needed (api-design.md and specly-architecture.md appendix)
+2. **SP-017: Workspace Rules Reinforcement & Prompt Injection**
+   - Implement reinforcement algorithm, retrieval ordering, prompt context integration
+   - Add POST /api/rules and GET /api/rules endpoints
+   - Core feature already in use (repository exists)
+   - Dependencies: SP-003 ✅, SP-005 ✅
+   - Status: TBD, 0%
 
-4) Task sync providers rename (optional, small)
-   - Rename `remote_interfaces` → `task_sync_providers` (tables, indices, code refs)
-   - Programmatic migration + drizzle-kit SQL follow-up; no shims
+3. **SP-011: Background Jobs (GC, Purge)**
+   - Transient session GC (24h), soft delete purge (90d)
+   - Prevents database bloat, operational necessity before production
+   - Dependencies: SP-010 ✅
+   - Status: TBD, 0%
 
-5) Migrations scaffolding
-   - Scaffold drizzle-kit migrations mirroring current schema for reproducible versioning
-   - Keep programmatic bootstrap for tests; wire CI/dev to run generated SQL
+### Low Priority (Defer After Backend Core)
+4. **SP-007: CLI Refactor**
+   - Remove stepId, update to unified execute
+   - CLI convenience layer, REST API fully functional
+   - Can defer until after UI or indefinitely
+   
+5. **SP-012: Metrics & Observability**
+   - Latency histograms, routing counters, /health endpoint
+   - Nice-to-have, not blocking
+   - Defer to production hardening phase
 
-Acceptance for this next iteration:
-- SP-018 validator finalized with tests green and docs aligned
-- SP-019 lease tests implemented with clear 409 mappings and force_start behavior
-- Docs updated to reflect external_references/tags decision
-- Optional rename planned/scaffolded without impacting runtime
-- All tests and typechecks green
+## After Backend Complete → UI Migration (SP-100 through SP-110)
 
-Deferred/Optional:
-- Sessions listing filters expansion and tasks index filters (server + UI)
-- Final rename of New-suffixed methods to drop “New” after wrapper removal (small follow-up)
+## Deferred/Optional
+- SP-020+: Enhancement tasks (collision detection, per-attempt history, real backoff)
+- Task sync providers rename (remote_interfaces → task_sync_providers)
+- Migrations scaffolding for CI/CD
+- Sessions/tasks filter expansion

@@ -187,12 +187,12 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 ## Task ID: SP-007
 - **Title**: CLI Refactor (Remove StepId)
 - **Description**: Update all tool CLI commands to call unified execute. Remove stepId flags & text. Provide session/task flags. See file_changes.md tools section.
-- **Priority**: Medium
+- **Priority**: Low
 - **Dependencies**: SP-006
 - **Status**: TBD
 - **Progress**: 0%
 - **Completed At**: 
-- **Notes**: Ensure backward incompatible removal clearly documented in README.
+- **Notes**: Ensure backward incompatible removal clearly documented in README. REST API works; CLI is convenience layer only. Includes SP-009 CLI commands.
 - **Connected File List**: ./src/tools/*.ts, ./src/utils/cli-parser.ts, ./README.md
 
 ## Task ID: SP-008
@@ -209,13 +209,13 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 ## Task ID: SP-009
 - **Title**: Profile Inheritance Service
 - **Description**: Implement `createProfileVersion` flatten + removals/overrides. Include cycle detection. Add endpoint & CLI commands for profile version creation & workspace upgrade. migration_roadmap.md §1.4 Profile Inheritance Flatten Algorithm, migration_roadmap.md §5 Status Model (step 5 reference).
-- **Priority**: Medium
+- **Priority**: Low
 - **Dependencies**: SP-003, SP-004
-- **Status**: TBD
-- **Progress**: 0%
-- **Completed At**: 
-- **Notes**: Unit test multi-level A<-B<-C, override, remove.
-- **Connected File List**: ./src/services/profile-service.ts, ./src/api/router.ts, ./src/tools/update.ts
+- **Status**: Done
+- **Progress**: 100%
+- **Completed At**: 2025-09-08T20:37:40Z
+- **Notes**: API endpoints and inheritance logic fully implemented in SP-015 (inheritance validation, cycle detection, profile version creation, workspace binding). Only CLI commands remain which are deferred to SP-007 CLI refactor. Multi-level inheritance tested in SP-015.
+- **Connected File List**: ./src/api/profiles.ts, ./src/__tests__/profile-endpoints.test.ts (completed in SP-015)
 
 ## Task ID: SP-010
 - **Title**: Action Journal & Side-Effect Idempotency
@@ -231,12 +231,12 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 ## Task ID: SP-011
 - **Title**: Background Jobs (GC, Purge & Retry Scheduling)
 - **Description**: Implement sweeps: transient session GC (24h), soft delete purge (90d), and (future) scheduled retry/backoff dispatcher when physical delays introduced. Add metrics counters for GC runs and purges.
-- **Priority**: Medium
+- **Priority**: High
 - **Dependencies**: SP-010
 - **Status**: TBD
 - **Progress**: 0%
 - **Completed At**: 
-- **Notes**: Configurable horizons via env. Retry scheduling deferred until real backoff (SP-024) introduces persisted delay metadata.
+- **Notes**: Configurable horizons via env. Retry scheduling deferred until real backoff (SP-024) introduces persisted delay metadata. PRIORITY UPGRADE: Prevents database bloat in production, operational concern but necessary before UI launch.
 - **Connected File List**: ./src/server/instance-manager.ts, ./src/services/spec-engine.ts
 
 ## Task ID: SP-012
@@ -253,12 +253,12 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 ## Task ID: SP-013
 - **Title**: Security & Validation Pass
 - **Description**: Enforce command_alias uniqueness pre-check, spec size limits, executor_type whitelist, input/output schema validation errors.
-- **Priority**: Medium
+- **Priority**: High
 - **Dependencies**: SP-006, SP-005
 - **Status**: TBD
 - **Progress**: 0%
 - **Completed At**: 
-- **Notes**: Add negative tests (invalid schema, oversize template).
+- **Notes**: Add negative tests (invalid schema, oversize template). CRITICAL for production safety - prevents malicious/malformed specs.
 - **Connected File List**: ./src/services/spec-engine.ts, ./src/__tests__/security-validation.test.ts
 
 ## Task ID: SP-014
@@ -308,12 +308,12 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 ## Task ID: SP-017
 - **Title**: Workspace Rules Reinforcement & Prompt Injection
 - **Description**: Implement reinforcement algorithm (confidence update) and retrieval ordering (confidence desc, recency). Integrate top-N rules into human & autonomous prompt context. Architecture refs: specly-architecture.md §11 Workspace Rules, specly-architecture.md §8 Spec Execution Flow (context injection), migration_roadmap.md §4 API Contract (was §17). Add rule upsert endpoint POST /api/rules and GET /api/rules. Tests: duplicate rule triple idempotent, confidence increases, inactive rules excluded.
-- **Priority**: Medium
+- **Priority**: High
 - **Dependencies**: SP-003, SP-005
 - **Status**: TBD
 - **Progress**: 0%
 - **Completed At**: 
-- **Notes**: Cache optional; simple in-process list acceptable.
+- **Notes**: Cache optional; simple in-process list acceptable. CRITICAL - workspace_rules actively used in prompt-orchestrator.ts, project-initializer.ts, and tools (start.ts, rule-update.ts).
 - **Connected File List**: ./src/services/prompt-orchestrator.ts, ./src/api/router.ts, ./src/__tests__/workspace-rules.test.ts
 
 ## Task ID: SP-018
