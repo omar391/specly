@@ -233,11 +233,11 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Description**: Implement sweeps: transient session GC (24h), soft delete purge (90d), and (future) scheduled retry/backoff dispatcher when physical delays introduced. Add metrics counters for GC runs and purges.
 - **Priority**: High
 - **Dependencies**: SP-010
-- **Status**: TBD
-- **Progress**: 0%
-- **Completed At**: 
-- **Notes**: Configurable horizons via env. Retry scheduling deferred until real backoff (SP-024) introduces persisted delay metadata. PRIORITY UPGRADE: Prevents database bloat in production, operational concern but necessary before UI launch.
-- **Connected File List**: ./src/server/instance-manager.ts, ./src/services/spec-engine.ts
+- **Status**: Done
+- **Progress**: 100%
+- **Completed At**: 2025-11-03T15:00:00Z
+- **Notes**: COMPLETED: (1) Created BackgroundJobsService (src/services/background-jobs-service.ts) with transientSessionGC() (deletes sessions where task_id IS NULL AND last_active_at < threshold), softDeletePurge() (deletes tasks/sessions where deleted_at IS NOT NULL AND deleted_at < threshold), and runAll() methods. Service iterates all registered workspaces and cleans their workspace databases (not global DB). (2) ENV Configuration: SPECLY_GC_ENABLED (default true), SPECLY_GC_TRANSIENT_SESSION_HOURS (default 24), SPECLY_GC_SOFT_DELETE_DAYS (default 90). (3) InstanceManager Integration: startBackgroundJobs() reads ENV, runs initial sweep, schedules hourly setInterval(). stopBackgroundJobs() clears interval. MAIN role only - PROXY instances skip GC. (4) Metrics: specly_gc_transient_sessions_deleted_total, specly_gc_soft_delete_purged_total incremented on deletions. (5) Comprehensive test suite: 10 tests in background-jobs.test.ts covering transient GC (old vs recent, task-linked preservation, custom thresholds), soft delete purge (beyond vs within threshold, non-deleted preservation), combined operations (runAll), and configuration (getConfig, enabled=false). All 218/218 tests passing (208 existing + 10 new). (6) Documentation: README.md updated with GC configuration section under Deployment. Prevents database bloat in production. Retry scheduling deferred until physical delays introduced (SP-024).
+- **Connected File List**: ./src/services/background-jobs-service.ts, ./src/server/instance-manager.ts, ./src/__tests__/background-jobs.test.ts, ./README.md
 
 ## Task ID: SP-012
 - **Title**: Metrics & Observability

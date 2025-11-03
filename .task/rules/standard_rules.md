@@ -90,7 +90,9 @@ Each task follows this format:
 ### Completion Workflow
 - Run linters and ONLY relevant unit tests after task completion
 - Mark 100% complete only when lint and unit tests pass
-- Update `./.task/todo/current.md` (do NOT auto-move to done file)
+- **CRITICAL**: Always update BOTH `./.task/todo/current.md` AND `./.task/todo/next_steps.md` synchronously when task status changes
+- Update `./.task/todo/current.md` with full completion details (do NOT auto-move to done file)
+- Update `./.task/todo/next_steps.md` to remove completed tasks and identify next high-priority work
 - Create git commit with **concise message** (max 72 chars first line, detailed body with Task IDs)
 - Format: `type: brief summary\n\nTask ID: SP-XXX\nDetails...`
 - Subtasks follow same format and link to parent task

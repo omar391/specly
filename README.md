@@ -225,7 +225,20 @@ npm run serve
    SPECLY_MAX_GRAPH_NODES=1000                 # Maximum nodes per tool graph
    ```
 
-2. **Process Management**:
+2. **Garbage Collection & Retention** (optional, defaults shown):
+   ```bash
+   # Background job configuration
+   SPECLY_GC_ENABLED=true                     # Enable/disable background jobs
+   SPECLY_GC_TRANSIENT_SESSION_HOURS=24       # Hours before transient session cleanup
+   SPECLY_GC_SOFT_DELETE_DAYS=90              # Days before soft-deleted entity purge
+   ```
+   
+   GC runs hourly on the MAIN instance only:
+   - **Transient Session GC**: Deletes sessions with no `task_id` after inactivity threshold
+   - **Soft Delete Purge**: Hard deletes tasks/sessions marked `deleted_at` beyond retention period
+   - **Metrics**: `specly_gc_transient_sessions_deleted_total`, `specly_gc_soft_delete_purged_total`
+
+3. **Process Management**:
    ```bash
    # Using PM2
    pm2 start build/index.js --name "specly" -- --port=8989
@@ -235,7 +248,7 @@ npm run serve
    sudo systemctl start specly
    ```
 
-3. **Reverse Proxy** (nginx example):
+4. **Reverse Proxy** (nginx example):
    ```nginx
    server {
        listen 80;
