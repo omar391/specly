@@ -200,11 +200,11 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Description**: Implement new task statuses, dependency table, session columns; update queries & services enforcing transitions. Remove old status mapping logic.
 - **Priority**: High
 - **Dependencies**: SP-001, SP-005
-- **Status**: TBD
-- **Progress**: 0%
-- **Completed At**: 
-- **Notes**: Add test coverage for transitions and dependency unlocking.
-- **Connected File List**: ./src/database/schema/workspace-schema.ts, ./src/services/workspace-registry.ts, ./src/__tests__/task-status-transitions.test.ts
+- **Status**: Done
+- **Progress**: 100%
+- **Completed At**: 2025-09-09T00:00:00Z
+- **Notes**: Final tables in place (workspace: tasks, task_dependencies, sessions | global: Specly tables). API + services use Specly statuses: queued | in_progress | awaiting_input | blocked | paused | completed | failed. Programmatic migrations create final schema and rebuild/upgrade legacy tables on detection. Task status transitions enforced with dependency awareness via centralized guard. Completed as part of SP-016 delivery.
+- **Connected File List**: ./src/database/schema/workspace-schema.ts, ./src/services/workspace-registry.ts, ./src/api/tasks.ts, ./src/__tests__/task-endpoints.test.ts
 
 ## Task ID: SP-009
 - **Title**: Profile Inheritance Service
@@ -321,13 +321,10 @@ Status legend (initial): TBD (not started) | In-Progress | Blocked | Done.
 - **Description**: Implement pre-persist validator ensuring: exactly one entry_spec, all edges reference declared ordered_specs, no self-loops, no cycles (whole reachable subgraph), unreachable specs produce ERROR (publish rejected) unless an internal `allow_unreachable=true` flag supplied (dev only), priorities normalized (missing -> 100, must be integer >=0), edges sorted deterministically for hashing. Architecture refs: specly-architecture.md §7 Transitions & Routing, specly-architecture.md §13 Tools & Versions (graph manifest). Dead-end mid-run still treated as execution failure (distinct from validation). Provide separate util with tests.
 - **Priority**: Medium
 - **Dependencies**: SP-002
-- **Status**: In-Progress
-- **Progress**: 30%
-- **Completed At**: 
-**Status**: In-Progress
-**Progress**: 80%
-
-**Notes**: Validator implemented (`validateToolGraph`) returning normalized manifest (priority fill default=100; deterministic edge ordering by `(from, to, condition_type, condition_value, priority, insertion)`), with typed codes (ERR_MULTI_ENTRY, ERR_CYCLE, ERR_UNREACHABLE, ERR_SELF_LOOP, ERR_PRIORITY_INVALID, ERR_DUP_SPEC, ERR_UNDECLARED_SPEC). Kahn-based topological pass derives reachability + cycle detection in O(V+E). Unreachable specs now hard error unless `allowUnreachable=true` (internal). Tests cover: happy path normalization, cycle, unreachable (error), unreachable (allowed), self-loop, negative priority, duplicate ordered_specs, undeclared spec edge. 
+- **Status**: Done
+- **Progress**: 100%
+- **Completed At**: 2025-11-03T12:59:00Z
+- **Notes**: Validator implemented (`validateToolGraph`) returning normalized manifest (priority fill default=100; deterministic edge ordering by `(from, to, condition_type, condition_value, priority, insertion)`), with typed codes (ERR_MULTI_ENTRY, ERR_CYCLE, ERR_UNREACHABLE, ERR_SELF_LOOP, ERR_PRIORITY_INVALID, ERR_DUP_SPEC, ERR_UNDECLARED_SPEC). Kahn-based topological pass derives reachability + cycle detection in O(V+E). Unreachable specs now hard error unless `allowUnreachable=true` (internal). Tests cover: happy path normalization, cycle, unreachable (error), unreachable (allowed), self-loop, negative priority, duplicate ordered_specs, undeclared spec edge. 
 
 New in this iteration:
 - Added public mapping utility `mapGraphValidationToPublicError` (src/utils/graph-error-map.ts) with unit tests.
@@ -336,15 +333,18 @@ New in this iteration:
 - Verified runtime dead-end classification: existing SpecEngine test asserts ROUTE_DEAD_END; added endpoint-level test that returns HTTP 500 with error.code=ROUTE_DEAD_END.
 - Documentation updated: specly-architecture.md §13.1 now includes normalization guarantees and validator→public error mapping table; README references that section.
 
-Remaining for SP-018: Endpoint audit completed (no other public surfaces throw validator errors). Consider exposing normalized manifest echo in responses (deferred). Proceed to SP-002 optimization and SP-200 golden maintenance per plan. Instruction docs updated to emphasize autonomous progression without asking user to choose next steps.
+Remaining for SP-018: Endpoint audit completed (no other public surfaces throw validator errors). Consider exposing normalized manifest echo in responses (deferred). Proceed to SP-002 optimization and SP-200 golden maintenance per plan. All validation tests green (9/9 passing including float priority rejection). Ready for closure after final doc sync.
+- **Connected File List**: ./src/utils/graph-validate.ts, ./src/utils/graph-error-map.ts, ./src/__tests__/graph-validate.test.ts, ./src/__tests__/graph-error-map.test.ts, ./src/api/specs-tools.ts
+
+## Task ID: SP-019
 - **Title**: Session Lease & Force-Start Enforcement Tests
 - **Description**: Implement rigorous tests around client_state_id leasing, force_start behavior (transfer ownership), and conflict responses (409). Ensure idle transition when awaiting_input and rejection on mismatched resume.
 - **Priority**: Medium
 - **Dependencies**: SP-006, SP-005
-- **Status**: TBD
-- **Progress**: 0%
-- **Completed At**: 
-- **Notes**: Add negative test for force_start without existing session ownership.
+- **Status**: Done
+- **Progress**: 100%
+- **Completed At**: 2025-11-03T12:59:00Z
+- **Notes**: Implemented comprehensive lease enforcement tests: (1) Conflict rejection when session held by different client (409 scenario), (2) force_start ownership transfer, (3) ownership check documentation for resume, (4) awaiting_input idle state with lease re-acquisition on resume, (5) lease renewal failure returns LEASE_RENEW_FAILED. All 5 tests passing. Full test suite: 181 tests passing.
 - **Connected File List**: ./src/__tests__/session-lease.test.ts, ./src/services/spec-engine.ts
 
 ## Task ID: SP-020

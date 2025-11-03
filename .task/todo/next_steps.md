@@ -1,23 +1,24 @@
-# Next Steps (as of 2025-09-09)
+# Next Steps (as of 2025-11-03)
 
-Update (2025-09-09): SP-016 completed (task dependencies, status guard, sessions endpoint). API docs and task trackers updated; targeted tests green and typecheck clean. Shifting focus to validator hardening (SP-018) and lease enforcement tests (SP-019).
+Update (2025-11-03 Final): SP-018 and SP-019 completed. Full test suite passing (181/181). Backend core validation and lease enforcement tests complete.
 
-Focus: SP-018 Graph & Transition Validation; SP-019 Session lease enforcement tests
+Completed in this session:
+- SP-018: Graph & Transition Validation (100%) - 9 validation tests including float priority rejection
+- SP-019: Session Lease & Force-Start Enforcement Tests (100%) - 5 lease tests covering conflict, force_start, ownership, idle state
+- SP-008: Status corrected to Done 100% in current.md
+- Full test suite validated: 181 tests passing
 
-Status: SP-008 remains complete
-- Final tables in place (workspace: `tasks`, `task_dependencies`, `sessions` | global: Specly tables)
-- API + services use Specly statuses: queued | in_progress | awaiting_input | blocked | paused | completed | failed
-- Programmatic migrations create final schema and rebuild/upgrade legacy tables on detection
+Backend readiness checkpoint:
+- Core execution complete: SP-001, SP-003, SP-004, SP-005, SP-006, SP-010
+- API endpoints complete: SP-014, SP-015, SP-016
+- Validation complete: SP-018, SP-019
+- Hashing functional (SP-002 at 80%, optimizations deferred)
 
-Immediate next actions:
-1) SP-018: Finish validator hardening and coverage
-   - Add/confirm tests for: duplicate ordered_specs, negative/float priorities rejection, unreachable with allow_unreachable flag off, deterministic edge ordering impacts hash (already covered, re-assert post refactors)
-   - Ensure all publish/create endpoints use validator + public error mapping consistently
-   - Documentation touch-ups: specly-architecture.md §13.1 normalization guarantees (done) — verify references from README/api-design
-
-2) SP-019: Lease enforcement and conflict tests
-   - Tests: lease acquire/renew failure mapping (409), force_start transfers ownership, resume with mismatched client rejected, awaiting_input idle semantics
-   - Extend ToolsExecuteController mapping if any 409 paths missing; keep behavior Specly-only
+Immediate next actions (post-checkpoint):
+1) Documentation sync (SP-201 partial)
+   - Update README with quickstart showing spec → tool version → execute flow
+   - Sync api-design.md with completed endpoint examples
+   - Update specly-architecture.md references
 
 3) Document explicit decision on external_references and tags
    - Keep as first-class columns alongside assets and metadata; use metadata for free-form

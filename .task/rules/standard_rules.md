@@ -54,8 +54,8 @@ Apply rigorous rational analysis to all technical decisions and requirements:
 - Run linters and relevant unit tests
 - Update task status only when all checks pass
 - Update project documentation with technical details
-- Create git commit with task reference
-- Move completed task to done file
+- Create git commit with **concise message** (max 72 chars first line, Task ID in body)
+- Move completed task to done file (only when user explicitly requests)
 
 ### Rules Evolution
 - Automatically identify user preference patterns
@@ -90,8 +90,9 @@ Each task follows this format:
 ### Completion Workflow
 - Run linters and ONLY relevant unit tests after task completion
 - Mark 100% complete only when lint and unit tests pass
-- Update `./.task/todo/current.md` and move completed tasks to `./.task/todo/done_<today-date>.md`
-- Create git commit with task ID reference and details
+- Update `./.task/todo/current.md` (do NOT auto-move to done file)
+- Create git commit with **concise message** (max 72 chars first line, detailed body with Task IDs)
+- Format: `type: brief summary\n\nTask ID: SP-XXX\nDetails...`
 - Subtasks follow same format and link to parent task
 
 ### Final Project Completion

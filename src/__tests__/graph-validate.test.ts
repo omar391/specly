@@ -75,6 +75,16 @@ describe('graph-validate', () => {
     try { validateToolGraph(manifest); } catch (e:any) { expect(e.code).toBe('ERR_PRIORITY_INVALID'); }
   });
 
+  it('rejects float priority', () => {
+    const manifest = {
+      ordered_specs: ['A','B'],
+      entry_spec: 'A',
+      edges: [ { from: 'A', to: 'B', condition_type: 'always' as const, priority: 5.5 } ]
+    };
+    expect(() => validateToolGraph(manifest)).toThrowError(GraphValidationError);
+    try { validateToolGraph(manifest); } catch (e:any) { expect(e.code).toBe('ERR_PRIORITY_INVALID'); }
+  });
+
   it('rejects duplicate ordered_specs', () => {
     const manifest = {
       ordered_specs: ['A','A'],
