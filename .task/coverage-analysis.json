@@ -14,20 +14,6 @@
     "coveredFuncs": 0
   },
   {
-    "file": "repositories/profile-repository.ts",
-    "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/repositories/profile-repository.ts",
-    "stmtPct": 77.19298245614034,
-    "branchPct": 88.57142857142857,
-    "funcPct": 84.61538461538461,
-    "avgPct": 83.45993188098451,
-    "totalStmts": 171,
-    "coveredStmts": 132,
-    "totalBranches": 35,
-    "coveredBranches": 31,
-    "totalFuncs": 13,
-    "coveredFuncs": 11
-  },
-  {
     "file": "tools/start.ts",
     "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/tools/start.ts",
     "stmtPct": 85.71428571428571,
@@ -73,13 +59,13 @@
     "file": "services/spec-engine.ts",
     "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/services/spec-engine.ts",
     "stmtPct": 91.34615384615384,
-    "branchPct": 80.90452261306532,
+    "branchPct": 81,
     "funcPct": 85,
-    "avgPct": 85.75022548640639,
+    "avgPct": 85.78205128205127,
     "totalStmts": 416,
     "coveredStmts": 380,
-    "totalBranches": 199,
-    "coveredBranches": 161,
+    "totalBranches": 200,
+    "coveredBranches": 162,
     "totalFuncs": 20,
     "coveredFuncs": 17
   },
@@ -213,13 +199,13 @@
     "file": "api/tasks.ts",
     "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/api/tasks.ts",
     "stmtPct": 94.52554744525547,
-    "branchPct": 82.4074074074074,
+    "branchPct": 82.2429906542056,
     "funcPct": 100,
-    "avgPct": 92.31098495088763,
+    "avgPct": 92.25617936648702,
     "totalStmts": 274,
     "coveredStmts": 259,
-    "totalBranches": 108,
-    "coveredBranches": 89,
+    "totalBranches": 107,
+    "coveredBranches": 88,
     "totalFuncs": 11,
     "coveredFuncs": 11
   },
@@ -266,6 +252,20 @@
     "coveredFuncs": 1
   },
   {
+    "file": "database/drizzle-connection.ts",
+    "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/database/drizzle-connection.ts",
+    "stmtPct": 93.08510638297872,
+    "branchPct": 93.10344827586206,
+    "funcPct": 94.44444444444444,
+    "avgPct": 93.5443330344284,
+    "totalStmts": 188,
+    "coveredStmts": 175,
+    "totalBranches": 58,
+    "coveredBranches": 54,
+    "totalFuncs": 18,
+    "coveredFuncs": 17
+  },
+  {
     "file": "services/background-jobs-service.ts",
     "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/services/background-jobs-service.ts",
     "stmtPct": 100,
@@ -278,20 +278,6 @@
     "coveredBranches": 25,
     "totalFuncs": 6,
     "coveredFuncs": 6
-  },
-  {
-    "file": "database/drizzle-connection.ts",
-    "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/database/drizzle-connection.ts",
-    "stmtPct": 93.08510638297872,
-    "branchPct": 93.22033898305084,
-    "funcPct": 94.44444444444444,
-    "avgPct": 93.58329660349135,
-    "totalStmts": 188,
-    "coveredStmts": 175,
-    "totalBranches": 59,
-    "coveredBranches": 55,
-    "totalFuncs": 18,
-    "coveredFuncs": 17
   },
   {
     "file": "tools/add.ts",
@@ -544,6 +530,20 @@
     "coveredBranches": 26,
     "totalFuncs": 5,
     "coveredFuncs": 5
+  },
+  {
+    "file": "repositories/profile-repository.ts",
+    "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/repositories/profile-repository.ts",
+    "stmtPct": 98.83040935672514,
+    "branchPct": 98.14814814814815,
+    "funcPct": 100,
+    "avgPct": 98.99285250162443,
+    "totalStmts": 171,
+    "coveredStmts": 169,
+    "totalBranches": 54,
+    "coveredBranches": 53,
+    "totalFuncs": 13,
+    "coveredFuncs": 13
   },
   {
     "file": "constants/tool-names.ts",
