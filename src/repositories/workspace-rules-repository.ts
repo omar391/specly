@@ -49,7 +49,7 @@ export class WorkspaceRulesRepository {
 
   async list(workspaceId: string, activeOnly = true): Promise<any[]> {
     const db = this.globalDb.getDrizzleManager().getDb();
-    const query = db.select().from(workspaceRulesNew).where(eq(workspaceRulesNew.workspaceId, workspaceId)).orderBy(desc(workspaceRulesNew.confidence));
+    const query = db.select().from(workspaceRulesNew).where(eq(workspaceRulesNew.workspaceId, workspaceId)).orderBy(desc(workspaceRulesNew.confidence), desc(workspaceRulesNew.createdAt));
     const rows = await query;
     return activeOnly ? rows.filter(r => r.active) : rows;
   }

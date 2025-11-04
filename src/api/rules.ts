@@ -19,7 +19,15 @@ const createRuleSchema = z.object({
 
 const getRulesSchema = z.object({
   workspace_id: z.string().optional(),
-  active_only: z.boolean().optional().default(true)
+  active_only: z.preprocess((val) => {
+    if (typeof val === 'string') {
+      if (val === 'false') return false;
+      if (val === 'true') return true;
+      // Invalid string values should cause validation to fail
+      return val;
+    }
+    return val;
+  }, z.boolean()).optional().default(true)
 });
 
 export class RulesController {
@@ -94,7 +102,7 @@ export class RulesController {
     try {
       const input = getRulesSchema.parse({
         workspace_id: req.query.workspace_id,
-        active_only: req.query.active_only === 'false' ? false : true
+        active_only: req.query.active_only
       });
 
       if (!input.workspace_id) {
