@@ -393,4 +393,86 @@ describe('ExpressServer', () => {
       await prodServer.stop();
     });
   });
+
+  describe('Custom Endpoints', () => {
+    it('should allow registration of custom endpoints', async () => {
+      await server.start();
+
+      let customEndpointCalled = false;
+      server.registerCustomEndpoints((app) => {
+        app.get('/custom-test', (req, res) => {
+          customEndpointCalled = true;
+          res.json({ custom: true });
+        });
+      });
+
+      const response = await request(server.getApp())
+        .get('/custom-test')
+        .expect(200);
+
+      expect(customEndpointCalled).toBe(true);
+      expect(response.body).toEqual({ custom: true });
+    });
+  });
+
+  describe('MCP Session ID Generation', () => {
+    const mockToolHandlers = {
+      listTools: vi.fn(async () => ({ tools: [] })),
+      handleToolCall: vi.fn(async () => ({ content: [] }))
+    };
+
+    it('should generate new session ID when none provided', async () => {
+      await server.start();
+      server.setupMCPEndpoint(mockToolHandlers);
+
+      const response = await request(server.getApp())
+        .post('/mcp')
+        .send({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} });
+
+      expect(response.headers['mcp-session-id']).toBeDefined();
+      expect(typeof response.headers['mcp-session-id']).toBe('string');
+      expect(response.headers['mcp-session-id']).toMatch(/^mcp_\d+_[a-z0-9]+$/);
+    });
+
+    it('should use provided session ID', async () => {
+      await server.start();
+      server.setupMCPEndpoint(mockToolHandlers);
+
+      const customSessionId = 'custom-session-123';
+
+      const response = await request(server.getApp())
+        .post('/mcp')
+        .set('Mcp-Session-Id', customSessionId)
+        .send({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} });
+
+      expect(response.headers['mcp-session-id']).toBe(customSessionId);
+    });
+
+    it('should generate new session ID when empty session ID provided', async () => {
+      await server.start();
+      server.setupMCPEndpoint(mockToolHandlers);
+
+      const response = await request(server.getApp())
+        .post('/mcp')
+        .set('Mcp-Session-Id', '')
+        .send({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} });
+
+      expect(response.headers['mcp-session-id']).toBeDefined();
+      expect(response.headers['mcp-session-id']).not.toBe('');
+      expect(response.headers['mcp-session-id']).toMatch(/^mcp_\d+_[a-z0-9]+$/);
+    });
+
+    it('should generate new session ID when invalid session ID provided', async () => {
+      await server.start();
+      server.setupMCPEndpoint(mockToolHandlers);
+
+      const response = await request(server.getApp())
+        .post('/mcp')
+        .set('Mcp-Session-Id', '   ') // whitespace only
+        .send({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} });
+
+      expect(response.headers['mcp-session-id']).toBeDefined();
+      expect(response.headers['mcp-session-id']).toMatch(/^mcp_\d+_[a-z0-9]+$/);
+    });
+  });
 });

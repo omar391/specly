@@ -14,20 +14,6 @@
     "coveredFuncs": 0
   },
   {
-    "file": "server/express-server.ts",
-    "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/server/express-server.ts",
-    "stmtPct": 82.5072886297376,
-    "branchPct": 87.05882352941177,
-    "funcPct": 84.21052631578947,
-    "avgPct": 84.59221282497963,
-    "totalStmts": 343,
-    "coveredStmts": 283,
-    "totalBranches": 85,
-    "coveredBranches": 74,
-    "totalFuncs": 19,
-    "coveredFuncs": 16
-  },
-  {
     "file": "api/workspaces.ts",
     "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/api/workspaces.ts",
     "stmtPct": 92.95774647887323,
@@ -45,13 +31,13 @@
     "file": "services/spec-engine.ts",
     "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/services/spec-engine.ts",
     "stmtPct": 91.34615384615384,
-    "branchPct": 81,
+    "branchPct": 80.90452261306532,
     "funcPct": 85,
-    "avgPct": 85.78205128205127,
+    "avgPct": 85.75022548640639,
     "totalStmts": 416,
     "coveredStmts": 380,
-    "totalBranches": 200,
-    "coveredBranches": 162,
+    "totalBranches": 199,
+    "coveredBranches": 161,
     "totalFuncs": 20,
     "coveredFuncs": 17
   },
@@ -68,6 +54,20 @@
     "coveredBranches": 19,
     "totalFuncs": 5,
     "coveredFuncs": 5
+  },
+  {
+    "file": "server/express-server.ts",
+    "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/server/express-server.ts",
+    "stmtPct": 83.09037900874635,
+    "branchPct": 87.20930232558139,
+    "funcPct": 89.47368421052632,
+    "avgPct": 86.59112184828469,
+    "totalStmts": 343,
+    "coveredStmts": 285,
+    "totalBranches": 86,
+    "coveredBranches": 75,
+    "totalFuncs": 19,
+    "coveredFuncs": 17
   },
   {
     "file": "api/tools-execute.ts",
