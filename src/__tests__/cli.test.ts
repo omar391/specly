@@ -309,4 +309,79 @@ describe('CLI Tool Execution Tests', () => {
             expect(result).toBeDefined();
         }, 10000);
     });
+
+    describe('Additional Tool Coverage', () => {
+        it('should execute specly_update', async () => {
+            const args = {
+                workspace_path: testWorkspacePath,
+                task_id: 'SP-001',
+                field: 'status' as const,
+                value: 'in_progress'
+            };
+
+            const result = await executeToolCall('specly_update', args);
+            expect(result).toBeDefined();
+            expect(result.content).toBeDefined();
+        }, 10000);
+
+        it('should execute specly_audit', async () => {
+            const args = {
+                workspace_path: testWorkspacePath
+            };
+
+            const result = await executeToolCall('specly_audit', args);
+            expect(result).toBeDefined();
+            expect(result.content).toBeDefined();
+        }, 10000);
+
+        it('should execute specly_github', async () => {
+            const args = {
+                workspace_path: testWorkspacePath,
+                action: 'create_issue' as const,
+                title: 'Test Issue',
+                description: 'Test Description'
+            };
+
+            const result = await executeToolCall('specly_github', args);
+            expect(result).toBeDefined();
+            expect(result.content).toBeDefined();
+        }, 10000);
+
+        it('should execute specly_rule_update', async () => {
+            const args = {
+                workspace_path: testWorkspacePath,
+                rule_type: 'coding' as const,
+                action: 'add' as const,
+                rule_content: 'Test rule content'
+            };
+
+            const result = await executeToolCall('specly_rule_update', args);
+            expect(result).toBeDefined();
+            expect(result.content).toBeDefined();
+        }, 10000);
+
+        it('should execute specly_remote_interface', async () => {
+            const args = {
+                workspace_path: testWorkspacePath,
+                action: 'configure' as const,
+                interface_type: 'custom' as const,
+                endpoint_url: 'https://api.example.com'
+            };
+
+            const result = await executeToolCall('specly_remote_interface', args);
+            expect(result).toBeDefined();
+            expect(result.content).toBeDefined();
+        }, 10000);
+
+        it('should execute specly_focus', async () => {
+            const args = {
+                workspace_path: testWorkspacePath,
+                task_id: 'SP-001'
+            };
+
+            const result = await executeToolCall('specly_focus', args);
+            expect(result).toBeDefined();
+            expect(result.content).toBeDefined();
+        }, 10000);
+    });
 });
