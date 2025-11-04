@@ -15,7 +15,7 @@ vi.mock('fs', async () => {
 // Provide a lightweight mock for sqlite3 so tests run without native bindings
 vi.mock('sqlite3', async () => {
   const impl = {
-    verbose: () => {},
+    verbose: () => { },
     Database: class {
       private store: Record<string, any[]> = { __test_table: [] };
       private inTransaction = false;
@@ -68,12 +68,13 @@ vi.mock('sqlite3', async () => {
 
         // Handle INSERT
         if (sqlUpper.includes('INSERT INTO __TEST_TABLE')) {
-          const id = paramsOrCb?.[0];
+          let id: any;
+          if (Array.isArray(paramsOrCb)) id = paramsOrCb[0];
           const row = { id };
           if (this.inTransaction) {
             // Check for duplicates in both committed and pending
-            const exists = this.store.__test_table.some(r => r.id === id) || 
-                          this.pendingInserts.some(r => r.id === id);
+            const exists = this.store.__test_table.some(r => r.id === id) ||
+              this.pendingInserts.some(r => r.id === id);
             if (exists) {
               const err = new Error('UNIQUE constraint failed');
               if (typeof paramsOrCb === 'function') {
@@ -90,7 +91,7 @@ vi.mock('sqlite3', async () => {
               if (typeof paramsOrCb === 'function') {
                 (paramsOrCb as Function)(err);
               } else if (cb) {
-              cb(err);
+                cb(err);
               }
               return;
             }
@@ -122,7 +123,8 @@ vi.mock('sqlite3', async () => {
         }
       }
       get(sql: string, params: any[] | ((err: Error | null, row?: any) => void), cb?: (err: Error | null, row?: any) => void) {
-        const id = params?.[0];
+        let id: any;
+        if (Array.isArray(params)) id = params[0];
         const row = this.store.__test_table.find(r => r.id === id);
         if (typeof params === 'function') {
           (params as Function)(null, row);
@@ -258,7 +260,7 @@ CREATE TABLE common(id TEXT);
 
     await mgr.close();
     expect(mgr.isReady()).toBe(false);
-    expect(() => mgr.getDb()).toThrow('Database not initialized');
+    expect(() => mgr!.getDb()).toThrow('Database not initialized');
   });
 });
 
@@ -313,7 +315,7 @@ describe('Legacy Functions (deprecated)', () => {
 
   beforeEach(() => {
     process.env.HOME = '/tmp/test-home';
-    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
   });
 
   afterEach(() => {

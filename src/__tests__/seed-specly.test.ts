@@ -18,9 +18,9 @@ describe('seed-specly script', () => {
             errors.push(args.join(' '));
         });
         // Prevent process.exit from terminating the test runner; allow assertions on calls
-        exitSpy = vi.spyOn(process, 'exit').mockImplementation((code?: number) => {
+        exitSpy = vi.spyOn(process, 'exit').mockImplementation(((_code?: any) => {
             return undefined as any;
-        });
+        }) as any);
     });
 
     afterEach(() => {

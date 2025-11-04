@@ -15,7 +15,7 @@ describe('SpecEngine side_effect reuse (SP-010)', () => {
       await drizzle.insert(specs).values([
         { hash: 'R1', executorType: 'noop', executorVersion: '1', intent: 'autonomous', sideEffect: true, staticParams: {}, metadata: {} },
       ] as any);
-    } catch {}
+    } catch { }
     let callCount = 0;
     const exec = {
       execute: async (hash: string) => { callCount++; return { reused: false, hash, ts: Date.now() }; }
@@ -27,11 +27,12 @@ describe('SpecEngine side_effect reuse (SP-010)', () => {
     expect(first.status).toBe('completed');
     expect(callCount).toBe(1);
     const firstResult = first.results['R1'];
+    const f = firstResult as any;
     // Second run with same session should reuse and not increment callCount
     const second = await engine.run(graph, { sessionId });
     expect(second.status).toBe('completed');
     expect(callCount).toBe(1); // no additional executor call
-    expect(second.results['R1']).toEqual(firstResult); // identical payload reused
+    expect((second.results['R1'] as any)).toEqual(f); // identical payload reused
   });
 
   it('does not reuse when sideEffect is false (even same session)', async () => {
@@ -55,15 +56,17 @@ describe('SpecEngine side_effect reuse (SP-010)', () => {
     expect(first.status).toBe('completed');
     expect(callCount).toBe(1);
     const firstResult = first.results['R2'];
+    const f = firstResult as any;
 
     // Second run (same session) should NOT reuse because sideEffect=false
     const second = await engine.run(graph, { sessionId: sessionA });
     expect(second.status).toBe('completed');
     expect(callCount).toBe(2); // executor called again
     const secondResult = second.results['R2'];
+    const s = secondResult as any;
     // Results should be different (fresh execution)
-    expect(secondResult.ts).toBeGreaterThanOrEqual(firstResult.ts);
+    expect(s.ts).toBeGreaterThanOrEqual(f.ts);
     expect(secondResult).not.toBe(firstResult);
-    expect(secondResult.reused).toBe(false);
+    expect(s.reused).toBe(false);
   });
 });

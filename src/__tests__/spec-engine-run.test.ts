@@ -48,11 +48,8 @@ describe('SpecEngine end-to-end (concrete DB) — SP-005-concrete', () => {
     const ws = await dbService.getWorkspace(tmpWsDir);
     expect(ws).toBeInstanceOf(WorkspaceDatabaseService);
 
-    const engine = new SpecEngine({
-      dbService,
-      journalService: journal,
-      workspacePath: tmpWsDir,
-    });
+    const options: any = { dbService, journalService: journal, workspacePath: tmpWsDir };
+    const engine = new SpecEngine(options);
 
     const result = await engine.run(graph);
     // For an autonomous-only graph we expect a completed execution
@@ -67,7 +64,8 @@ describe('SpecEngine end-to-end (concrete DB) — SP-005-concrete', () => {
     };
 
     const ws = await dbService.getWorkspace(tmpWsDir);
-    const engine = new SpecEngine({ dbService, journalService: journal, workspacePath: tmpWsDir });
+    const options: any = { dbService, journalService: journal, workspacePath: tmpWsDir };
+    const engine = new SpecEngine(options);
 
     // First run should pause at the human node
     const first = await engine.run(graph);
@@ -101,7 +99,8 @@ describe('SpecEngine end-to-end (concrete DB) — SP-005-concrete', () => {
     };
 
     const ws = await dbService.getWorkspace(tmpWsDir);
-    const engine = new SpecEngine({ dbService, journalService: journal, workspacePath: tmpWsDir });
+    const options: any = { dbService, journalService: journal, workspacePath: tmpWsDir };
+    const engine = new SpecEngine(options);
 
     // The implementation uses executor resolution by hash; using a non-existent or special
     // failing hash should cause the engine to mark error for that node. We assert that
