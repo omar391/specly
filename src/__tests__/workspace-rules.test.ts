@@ -12,12 +12,14 @@ import { GlobalDatabaseService } from '../database/global-queries.js';
 
 describe('SP-017: Workspace Rules', () => {
   let app: Express;
+  let globalMgr: DrizzleDatabaseManager;
+  let globalDbService: GlobalDatabaseService;
 
   beforeEach(async () => {
     app = express();
     app.use(bodyParser.json());
-    const globalMgr = new DrizzleDatabaseManager(':memory:', DatabaseType.GLOBAL);
-    const globalDbService = new GlobalDatabaseService(globalMgr as any);
+    globalMgr = new DrizzleDatabaseManager(':memory:', DatabaseType.GLOBAL);
+    globalDbService = new GlobalDatabaseService(globalMgr as any);
     await globalDbService.initialize();
     
     // Create test workspaces to satisfy foreign key constraint
@@ -105,6 +107,20 @@ describe('SP-017: Workspace Rules', () => {
       expect(res.status).toBe(400);
       expect(res.body.error.code).toBe('VALIDATION_ERROR');
     });
+
+    it('returns 500 INTERNAL_ERROR when workspace_id does not exist (FK violation)', async () => {
+      const res = await request(app)
+        .post('/api/rules')
+        .send({
+          workspace_id: 'ws-missing',
+          relation: 'always-do',
+          rule: 'should fail due to FK'
+        });
+
+      expect(res.status).toBe(500);
+      expect(res.body.error.code).toBe('INTERNAL_ERROR');
+      expect(typeof res.body.error.message).toBe('string');
+    });
   });
 
   describe('GET /api/rules', () => {
@@ -173,6 +189,28 @@ describe('SP-017: Workspace Rules', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.rules).toEqual([]);
+    });
+
+    it('returns 400 VALIDATION_ERROR when workspace_id is provided multiple times (array)', async () => {
+      const res = await request(app)
+        .get('/api/rules')
+        .query({ workspace_id: ['ws-order', 'ws-order'] });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('returns 500 INTERNAL_ERROR when underlying repository throws (drop table)', async () => {
+      // Force an internal error by dropping the workspace_rules table
+      globalMgr.getSqlite().exec('DROP TABLE IF EXISTS workspace_rules');
+
+      const res = await request(app)
+        .get('/api/rules')
+        .query({ workspace_id: 'ws-order' });
+
+      expect(res.status).toBe(500);
+      expect(res.body.error.code).toBe('INTERNAL_ERROR');
+      expect(typeof res.body.error.message).toBe('string');
     });
   });
 

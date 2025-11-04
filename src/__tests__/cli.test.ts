@@ -10,6 +10,9 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { executeToolCall } from '../cli.js';
+import { setTestDatabaseInstances, resetDatabaseInstances } from '../test-utils/database-test-helpers.js';
+import { DrizzleDatabaseManager, DatabaseType } from '../database/drizzle-connection.js';
+import { GlobalDatabaseService } from '../database/global-queries.js';
 
 // Mock prompt orchestrator to control behavior but let database work normally
 vi.mock('../services/prompt-orchestrator.js');
@@ -46,6 +49,9 @@ describe('CLI Tool Execution Tests', () => {
         if (fs.existsSync(testWorkspacePath)) {
             fs.rmSync(testWorkspacePath, { recursive: true, force: true });
         }
+
+        // Reset any injected DB instances
+        resetDatabaseInstances();
 
         vi.clearAllMocks();
     });
@@ -185,6 +191,38 @@ describe('CLI Tool Execution Tests', () => {
                 expect(result).toBeDefined();
             });
         }, 30000);
+    });
+
+    describe('InitializeTools test-instance path', () => {
+        it('should use injected test database instances when provided', async () => {
+            const dm = new DrizzleDatabaseManager(':memory:', DatabaseType.GLOBAL);
+            await dm.initialize();
+            const gdb = new GlobalDatabaseService(dm as any);
+            await gdb.initialize();
+
+            // Inject test instances so CLI picks them up
+            setTestDatabaseInstances(dm as any, gdb as any);
+
+            const args = { workspace_path: testWorkspacePath };
+            const result = await executeToolCall('specly_status', args);
+            expect(result).toBeDefined();
+        });
+    });
+
+    describe('Global unhandledRejection handler', () => {
+        it('should exit process on unhandled rejection', async () => {
+            const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as any);
+            const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+            // Emit a fake unhandled rejection
+            process.emit('unhandledRejection', new Error('boom'), Promise.resolve());
+
+            expect(exitSpy).toHaveBeenCalledWith(1);
+            expect(errSpy).toHaveBeenCalled();
+
+            exitSpy.mockRestore();
+            errSpy.mockRestore();
+        });
     });
 
     describe('Result Format Consistency', () => {

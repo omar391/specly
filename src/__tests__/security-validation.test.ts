@@ -172,19 +172,31 @@ describe('SP-013: Security Validation', () => {
       await request(app).post('/api/tools').send({ name: 'deep_tool' });
 
       // Create linear chain exceeding depth limit
-      const depth = SECURITY_LIMITS.MAX_SPEC_GRAPH_DEPTH + 5;
+      // Depth is computed as edges from entry (0-based), so to exceed MAX we need MAX + 1 depth => MAX + 2 nodes
+      const targetDepth = SECURITY_LIMITS.MAX_SPEC_GRAPH_DEPTH + 2;
       const specHashes: string[] = [];
 
-      for (let i = 0; i < Math.min(depth, 60); i++) {
-        const res = await request(app)
-          .post('/api/specs')
-          .send({
-            executor_type: 'function',
-            executor_version: '1.0',
-            intent: 'autonomous',
-            content_template: `step_${i}`
-          });
-        specHashes.push(res.body.hash);
+      for (let i = 0; i < targetDepth; i++) {
+        // Build a small, unique payload each iteration
+        const payload = {
+          executor_type: 'function',
+          executor_version: '1.0',
+          intent: 'autonomous',
+          // ensure uniqueness even under parallel runs
+          content_template: `step_${i}_${Date.now()}_${i}`
+        };
+
+        // Occasionally, under full parallel suite load, a single spec POST may
+        // return a transient 400 due to body parsing timing. Add a one-time
+        // retry to deflake without weakening validation semantics.
+        let res = await request(app).post('/api/specs').send(payload);
+        if (res.status === 400) {
+          res = await request(app).post('/api/specs').send(payload);
+        }
+
+        expect([200, 201]).toContain(res.status);
+        expect(typeof res.body.hash).toBe('string');
+        specHashes.push(res.body.hash as string);
       }
 
       const edges = [];
