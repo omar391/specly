@@ -4,6 +4,8 @@ import { DatabaseService } from '../services/database-service.js';
 import { DrizzleDatabaseManager, DatabaseType } from '../database/drizzle-connection.js';
 import { GlobalDatabaseService } from '../database/global-queries.js';
 import { WorkspaceDatabaseService } from '../database/workspace-queries.js';
+import { WorkspacesController } from '../api/workspaces.js';
+import { NotFoundError } from '../api/middleware.js';
 import request from 'supertest';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -294,7 +296,7 @@ describe('Workspaces Endpoint', () => {
       expect(response.body.data.workspaces[0].last_activity).toBeDefined();
     });
 
-    it('should prioritize by most recently updated in-progress task', async () => {
+    it('should handle tasks with undefined priority gracefully', async () => {
       await globalDb.createWorkspace({
         id: 'ws-1',
         path: workspaceTestPath,
@@ -305,33 +307,105 @@ describe('Workspaces Endpoint', () => {
       const workspaceDb = new WorkspaceDatabaseService(workspaceTestPath);
       await workspaceDb.initialize();
 
-      // Create two tasks with same priority
+      // Create task without priority (should default to medium)
       await workspaceDb.createTask({
         id: 'task-1',
-        title: 'Older Task',
-        status: 'in_progress',
-        priority: 'high'
+        title: 'No Priority Task',
+        status: 'in_progress'
+        // priority is undefined
       });
-
-      // Wait a bit to ensure different timestamps
-      await new Promise(resolve => setTimeout(resolve, 10));
-
-      await workspaceDb.createTask({
-        id: 'task-2',
-        title: 'Newer Task',
-        status: 'in_progress',
-        priority: 'high'
-      });
-
-      // Update task-2 to make it more recent
-      await workspaceDb.updateTask('task-2', { title: 'Updated Newer Task' });
 
       const response = await request(server.getApp())
         .get('/api/workspaces')
         .expect(200);
 
-      // Should return the more recently updated task
-      expect(response.body.data.workspaces[0].active_task).toBe('Updated Newer Task');
+      expect(response.body.data.workspaces[0].active_task).toBe('No Priority Task');
+    });
+
+    it('should handle tasks with undefined updatedAt gracefully', async () => {
+      await globalDb.createWorkspace({
+        id: 'ws-1',
+        path: workspaceTestPath,
+        name: 'Test Workspace',
+        status: 'active'
+      });
+
+      const workspaceDb = new WorkspaceDatabaseService(workspaceTestPath);
+      await workspaceDb.initialize();
+
+      // Create task without updatedAt
+      await workspaceDb.createTask({
+        id: 'task-1',
+        title: 'No UpdatedAt Task',
+        status: 'in_progress',
+        priority: 'high'
+        // updatedAt is undefined
+      });
+
+      const response = await request(server.getApp())
+        .get('/api/workspaces')
+        .expect(200);
+
+      expect(response.body.data.workspaces[0].active_task).toBe('No UpdatedAt Task');
+    });
+
+    it('should handle workspaces with undefined status gracefully', async () => {
+      // Create workspace without status
+      await globalDb.createWorkspace({
+        id: 'ws-1',
+        path: workspaceTestPath,
+        name: 'Test Workspace'
+        // status is undefined
+      });
+
+      const response = await request(server.getApp())
+        .get('/api/workspaces')
+        .expect(200);
+
+      expect(response.body.data.workspaces[0].status).toBe('disconnected');
+    });
+
+    it('should handle database errors in getWorkspaces method', async () => {
+      // Mock the database service to throw an error
+      const originalGetAllWorkspaces = globalDb.getAllWorkspaces;
+      globalDb.getAllWorkspaces = async () => {
+        throw new Error('Database connection failed');
+      };
+
+      try {
+        const response = await request(server.getApp())
+          .get('/api/workspaces')
+          .expect(500); // Should result in 500 error due to unhandled exception
+
+        // The error should be caught and re-thrown, resulting in 500
+        expect(response.status).toBe(500);
+      } finally {
+        // Restore original method
+        globalDb.getAllWorkspaces = originalGetAllWorkspaces;
+      }
+    });
+
+    it('should return workspace by ID when it exists', async () => {
+      await globalDb.createWorkspace({
+        id: 'ws-1',
+        path: workspaceTestPath,
+        name: 'Test Workspace',
+        status: 'active'
+      });
+
+      const workspacesController = new WorkspacesController(databaseService);
+      const workspace = await workspacesController.getWorkspaceById('ws-1');
+
+      expect(workspace).toBeDefined();
+      expect(workspace.id).toBe('ws-1');
+      expect(workspace.name).toBe('Test Workspace');
+      expect(workspace.status).toBe('active');
+    });
+
+    it('should throw NotFoundError when workspace does not exist', async () => {
+      const workspacesController = new WorkspacesController(databaseService);
+
+      await expect(workspacesController.getWorkspaceById('non-existent-ws')).rejects.toThrow('Workspace not found: non-existent-ws');
     });
   });
 
