@@ -14,20 +14,6 @@
     "coveredFuncs": 0
   },
   {
-    "file": "tools/start.ts",
-    "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/tools/start.ts",
-    "stmtPct": 85.71428571428571,
-    "branchPct": 81.81818181818183,
-    "funcPct": 83.33333333333334,
-    "avgPct": 83.62193362193362,
-    "totalStmts": 105,
-    "coveredStmts": 90,
-    "totalBranches": 11,
-    "coveredBranches": 9,
-    "totalFuncs": 6,
-    "coveredFuncs": 5
-  },
-  {
     "file": "server/express-server.ts",
     "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/server/express-server.ts",
     "stmtPct": 82.5072886297376,
@@ -199,13 +185,13 @@
     "file": "api/tasks.ts",
     "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/api/tasks.ts",
     "stmtPct": 94.52554744525547,
-    "branchPct": 82.2429906542056,
+    "branchPct": 82.4074074074074,
     "funcPct": 100,
-    "avgPct": 92.25617936648702,
+    "avgPct": 92.31098495088763,
     "totalStmts": 274,
     "coveredStmts": 259,
-    "totalBranches": 107,
-    "coveredBranches": 88,
+    "totalBranches": 108,
+    "coveredBranches": 89,
     "totalFuncs": 11,
     "coveredFuncs": 11
   },
@@ -488,6 +474,20 @@
     "coveredBranches": 24,
     "totalFuncs": 4,
     "coveredFuncs": 4
+  },
+  {
+    "file": "tools/start.ts",
+    "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/tools/start.ts",
+    "stmtPct": 100,
+    "branchPct": 93.75,
+    "funcPct": 100,
+    "avgPct": 97.91666666666667,
+    "totalStmts": 105,
+    "coveredStmts": 105,
+    "totalBranches": 16,
+    "coveredBranches": 15,
+    "totalFuncs": 6,
+    "coveredFuncs": 6
   },
   {
     "file": "utils/tool-graph-builder.ts",
