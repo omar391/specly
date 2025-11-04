@@ -48,8 +48,7 @@ describe('PromptOrchestrator – extended coverage', () => {
     it('propagates errors from prompt generation and logs them', async () => {
         const err = new Error('boom');
         const spy = vi.spyOn(console, 'error').mockImplementation(() => { });
-        // Force generateBasicPrompt to throw
-        // @ts-expect-error access private for test
+        // Force generateBasicPrompt to throw (access private via any)
         vi.spyOn(orchestrator as any, 'generateBasicPrompt').mockRejectedValue(err);
 
         await expect(orchestrator.orchestratePrompt(ToolNames.START, 'ws-x', {})).rejects.toThrow('boom');
@@ -58,9 +57,7 @@ describe('PromptOrchestrator – extended coverage', () => {
 
     it('replaceContextVariables fills placeholders using built context', () => {
         const text = 'Workspace {{context.workspace_id}} – Task {{context.task_id}} at {{context.timestamp}}';
-        // @ts-expect-error access private for test
         const ctx = (orchestrator as any).buildContext({ task_id: 'T-1' }, 'WS-9');
-        // @ts-expect-error access private for test
         const out = (orchestrator as any).replaceContextVariables(text, ctx);
         expect(out).toContain('Workspace WS-9');
         expect(out).toContain('Task T-1');

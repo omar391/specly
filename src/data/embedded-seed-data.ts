@@ -95,7 +95,7 @@ export const SPECLY_SEED_SPECS: SeedSpecDefinition[] = [
       inputSchema: { type: 'object', properties: { input: { type: 'string' } }, required: ['input'] },
       outputSchema: { type: 'object', properties: { output: { type: 'string' } } },
       idempotencyKeyTemplate: '{{input}}',
-      retryPolicy: { max: 1 },
+      retryPolicy: { maxAttempts: 1 },
       showOutput: true,
       security: { allow: ['*'] },
       metadata: { seed: true, name: 'echo' }

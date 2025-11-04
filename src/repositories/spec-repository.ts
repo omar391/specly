@@ -124,7 +124,8 @@ export class SpecRepositoryImpl implements SpecRepository {
   async get(hash: string): Promise<SpecDTO | null> {
     const db = this.globalDb.getDrizzleManager().getDb();
     const [row] = await db.select().from(specs).where(eq(specs.hash, hash)).limit(1);
-    return (row as SpecDTO) || null;
+    // Some drivers may surface booleans for tinyint fields; cast via unknown to satisfy DTO
+    return (row as unknown as SpecDTO) || null;
   }
 }
 

@@ -74,7 +74,7 @@ describe('WorkspaceDatabaseService', () => {
 
     it('should use custom dbInstance if provided', () => {
       const customDb = { ...mockDbManager };
-      const customService = new WorkspaceDatabaseService('/test', customDb);
+      const customService = new WorkspaceDatabaseService('/test', customDb as any);
       
       expect(customService).toBeDefined();
     });
@@ -105,8 +105,12 @@ describe('WorkspaceDatabaseService', () => {
       externalReferences: [],
       metadata: {},
       tags: ['test'],
+      profileVersionId: null,
+      blockedReason: null,
+      deletedAt: null,
       createdAt: '2024-01-01T00:00:00Z',
-      updatedAt: '2024-01-01T00:00:00Z'
+      updatedAt: '2024-01-01T00:00:00Z',
+      completedAt: null
     };
 
     describe('createTask', () => {
@@ -512,10 +516,13 @@ describe('WorkspaceDatabaseService', () => {
   describe('GitHub Config Operations', () => {
     const mockConfig: GithubConfig = {
       id: 'config-1',
-      owner: 'testowner',
-      repo: 'testrepo',
-      token: 'test-token',
-      webhookSecret: 'test-secret',
+      repoUrl: 'https://github.com/testowner/testrepo',
+      repoOwner: 'testowner',
+      repoName: 'testrepo',
+      githubToken: 'test-token',
+      autoSync: false,
+      syncDirection: 'bidirectional',
+      lastSync: null,
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01'
     };
@@ -525,8 +532,10 @@ describe('WorkspaceDatabaseService', () => {
 
       const newConfig: NewGithubConfig = {
         id: 'config-1',
-        owner: 'testowner',
-        repo: 'testrepo'
+        repoUrl: 'https://github.com/testowner/testrepo',
+        repoOwner: 'testowner',
+        repoName: 'testrepo',
+        githubToken: 'test-token'
       };
 
       const result = await service.createGithubConfig(newConfig);
@@ -556,11 +565,11 @@ describe('WorkspaceDatabaseService', () => {
     it('should update GitHub config', async () => {
       mockQueryBuilder.returning.mockResolvedValue([mockConfig]);
 
-      const result = await service.updateGithubConfig('config-1', { token: 'new-token' });
+      const result = await service.updateGithubConfig('config-1', { githubToken: 'new-token' });
 
       expect(mockQueryBuilder.set).toHaveBeenCalledWith(
         expect.objectContaining({
-          token: 'new-token',
+          githubToken: 'new-token',
           updatedAt: expect.any(String)
         })
       );
@@ -570,7 +579,7 @@ describe('WorkspaceDatabaseService', () => {
     it('should return null when updating nonexistent config', async () => {
       mockQueryBuilder.returning.mockResolvedValue([]);
 
-      const result = await service.updateGithubConfig('nonexistent', { token: 'test' });
+      const result = await service.updateGithubConfig('nonexistent', { githubToken: 'test' });
 
       expect(result).toBeNull();
     });
@@ -596,9 +605,14 @@ describe('WorkspaceDatabaseService', () => {
     const mockInterface: RemoteInterface = {
       id: 'interface-1',
       name: 'Test API',
-      interfaceType: 'rest',
+      interfaceType: 'custom',
       baseUrl: 'https://api.example.com',
-      metadata: { version: 'v1' },
+      apiToken: 'secret-token',
+      projectId: null,
+      syncEnabled: true,
+      syncDirection: 'bidirectional',
+      fieldMappings: [],
+      lastSync: null,
       createdAt: '2024-01-01',
       updatedAt: '2024-01-01'
     };
@@ -609,8 +623,9 @@ describe('WorkspaceDatabaseService', () => {
       const newInterface: NewRemoteInterface = {
         id: 'interface-1',
         name: 'Test API',
-        interfaceType: 'rest',
-        baseUrl: 'https://api.example.com'
+        interfaceType: 'custom',
+        baseUrl: 'https://api.example.com',
+        apiToken: 'secret-token'
       };
 
       const result = await service.createRemoteInterface(newInterface);
@@ -622,13 +637,13 @@ describe('WorkspaceDatabaseService', () => {
     it('should create interface with metadata', async () => {
       const interfaceWithMetadata = {
         ...mockInterface,
-        metadata: { version: 'v2', auth: 'bearer' }
-      };
+        fieldMappings: [{ version: 'v2', auth: 'bearer' }]
+      } as RemoteInterface;
       mockQueryBuilder.returning.mockResolvedValue([interfaceWithMetadata]);
 
       const result = await service.createRemoteInterface(interfaceWithMetadata);
 
-      expect(result.metadata).toEqual({ version: 'v2', auth: 'bearer' });
+      expect(result.fieldMappings).toEqual([{ version: 'v2', auth: 'bearer' }]);
     });
 
     it('should get remote interface by ID', async () => {
@@ -669,7 +684,7 @@ describe('WorkspaceDatabaseService', () => {
     it('should get interfaces by type', async () => {
       mockQueryBuilder.orderBy.mockResolvedValue([mockInterface]);
 
-      const result = await service.getRemoteInterfacesByType('rest');
+      const result = await service.getRemoteInterfacesByType('custom');
 
       expect(mockQueryBuilder.where).toHaveBeenCalled();
       expect(result).toEqual([mockInterface]);

@@ -18,16 +18,21 @@ function withEnv<T>(vars: Record<string, string | undefined>, fn: () => Promise<
 }
 
 describe('CLI main() entrypoint behavior', () => {
-  let exitSpy: ReturnType<typeof vi.spyOn>;
+  let exitSpy: any;
   let logSpy: ReturnType<typeof vi.spyOn>;
   let errSpy: ReturnType<typeof vi.spyOn>;
   let argvBackup: string[];
 
   beforeEach(() => {
     argvBackup = [...process.argv];
-    exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as any);
+    // process.exit returns never; implement by throwing to satisfy the signature
+    exitSpy = (vi as any)
+      .spyOn(process, 'exit')
+      .mockImplementation(((() => undefined) as unknown) as never);
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
     errSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+    // Ensure no lingering unhandledRejection listeners from previous imports
+    process.removeAllListeners('unhandledRejection');
   });
 
   afterEach(() => {
@@ -35,16 +40,21 @@ describe('CLI main() entrypoint behavior', () => {
     exitSpy.mockRestore();
     logSpy.mockRestore();
     errSpy.mockRestore();
+    process.removeAllListeners('unhandledRejection');
   });
 
   it('prints usage and exits when no args provided', async () => {
     await withEnv({ NODE_ENV: 'development', VITEST: undefined }, async () => {
       process.argv = ['node', 'cli'];
       vi.resetModules();
-      await import('../cli.js');
+      try {
+        await import('../cli.js');
+      } catch (_) {
+        // process.exit is mocked to throw; swallow to allow assertion
+      }
       expect(exitSpy).toHaveBeenCalledWith(1);
-      // usage lines should have been printed
-      expect(logSpy).toHaveBeenCalled();
+      // usage lines are printed to stderr
+      expect(errSpy).toHaveBeenCalled();
     });
   });
 
@@ -52,7 +62,11 @@ describe('CLI main() entrypoint behavior', () => {
     await withEnv({ NODE_ENV: 'development', VITEST: undefined }, async () => {
       process.argv = ['node', 'cli', 'specly_status', '{invalid-json'];
       vi.resetModules();
-      await import('../cli.js');
+      try {
+        await import('../cli.js');
+      } catch (_) {
+        // Swallow thrown error from mocked process.exit
+      }
       expect(exitSpy).toHaveBeenCalledWith(1);
       // error should be printed
       expect(errSpy).toHaveBeenCalled();
@@ -61,9 +75,9 @@ describe('CLI main() entrypoint behavior', () => {
 
   it('executes a tool without exiting on success', async () => {
     await withEnv({ NODE_ENV: 'development', VITEST: undefined }, async () => {
-      // Provide a workspace path; status tool will handle non-existent gracefully
+      // Use init tool which succeeds without requiring pre-existing workspace
       const fakeWs = '/tmp/specly-cli-main-test';
-      process.argv = ['node', 'cli', 'specly_status', JSON.stringify({ workspace_path: fakeWs })];
+      process.argv = ['node', 'cli', 'specly_init', JSON.stringify({ workspace_path: fakeWs, project_requirements: 'test' })];
       vi.resetModules();
       await import('../cli.js');
       // success path should not call process.exit

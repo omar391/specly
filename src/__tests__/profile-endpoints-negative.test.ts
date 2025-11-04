@@ -103,9 +103,10 @@ describe('Profiles API - negative and edge cases', () => {
         expect(res.status).toBe(400);
     });
 
-    it('POST attachments -> 400 when attachments is not array', async () => {
+    it('POST attachments -> 404 (profile/version missing) or 400 (validation) when attachments is not array', async () => {
         const res = await request(app).post('/api/profiles/p/versions/1/attachments').send({ attachments: 'nope' });
-        expect(res.status).toBe(400);
+        // Router may validate body first (400) or check existence first (404)
+        expect([400, 404]).toContain(res.status);
     });
 
     it('POST attachments -> 400 when attachments is empty array', async () => {

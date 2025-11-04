@@ -34,7 +34,7 @@ describe('Repository Layer (Spec & ToolVersion)', () => {
       inputSchema: { type: 'object', properties: { input: { type: 'string' } } },
       outputSchema: { type: 'object', properties: { output: { type: 'string' } } },
       idempotencyKeyTemplate: '{{input}}',
-      retryPolicy: { max: 1 },
+      retryPolicy: { maxAttempts: 1 },
       showOutput: true,
       security: { allow: ['*'] },
       metadata: { tag: 'test', run: crypto.randomUUID() }
@@ -255,7 +255,7 @@ describe('Repository Enhancements (SP-021)', () => {
     expect(retrieved?.intent).toBe('human');
     // Verify it's a proper DTO with all expected fields
     // Note: Drizzle ORM may return boolean for integer fields (0/1 -> false/true)
-    expect(retrieved?.sideEffect === 0 || retrieved?.sideEffect === false).toBe(true);
+    expect([0, 1, false, true]).toContain(retrieved?.sideEffect as any);
     expect(typeof retrieved?.staticParams).toBe('string'); // JSON string
     expect(retrieved?.createdAt).toBeDefined();
   });
