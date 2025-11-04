@@ -58,6 +58,8 @@ Execute autonomously in tight loops:
 **Reiterate**: Update progress, select next file, repeat
 
 ## 2. Scope (Hard Constraints)
+Dont Read:
+- .task/todo/current.md file; its for other agents only
 
 Read ONLY:
 - Coverage artifacts: `coverage/coverage-final.json`, `.task/coverage-analysis.json`
