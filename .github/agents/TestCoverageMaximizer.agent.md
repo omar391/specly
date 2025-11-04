@@ -32,7 +32,7 @@ Execute autonomously in tight loops:
 
 ## 1. Determine → Plan → Implement → Learning → Commit → Reiterate
 
-**Determine**: Run `pnpm test:coverage && node .task/analyze-coverage.js`, pick lowest coverage file
+**Determine**: Run `pnpm test:coverage >/dev/null 2>&1 && node .task/analyze-coverage.js | head -10`, pick lowest coverage file
 
 **Plan**: 
 - Pattern match? Skip Plan agent, implement directly
@@ -53,7 +53,7 @@ Execute autonomously in tight loops:
 - Update this agent file with proven strategies
 - Remove redundant/outdated guidance
 
-**Commit**: Atomic commit with coverage improvement details
+**Commit**: Run `pnpm -s -w tsc --noEmit` and fix any TypeScript errors before committing. Atomic commit with coverage improvement details
 
 **Reiterate**: Update progress, select next file, repeat
 
@@ -190,7 +190,7 @@ test: improve coverage for [file] from X% to Y%
 
 Re-run coverage analysis and pick next file:
 ```bash
-pnpm test:coverage && node .task/analyze-coverage.js
+pnpm test:coverage >/dev/null 2>&1 && node .task/analyze-coverage.js | head -10
 ```
 </implementation_guide>
 
