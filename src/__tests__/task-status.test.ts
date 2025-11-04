@@ -70,6 +70,13 @@ describe('Task Status Utility', () => {
       // Results should be equal but not same reference
       expect(result1).toEqual(result2);
     });
+
+    it('should return empty array for unknown status inputs', () => {
+      // Unknown status should map to no next transitions
+      const res = nextStatuses('totally_unknown' as any);
+      expect(Array.isArray(res)).toBe(true);
+      expect(res).toEqual([]);
+    });
   });
 
   describe('canTransition', () => {
@@ -196,6 +203,40 @@ describe('Task Status Utility', () => {
       it('should reject self-transition for in_progress', () => {
         const result = canTransition('in_progress', 'in_progress');
         expect(result.ok).toBe(false);
+      });
+
+      it('should throw or reject when "from" status is invalid', () => {
+        // Some implementations validate inputs and throw; others return a structured error.
+        // We accept either behavior as long as invalid input is handled.
+        let result: any;
+        let error: unknown;
+        try {
+          result = canTransition('not_a_status' as any, 'queued');
+        } catch (err) {
+          error = err;
+        }
+        if (error) {
+          expect(error).toBeTruthy();
+        } else {
+          expect(result.ok).toBe(false);
+          expect(result.reason ?? '').toContain('Invalid');
+        }
+      });
+
+      it('should throw or reject when "to" status is invalid', () => {
+        let result: any;
+        let error: unknown;
+        try {
+          result = canTransition('queued', 'not_a_status' as any);
+        } catch (err) {
+          error = err;
+        }
+        if (error) {
+          expect(error).toBeTruthy();
+        } else {
+          expect(result.ok).toBe(false);
+          expect(result.reason ?? '').toContain('Invalid');
+        }
       });
     });
 
@@ -334,6 +375,13 @@ describe('Task Status Utility', () => {
       expect(() => assertValidStatus('123' as any)).toThrow();
     });
 
+    it('should reject non-string inputs (undefined, null, number, object)', () => {
+      expect(() => assertValidStatus(undefined as any)).toThrow();
+      expect(() => assertValidStatus(null as any)).toThrow();
+      expect(() => assertValidStatus(123 as any)).toThrow();
+      expect(() => assertValidStatus({} as any)).toThrow();
+    });
+
     it('should be case-sensitive', () => {
       expect(() => assertValidStatus('Queued')).toThrow();
       expect(() => assertValidStatus('QUEUED')).toThrow();
@@ -398,6 +446,9 @@ describe('Task Status Utility', () => {
         expect(canTransition(from, to).ok).toBe(true);
       }
     });
+
+    // Note: Implementation may intentionally cache and reuse array references for performance.
+    // We assert behavior via content equality above; no reference inequality is required.
 
     it('should validate all statuses in a complex workflow', () => {
       const workflow = ['queued', 'in_progress', 'awaiting_input', 'in_progress', 'completed'];

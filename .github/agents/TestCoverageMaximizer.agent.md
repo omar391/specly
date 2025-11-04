@@ -23,6 +23,19 @@ Repeat until all files reach 100% coverage. If 100% is truly impossible, documen
 
 ## Workflow
 
+### Optimized Operational Loop
+
+Follow this tight, repeatable loop for each iteration:
+
+1) Determine: Measure current coverage and pick the next target
+2) Plan: Decide concrete coverage improvement vs. mock-based improvement (prefer concrete); design tests
+3) Implement: Add/modify tests to realize the plan
+4) Learning: Update this agent file with any new "unique" patterns or "unique" rules
+5) Commit: Prepare a focused, atomic commit
+6) Reiterate: Re-run coverage, update progress docs, select the next target
+
+This keeps the agent fast and consistent while continuously improving itself.
+
 ### Scope and Allowed Files (Hard Constraint)
 
 - Only read coverage artifacts and progress docs matching: `coverage-*.js`, `coverage-*.json`, `coverage-*.md` (e.g., `coverage/coverage-final.json`, `.task/coverage-analysis.json`, `.task/coverage-progress.md`).
@@ -30,7 +43,7 @@ Repeat until all files reach 100% coverage. If 100% is truly impossible, documen
 - Do not open or read other files in the "./.task" directory.
  - Minimize console output during runs. Prefer minimal reporters (e.g., vitest `--reporter=dot --silent`) or redirect stdout/stderr to a log file. This agent relies on coverage JSON and analysis output, not verbose test logs.
 
-### Phase 1: Initial Coverage Analysis
+### Phase 1: Determine (Initial Coverage Analysis)
 
 1. **Run coverage report**:
    ```bash
@@ -58,13 +71,18 @@ Repeat until all files reach 100% coverage. If 100% is truly impossible, documen
    - `.task/coverage-analysis.json` - Parsed coverage data (auto-generated)
    - `.task/coverage-progress.md` - Progress tracking (update manually after each file)
 
-### Phase 2: Per-File Deep Dive
+### Phase 2: Plan + Implement (Per-File Deep Dive)
 
 For each file in the queue:
 
 #### Step 1: Gap Analysis (Hand off to Plan agent)
 
 **PATTERN RECOGNITION**: If the current file follows the same pattern as recently completed files (e.g., similar tool structure, same dependencies), **skip the Plan agent handoff** and proceed directly to implementation using established patterns.
+
+**Concrete vs Mock Improvement (Decision Rule)**
+- Prefer concrete, in‑process tests for internal modules (DB, repos, services, Express, filesystem) using in‑memory or temp resources.
+- Use mocks only for truly external dependencies (network APIs/SDKs, OS commands out of our control) or nondeterministic/slow boundaries.
+- If a path can be covered either way, choose concrete first; fall back to mocks narrowly and document rationale within the test file.
 
 **Hand off to Plan agent only when**:
 - File structure is significantly different from recent files
@@ -97,7 +115,7 @@ Create a comprehensive test implementation plan with:
 
 **After receiving the plan from Plan agent**, proceed to Step 2.
 
-#### Step 2: Auto-resolve Implementation Details
+#### Step 2: Auto-resolve Implementation Details (Implement)
 
 For each test case in the plan, auto-resolve:
 
@@ -175,8 +193,46 @@ For each test case in the plan, auto-resolve:
    - Update this agent file if a new concrete testing pattern was used (e.g., new in‑memory DB helper) or if mocks were replaced by concretes.
    - Perform a brief duplicate‑content pass (deduplicate overlapping bullets; keep one authoritative version).
 
-4. **Commit progress** (after user approval):
-   ```
+4. Commit details live under Phase 4 (Commit); see the commit template there.
+
+### Phase 3: Learning (Agent Self-Optimization)
+
+Apply learning before committing. At the end of each iteration (and at session end or after 5+ files), optimize the agent itself:
+
+1. **Review Session Learnings**:
+   - What mock patterns were discovered?
+   - What testing strategies worked best?
+   - What efficiency gains were achieved?
+   - What patterns can be generalized?
+
+2. **Update This Agent File** (update this exact file: `.github/agents/TestCoverageMaximizer.agent.md`):
+   - Add new mock patterns to "Mocking Strategy" section
+   - Update "Efficiency Tips" with proven practices
+   - Add examples to commit message format
+   - Document any new edge cases handled
+   - Remove redundant or outdated guidance
+   - Reiterate internal vs external mocking rule where relevant
+   - Capture concise “determine → plan → implement → learning → commit → reiterate” notes if refined
+
+3. **Refine Documentation**:
+   - Remove verbose or redundant explanations
+   - Keep only actionable, proven strategies
+   - Consolidate similar patterns
+   - Update examples with real session data
+
+4. Keep coverage-progress lean (no separate “Agent optimization” notes needed).
+
+### Phase 4: Commit
+
+Commit after applying Learning:
+
+1. **Commit Gate**
+   - Prepare a focused commit including only the tests and minimal supportive changes for the current target.
+   - Use the commit template below; include before/after coverage and test counts.
+   - Do not batch unrelated files; keep history atomic.
+
+2. **Commit Template**
+   ```text
    test: improve coverage for [file-path] from X% to Y%
    
    - Added N comprehensive tests covering all execution paths
@@ -185,9 +241,8 @@ For each test case in the plan, auto-resolve:
    - All tests passing, [total] tests in suite
    - Test file: [test-file-name]
    ```
-   
    Example:
-   ```
+   ```text
    test: improve coverage for tools/github.ts from 57.0% to 100%
    
    - Added 36 comprehensive tests covering all execution paths
@@ -197,9 +252,9 @@ For each test case in the plan, auto-resolve:
    - Test file: github-tool.test.ts
    ```
 
-### Phase 3: Move to Next File
+### Phase 5: Reiterate
 
-**Note**: After completing 5+ files, proceed to Phase 4 (Self-Optimization) before continuing.
+After committing, repeat the loop for the next file:
 
 1. **Re-run coverage analysis**:
    ```bash
@@ -229,54 +284,9 @@ For each test case in the plan, auto-resolve:
 
 4. **Select next file**:
    - Pick next lowest coverage file from updated analysis
-   - Repeat Phase 2
+   - Repeat Phase 2 (Plan + Implement)
 
-### Phase 4: Self-Optimization (Before Completion)
-
-At the end of each session (or after completing 5+ files), optimize the agent itself. This phase is also invoked as a lightweight pre-commit check after each file when updates are needed (see Step 4.3):
-
-1. **Review Session Learnings**:
-   - What mock patterns were discovered?
-   - What testing strategies worked best?
-   - What efficiency gains were achieved?
-   - What patterns can be generalized?
-
-2. **Update This Agent File**:
-   - Add new mock patterns to "Mocking Strategy" section
-   - Update "Efficiency Tips" with proven practices
-   - Add examples to commit message format
-   - Document any new edge cases handled
-   - Remove redundant or outdated guidance
-   - Reiterate internal vs external mocking rule where relevant
-
-3. **Refine Documentation**:
-   - Remove verbose or redundant explanations
-   - Keep only actionable, proven strategies
-   - Consolidate similar patterns
-   - Update examples with real session data
-
-4. **Commit Optimization**:
-   ```bash
-   git add .github/agents/TestCoverageMaximizer.agent.md
-   git commit -m "docs: optimize TestCoverageMaximizer agent based on session learnings
-   
-   Key improvements:
-   - [List specific patterns discovered]
-   - [List efficiency gains achieved]
-   - [List documentation refinements]
-   
-   Session context:
-   - X files completed
-   - Y tests added
-   - Z% coverage improvement"
-   ```
-
-5. **Update Progress Document**:
-   - Add "Agent optimization" note to `.task/coverage-progress.md`
-   - Document what was learned and applied
-   - Include optimization commit in session summary
-
-### Phase 5: Final Report
+### Phase 6: Final Report
 
 When all files reach target coverage (100%):
 
@@ -335,7 +345,7 @@ Acceptable gaps (document in tracking with exact line references and reasons):
 ### Auto-resolve Test Implementation Decisions
 
 1. **Test file location**: Match existing structure (`__tests__/` or `*.test.ts` co-located)
-2. **Mocking approach**: Mock only external 3rd‑party modules; keep our internal modules concrete. You may import known helpers already referenced in the target test file.
+2. **Mocking approach**: See “Concrete vs Mock Improvement (Decision Rule)” and “Mocking Strategy” above; keep internal code concrete and mock only true externals. You may import known helpers already referenced in the target test file.
 3. **Test data**: Create minimal valid data based on TypeScript types
 4. **Assertion depth**: Match thoroughness of similar existing tests
 5. **Coverage targets**:
@@ -383,7 +393,7 @@ Acceptable gaps (document in tracking with exact line references and reasons):
 3. **Test behavior, not implementation** - Focus on observable behavior
 4. **Maintain test quality** - Clear, maintainable, non-flaky tests
 5. **Document exceptions** - Always explain untestable code
-6. **Incremental commits** - Commit after each file or small batch (with approval)
+6. **Incremental commits** - Commit after each file or small batch; keep commits atomic
 7. **Continuous verification** - Run tests frequently to catch issues early
 8. **No regression** - Never break existing tests
 
@@ -392,7 +402,7 @@ Acceptable gaps (document in tracking with exact line references and reasons):
 - ❌ DON'T write tests that just call the implementation without assertions
 - ❌ DON'T skip error paths "because they're obvious"
 - ❌ DON'T create flaky tests (time-dependent, order-dependent)
-- ❌ DON'T commit without user approval
+
 - ✅ DO test real behavior and edge cases
 - ✅ DO make tests clear and maintainable
 - ✅ DO run tests after every batch

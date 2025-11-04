@@ -33,4 +33,37 @@ describe('SpecEngine side_effect reuse (SP-010)', () => {
     expect(callCount).toBe(1); // no additional executor call
     expect(second.results['R1']).toEqual(firstResult); // identical payload reused
   });
+
+  it('does not reuse when sideEffect is false (even same session)', async () => {
+    await initializeGlobalDatabaseService();
+    const db = getGlobalDatabase();
+    if (!db.initialized) await db.initialize();
+    const drizzle = db.getDb();
+    try {
+      await drizzle.insert(specs).values([
+        { hash: 'R2', executorType: 'noop', executorVersion: '1', intent: 'autonomous', sideEffect: false, staticParams: {}, metadata: {} },
+      ] as any);
+    } catch { }
+    let callCount = 0;
+    const exec = {
+      execute: async (hash: string) => { callCount++; return { reused: false, hash, ts: Date.now() }; }
+    };
+    const engine = new SpecEngine({ executor: exec });
+    const graph = buildToolGraph(b => b.addSpec({ hash: 'R2', intent: 'autonomous', sideEffect: false, entry: true }));
+    const sessionA = `sess-a-${Date.now()}`;
+    const first = await engine.run(graph, { sessionId: sessionA });
+    expect(first.status).toBe('completed');
+    expect(callCount).toBe(1);
+    const firstResult = first.results['R2'];
+
+    // Second run (same session) should NOT reuse because sideEffect=false
+    const second = await engine.run(graph, { sessionId: sessionA });
+    expect(second.status).toBe('completed');
+    expect(callCount).toBe(2); // executor called again
+    const secondResult = second.results['R2'];
+    // Results should be different (fresh execution)
+    expect(secondResult.ts).toBeGreaterThanOrEqual(firstResult.ts);
+    expect(secondResult).not.toBe(firstResult);
+    expect(secondResult.reused).toBe(false);
+  });
 });

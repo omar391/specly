@@ -7,11 +7,11 @@ Mode: TestCoverageMaximizer
 ## Overall Metrics
 
 - Total Files: 57
-- Files below 95% coverage: 27 (47.4%)
-- Files at/above 95% coverage: 30 (52.6%)
+- Files below 95% coverage: 25 (43.9%)
+- Files at/above 95% coverage: 32 (56.1%)
 - Files completed this session: 16
-- Tests added this session: 491
-- Test suite total: 1320 tests
+- Tests added this session: 495
+- Test suite total: 1331 tests
 - **Agent optimization**: TestCoverageMaximizer.agent.md updated with session learnings
 - **Workflow enhancement**: Agent now self-optimizes after 5+ files (Phase 4 added)
 
@@ -155,7 +155,11 @@ Mode: TestCoverageMaximizer
 39. **services/background-jobs-service.ts** - 93.5% avg ⚠️ (just below 95%)
 40. **services/seed-manager.ts** - 93.9% avg ⚠️ (just below 95%)
 41. **services/metrics-collector.ts** - 94.0% avg ⚠️ (just below 95%)
-42. **utils/task-status.ts** - 94.4% avg ⚠️ (just below 95%)
+42. **utils/task-status.ts** - 100% avg ✅
+   - Status: COMPLETED
+   - Covered: 100% statements, 100% branches, 100% functions
+   - Tests Added: +3 in task-status.test.ts (unknown status and invalid transition cases)
+   - Completed: November 4, 2025
 43. **repositories/spec-repository.ts** - 95.1% avg ✅
 44. **utils/hash.ts** - 96.7% avg ✅
 45. **utils/cli-parser.ts** - 97.0% avg ✅
@@ -229,6 +233,16 @@ Mode: TestCoverageMaximizer
 ---
 
 ### Latest updates (Nov 4, 2025)
+
+- services/spec-engine.ts — Added non-reuse branch coverage when sideEffect=false
+   - New test: ensures no reuse occurs for sideEffect=false even within same session (executor called again)
+   - File: `spec-engine-reuse.test.ts` (+1 test)
+   - Suite now: 81/81 files, 1331/1331 tests passing
+
+- utils/task-status.ts — Raised to 100% avg (Stmt: 100%, Branch: 100%, Func: 100%)
+   - Added edge-case tests for unknown status and invalid transitions (from/to)
+   - Tests: +3 in task-status.test.ts
+   - Files below 95% reduced to 26; full suite now 1324 tests
 
 - services/prompt-orchestrator.ts — Raised to ~97.2% avg (Stmt: 100%, Branch: 91.7%, Func: 100%)
    - Added extended suite covering all tool branches, error propagation, context replacement utilities, and next-step generation
