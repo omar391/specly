@@ -171,6 +171,32 @@ describe('Repository Layer (Spec & ToolVersion)', () => {
     expect(second.created).toBe(false);
     await journalRepo.updateStatus(first.id, 'success', { resultJson: { ok: true } });
   });
+
+  it('action journal updateStatus covers all branches', async () => {
+    const journalRepo = new ActionJournalRepository(globalDb);
+    // Create a spec to satisfy FK
+    const specRepo = new SpecRepositoryImpl(globalDb);
+    const spec = await specRepo.createOrGet({
+      executorType: 'generic-executor',
+      executorVersion: '1.0.0',
+      intent: 'human',
+      contentTemplate: 'Echo',
+      staticParams: {},
+      metadata: { run: crypto.randomUUID() }
+    });
+    const entry = await journalRepo.createOrGetPending({ sessionId: 's2', specHash: spec.hash, idempotencyKey: 'K2' });
+
+    // Test success with resultJson
+    await journalRepo.updateStatus(entry.id, 'success', { resultJson: { output: 'test' } });
+
+    // Test failed with errorJson and lastErrorCode
+    const entry2 = await journalRepo.createOrGetPending({ sessionId: 's3', specHash: spec.hash, idempotencyKey: 'K3' });
+    await journalRepo.updateStatus(entry2.id, 'failed', { errorJson: { message: 'test error' }, lastErrorCode: 'EXECUTOR_FAILED' });
+
+    // Test pending status (no completion date)
+    const entry3 = await journalRepo.createOrGetPending({ sessionId: 's4', specHash: spec.hash, idempotencyKey: 'K4' });
+    await journalRepo.updateStatus(entry3.id, 'pending', {});
+  });
 });
 
 describe('Repository Enhancements (SP-021)', () => {

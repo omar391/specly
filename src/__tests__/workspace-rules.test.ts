@@ -36,6 +36,8 @@ describe('SP-017: Workspace Rules', () => {
     
     (app as any).locals.dbService = globalDbService;
     const dbServiceWrapper = new DatabaseService(globalMgr as any);
+    // Override the globalDb in the wrapper to use our initialized instance
+    (dbServiceWrapper as any).globalDb = globalDbService;
     app.use('/api', await createApiRouter(dbServiceWrapper));
   });
 

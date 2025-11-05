@@ -49,7 +49,60 @@ describe('SpecEngine BasicExecutionPlanner (SP-005)', () => {
       edges: [ { from: 'A', to: 'B' }, { from: 'B', to: 'A' } ]
     };
     const planner = new BasicExecutionPlanner();
-    expect(() => planner.buildPlan(graph)).toThrow(/Cycle detected/);
+    expect(() => planner.buildPlan(graph)).toThrow('Cycle detected in tool graph');
+  });
+
+  it('warns about unreachable nodes', () => {
+    const graph: ToolGraph = {
+      entry: 'A',
+      nodes: { A: makeNode('A'), B: makeNode('B'), C: makeNode('C') },
+      edges: [{ from: 'A', to: 'B' }] // C unreachable
+    };
+    const planner = new BasicExecutionPlanner();
+    const plan = planner.buildPlan(graph);
+    expect(plan.steps.map(s => s.specHash)).toEqual(['A', 'B']);
+    expect(plan.warnings).toContain('Unreachable spec node: C');
+  });
+
+  it('warns about edges to missing nodes', () => {
+    const graph: ToolGraph = {
+      entry: 'A',
+      nodes: { A: makeNode('A'), B: makeNode('B') },
+      edges: [{ from: 'A', to: 'B' }, { from: 'B', to: 'C' }] // C missing
+    };
+    const planner = new BasicExecutionPlanner();
+    const plan = planner.buildPlan(graph);
+    expect(plan.steps.map(s => s.specHash)).toEqual(['A', 'B']);
+    expect(plan.warnings).toContain('Edge references missing node: B -> C');
+  });
+
+  it('handles null priorities in edges', () => {
+    const graph: ToolGraph = {
+      entry: 'A',
+      nodes: { A: makeNode('A'), B: makeNode('B'), C: makeNode('C') },
+      edges: [
+        { from: 'A', to: 'B', priority: 50 },
+        { from: 'A', to: 'C' } // null priority
+      ]
+    };
+    const planner = new BasicExecutionPlanner();
+    const plan = planner.buildPlan(graph);
+    expect(plan.steps.map(s => s.specHash)).toEqual(['A', 'C', 'B']); // C has 100, B has 50
+  });
+
+  it('sorts by priority descending', () => {
+    const graph: ToolGraph = {
+      entry: 'A',
+      nodes: { A: makeNode('A'), B: makeNode('B'), C: makeNode('C'), D: makeNode('D') },
+      edges: [
+        { from: 'A', to: 'B', priority: 10 },
+        { from: 'A', to: 'C', priority: 50 },
+        { from: 'A', to: 'D', priority: 30 }
+      ]
+    };
+    const planner = new BasicExecutionPlanner();
+    const plan = planner.buildPlan(graph);
+    expect(plan.steps.map(s => s.specHash)).toEqual(['A', 'C', 'D', 'B']); // C 50, D 30, B 10
   });
 
   it('warns on unreachable node', () => {

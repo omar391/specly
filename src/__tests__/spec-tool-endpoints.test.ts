@@ -84,4 +84,84 @@ describe('Spec & Tool Endpoints (SP-014)', () => {
         expect(res.status).toBe(422);
         expect(res.body.code).toBe('GRAPH_CYCLE');
     });
+
+    it('rejects spec creation with missing required fields', async () => {
+        const app = await makeApp();
+
+        // Missing executor_type
+        const res1 = await request(app).post('/api/specs').send({ executor_version: '1', intent: 'autonomous' });
+        expect(res1.status).toBe(400);
+        expect(res1.body.error).toMatch(/Missing required spec fields/);
+
+        // Missing executor_version
+        const res2 = await request(app).post('/api/specs').send({ executor_type: 'noop', intent: 'autonomous' });
+        expect(res2.status).toBe(400);
+        expect(res2.body.error).toMatch(/Missing required spec fields/);
+
+        // Missing intent
+        const res3 = await request(app).post('/api/specs').send({ executor_type: 'noop', executor_version: '1' });
+        expect(res3.status).toBe(400);
+        expect(res3.body.error).toMatch(/Missing required spec fields/);
+    });
+
+    it('rejects spec creation with invalid executor_type', async () => {
+        const app = await makeApp();
+        const res = await request(app).post('/api/specs').send({
+            executor_type: 'invalid_executor',
+            executor_version: '1',
+            intent: 'autonomous'
+        });
+        expect(res.status).toBe(422);
+        expect(res.body.code).toBe('ERR_INVALID_EXECUTOR_TYPE');
+    });
+
+    it('rejects tool creation with missing name', async () => {
+        const app = await makeApp();
+        const res = await request(app).post('/api/tools').send({ description: 'Test tool' });
+        expect(res.status).toBe(400);
+        expect(res.body.error).toBe('name required');
+    });
+
+    it('rejects tool creation with duplicate name', async () => {
+        const app = await makeApp();
+        await request(app).post('/api/tools').send({ name: 'duplicate_tool' });
+        const res = await request(app).post('/api/tools').send({ name: 'duplicate_tool' });
+        expect(res.status).toBe(409);
+        expect(res.body.error).toBe('tool exists');
+    });
+
+    it('rejects tool creation with duplicate command_alias', async () => {
+        const app = await makeApp();
+        await request(app).post('/api/tools').send({ name: 'tool1', command_alias: 'alias1' });
+        const res = await request(app).post('/api/tools').send({ name: 'tool2', command_alias: 'alias1' });
+        expect(res.status).toBe(409);
+        expect(res.body.code).toBe('ERR_COMMAND_ALIAS_CONFLICT');
+    });
+
+    it('rejects tool version creation with missing ordered_specs', async () => {
+        const app = await makeApp();
+        await request(app).post('/api/tools').send({ name: 'test_tool' });
+        const res = await request(app).post('/api/tools/test_tool/versions').send({ entry_spec: 'hash' });
+        expect(res.status).toBe(400);
+        expect(res.body.error).toMatch(/ordered_specs.*entry_spec required/);
+    });
+
+    it('rejects tool version creation with missing entry_spec', async () => {
+        const app = await makeApp();
+        await request(app).post('/api/tools').send({ name: 'test_tool' });
+        const res = await request(app).post('/api/tools/test_tool/versions').send({ ordered_specs: ['hash'] });
+        expect(res.status).toBe(400);
+        expect(res.body.error).toMatch(/ordered_specs.*entry_spec required/);
+    });
+
+    it('rejects tool version creation for non-existent tool', async () => {
+        const app = await makeApp();
+        const res = await request(app).post('/api/tools/nonexistent/versions').send({
+            ordered_specs: ['hash'],
+            entry_spec: 'hash',
+            edges: []
+        });
+        expect(res.status).toBe(404);
+        expect(res.body.error).toBe('tool not found');
+    });
 });

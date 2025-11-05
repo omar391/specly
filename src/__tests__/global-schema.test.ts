@@ -410,4 +410,64 @@ describe('Global Schema Definitions', () => {
       expect(entry.attempts).toBeUndefined(); // Has default but not in insert type
     });
   });
+
+  describe('Database Integration', () => {
+    it('should support database operations for all tables', async () => {
+      const { DrizzleDatabaseManager, DatabaseType } = await import('../database/drizzle-connection.js');
+      const globalSchema = await import('../database/schema/global-schema.js');
+
+      const manager = new DrizzleDatabaseManager(':memory:', DatabaseType.GLOBAL);
+      await manager.initialize();
+      const db = manager.getDb();
+
+      // Insert into workspaces
+      await db.insert(globalSchema.workspaces).values({
+        id: 'ws1',
+        path: '/test',
+        name: 'Test Workspace'
+      });
+      const ws = await db.select().from(globalSchema.workspaces);
+      expect(ws).toHaveLength(1);
+
+      // Insert into specs
+      await db.insert(globalSchema.specs).values({
+        hash: 'h1',
+        executorType: 'tool',
+        executorVersion: '1.0.0',
+        intent: 'human',
+        sideEffect: false
+      });
+      const specs = await db.select().from(globalSchema.specs);
+      expect(specs).toHaveLength(1);
+
+      // Insert into tools
+      await db.insert(globalSchema.tools).values({
+        name: 'tool1',
+        commandAlias: 't1',
+        description: 'desc'
+      });
+      const tools = await db.select().from(globalSchema.tools);
+      expect(tools).toHaveLength(1);
+
+      // Insert into profiles
+      await db.insert(globalSchema.profiles).values({
+        id: 'p1',
+        name: 'profile1',
+        description: 'desc'
+      });
+      const profiles = await db.select().from(globalSchema.profiles);
+      expect(profiles).toHaveLength(1);
+
+      // Insert into actionJournal
+      await db.insert(globalSchema.actionJournal).values({
+        id: 'aj1',
+        sessionId: 's1',
+        specHash: 'h1',
+        idempotencyKey: 'k1',
+        status: 'success'
+      });
+      const journal = await db.select().from(globalSchema.actionJournal);
+      expect(journal).toHaveLength(1);
+    });
+  });
 });

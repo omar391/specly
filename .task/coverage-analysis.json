@@ -14,34 +14,6 @@
     "coveredFuncs": 0
   },
   {
-    "file": "services/spec-engine.ts",
-    "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/services/spec-engine.ts",
-    "stmtPct": 91.34615384615384,
-    "branchPct": 81.55339805825243,
-    "funcPct": 85,
-    "avgPct": 85.96651730146876,
-    "totalStmts": 416,
-    "coveredStmts": 380,
-    "totalBranches": 206,
-    "coveredBranches": 168,
-    "totalFuncs": 20,
-    "coveredFuncs": 17
-  },
-  {
-    "file": "api/tools-execute.ts",
-    "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/api/tools-execute.ts",
-    "stmtPct": 91.0958904109589,
-    "branchPct": 70.6896551724138,
-    "funcPct": 100,
-    "avgPct": 87.2618485277909,
-    "totalStmts": 146,
-    "coveredStmts": 133,
-    "totalBranches": 58,
-    "coveredBranches": 41,
-    "totalFuncs": 8,
-    "coveredFuncs": 8
-  },
-  {
     "file": "services/workspace-registry.ts",
     "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/services/workspace-registry.ts",
     "stmtPct": 89.91596638655463,
@@ -56,18 +28,18 @@
     "coveredFuncs": 17
   },
   {
-    "file": "repositories/action-journal-repository.ts",
-    "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/repositories/action-journal-repository.ts",
-    "stmtPct": 100,
-    "branchPct": 62.5,
-    "funcPct": 100,
-    "avgPct": 87.5,
-    "totalStmts": 37,
-    "coveredStmts": 37,
-    "totalBranches": 8,
-    "coveredBranches": 5,
-    "totalFuncs": 4,
-    "coveredFuncs": 4
+    "file": "services/spec-engine.ts",
+    "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/services/spec-engine.ts",
+    "stmtPct": 93.26923076923077,
+    "branchPct": 79.52380952380952,
+    "funcPct": 90,
+    "avgPct": 87.5976800976801,
+    "totalStmts": 416,
+    "coveredStmts": 388,
+    "totalBranches": 210,
+    "coveredBranches": 167,
+    "totalFuncs": 20,
+    "coveredFuncs": 18
   },
   {
     "file": "scripts/seed-specly.ts",
@@ -96,20 +68,6 @@
     "coveredBranches": 16,
     "totalFuncs": 3,
     "coveredFuncs": 3
-  },
-  {
-    "file": "api/specs-tools.ts",
-    "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/api/specs-tools.ts",
-    "stmtPct": 94.85294117647058,
-    "branchPct": 73.07692307692307,
-    "funcPct": 100,
-    "avgPct": 89.30995475113122,
-    "totalStmts": 136,
-    "coveredStmts": 129,
-    "totalBranches": 52,
-    "coveredBranches": 38,
-    "totalFuncs": 6,
-    "coveredFuncs": 6
   },
   {
     "file": "cli.ts",
@@ -280,6 +238,20 @@
     "coveredFuncs": 10
   },
   {
+    "file": "api/tools-execute.ts",
+    "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/api/tools-execute.ts",
+    "stmtPct": 99.31506849315068,
+    "branchPct": 82.6086956521739,
+    "funcPct": 100,
+    "avgPct": 93.97458804844153,
+    "totalStmts": 146,
+    "coveredStmts": 145,
+    "totalBranches": 69,
+    "coveredBranches": 57,
+    "totalFuncs": 8,
+    "coveredFuncs": 8
+  },
+  {
     "file": "services/metrics-collector.ts",
     "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/services/metrics-collector.ts",
     "stmtPct": 93.25842696629213,
@@ -320,6 +292,20 @@
     "coveredBranches": 50,
     "totalFuncs": 30,
     "coveredFuncs": 30
+  },
+  {
+    "file": "api/specs-tools.ts",
+    "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/api/specs-tools.ts",
+    "stmtPct": 97.79411764705883,
+    "branchPct": 86.66666666666667,
+    "funcPct": 100,
+    "avgPct": 94.82026143790851,
+    "totalStmts": 136,
+    "coveredStmts": 133,
+    "totalBranches": 60,
+    "coveredBranches": 52,
+    "totalFuncs": 6,
+    "coveredFuncs": 6
   },
   {
     "file": "api/sessions.ts",
@@ -628,6 +614,20 @@
     "coveredBranches": 1,
     "totalFuncs": 0,
     "coveredFuncs": 0
+  },
+  {
+    "file": "repositories/action-journal-repository.ts",
+    "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/repositories/action-journal-repository.ts",
+    "stmtPct": 100,
+    "branchPct": 100,
+    "funcPct": 100,
+    "avgPct": 100,
+    "totalStmts": 37,
+    "coveredStmts": 37,
+    "totalBranches": 13,
+    "coveredBranches": 13,
+    "totalFuncs": 4,
+    "coveredFuncs": 4
   },
   {
     "file": "services/database-service.ts",

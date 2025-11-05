@@ -53,7 +53,10 @@ Execute autonomously in tight loops:
 - Update this agent file with proven strategies
 - Remove redundant/outdated guidance
 
-**Commit**: Run `pnpm -s -w tsc --noEmit` and fix any TypeScript errors before committing. Atomic commit with coverage improvement details
+**Commit**: 
+- Run `pnpm -s -w tsc --noEmit` and fix any TypeScript errors before committing.
+- Run `pgrep -fl "node.*node_modules.*vite" || true` to ensure no Vite processes are running.
+- Atomic commit with coverage improvement details
 
 **Reiterate**: Update progress, select next file, repeat
 

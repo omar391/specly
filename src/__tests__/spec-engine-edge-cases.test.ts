@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { SpecEngine, ToolGraph, ClientStateLeaseProvider, SpecEngineErrorCode } from '../services/spec-engine.js';
+import { SpecEngine, ToolGraph, ClientStateLeaseProvider, SpecEngineErrorCode, BasicExecutionPlanner, NoopAutonomousExecutor } from '../services/spec-engine.js';
 import { buildToolGraph } from '../utils/tool-graph-builder.js';
 
 // Minimal helper
@@ -10,14 +10,48 @@ class ThrowStringExecutor {
 }
 
 class FailingFirstExecutor {
-    private called = false;
     async execute(_hash: string) {
-        if (!this.called) { this.called = true; throw new Error('first-fail'); }
+        throw new Error('first-executor-failure');
+    }
+}
+
+class FailingAfterResumeExecutor {
+    private callCount = 0;
+    async execute(hash: string) {
+        this.callCount++;
+        if (hash === 'FAIL') { // Fail on FAIL spec during resume
+            throw new Error('resume-failure');
+        }
+        return { ok: true, call: this.callCount };
+    }
+}
+
+class NullExecutor {
+    async execute(hash: string) {
+        if (hash === 'TARGET') {
+            // Simulate different error types that should hit the catch block
+            throw null; // This should trigger the catch block line 504
+        }
         return { ok: true };
     }
 }
 
 describe('SpecEngine edge cases', () => {
+    it('NoopAutonomousExecutor returns expected result', async () => {
+        const executor = new NoopAutonomousExecutor();
+        const result = await executor.execute('test-hash');
+        expect(result).toEqual({ ok: true, spec: 'test-hash' });
+    });
+
+    it('SpecEngine uses NoopAutonomousExecutor for autonomous specs', async () => {
+        const executor = new NoopAutonomousExecutor();
+        const engine = new SpecEngine({ executor });
+        const graph: ToolGraph = { entry: 'X', nodes: { X: auto('X') }, edges: [] };
+        const ctx = await engine.run(graph);
+        expect(ctx.status).toBe('completed');
+        expect(ctx.results?.X).toEqual({ ok: true, spec: 'X' });
+    });
+
     it('returns error on resume when no human pause occurred (invalid resume token)', async () => {
         const engine = new SpecEngine();
         const graph: ToolGraph = buildToolGraph(b => b
@@ -93,5 +127,206 @@ describe('SpecEngine edge cases', () => {
         expect(ctx.status).toBe('error');
         expect(lease.acquire).toHaveBeenCalledTimes(1);
         expect(lease.release).toHaveBeenCalledTimes(1); // ensure release in error path
+    });
+
+    it('handles executor failure during resume of remaining autonomous specs', async () => {
+        const executor = new FailingAfterResumeExecutor();
+        const engine = new SpecEngine({ executor: executor as any, retryPolicy: { maxAttempts: 1 } });
+
+        // Graph: A (auto) -> H (human) -> FAIL (auto that fails on resume)
+        const graph: ToolGraph = buildToolGraph(b => b
+            .addSpec({ hash: 'A', intent: 'autonomous', entry: true })
+            .addSpec({ hash: 'H', intent: 'human' })
+            .addSpec({ hash: 'FAIL', intent: 'autonomous' })
+            .addEdge('A', 'H')
+            .addEdge('H', 'FAIL')
+        );
+
+        // Run and pause at human spec
+        const first = await engine.run(graph);
+        expect(first.status).toBe('awaiting_input');
+        expect(first.awaitingSpec).toBe('H');
+
+        // Build serialized state for resume
+        const planner = new BasicExecutionPlanner();
+        const plan = planner.buildPlan(graph);
+        const serialized = {
+            plan,
+            currentIndex: plan.steps.findIndex(s => s.specHash === 'H'),
+            executed: ['A'],
+            results: { A: { ok: true, call: 1 } },
+            warnings: [],
+            awaitingSpec: 'H',
+            sessionContext: {}
+        };
+
+        // Resume with human input - should fail when executing FAIL spec
+        const resumed = await engine.resume(graph, serialized, {
+            specHash: 'H',
+            humanOutput: { human: 'input' }
+        });
+
+        expect(resumed.status).toBe('error');
+        expect(resumed.error?.message).toMatch(/Execution failed at spec FAIL/);
+        expect(resumed.error?.message).toMatch(/resume-failure/);
+        if (resumed.errorCode !== undefined) {
+            expect(resumed.errorCode).toBe(SpecEngineErrorCode.EXECUTOR_FAILED);
+        }
+    });
+
+    it('BasicExecutionPlanner handles nodes with no incoming edges in priority calculation', async () => {
+        const planner = new BasicExecutionPlanner();
+        
+        // Create a graph where one node has no incoming edges
+        const graph: ToolGraph = buildToolGraph(b => b
+            .addSpec({ hash: 'START', intent: 'autonomous', entry: true })
+            .addSpec({ hash: 'ISOLATED', intent: 'autonomous' })
+            .addSpec({ hash: 'END', intent: 'autonomous' })
+            .addEdge('START', 'END', 200)  // START -> END with priority 200
+            // ISOLATED has no incoming edges, so incomingMaxPriority should return null
+        );
+
+        const plan = planner.buildPlan(graph);
+        
+        // Verify the plan is generated correctly even with isolated nodes
+        expect(plan.steps).toHaveLength(2); // Only START and END should be in execution order
+        expect(plan.steps[0].specHash).toBe('START');
+        expect(plan.steps[1].specHash).toBe('END');
+        expect(plan.warnings).toContain('Unreachable spec node: ISOLATED');
+    });
+
+    it('incomingMaxPriority function returns null for nodes with no incoming edges', async () => {
+        // Create a graph with a node that has no incoming edges to exercise incomingMaxPriority return null path
+        const graph: ToolGraph = buildToolGraph(b => b
+            .addSpec({ hash: 'ENTRY', intent: 'autonomous', entry: true })
+            .addSpec({ hash: 'ISOLATED', intent: 'autonomous' })
+        );
+
+        const planner = new BasicExecutionPlanner();
+        const plan = planner.buildPlan(graph);
+        
+        // ISOLATED has no incoming edges, so incomingMaxPriority should return null
+        // This should trigger lines 541-542 in the incomingMaxPriority function
+        expect(plan.steps).toHaveLength(1); // Only ENTRY
+        expect(plan.steps[0].specHash).toBe('ENTRY');
+        expect(plan.warnings).toContain('Unreachable spec node: ISOLATED');
+    });
+
+    it('incomingMaxPriority comparison with multiple isolated nodes triggers line 649', async () => {
+        // Create multiple isolated nodes so the sort comparison calls incomingMaxPriority
+        const graph: ToolGraph = buildToolGraph(b => b
+            .addSpec({ hash: 'ENTRY', intent: 'autonomous', entry: true })
+            .addSpec({ hash: 'ISO_A', intent: 'autonomous' })
+            .addSpec({ hash: 'ISO_B', intent: 'autonomous' })
+            .addSpec({ hash: 'ISO_C', intent: 'autonomous' })
+        );
+
+        const planner = new BasicExecutionPlanner();
+        const plan = planner.buildPlan(graph);
+        
+        // Multiple isolated nodes should trigger sort comparison and incomingMaxPriority calls
+        expect(plan.steps).toHaveLength(1); // Only ENTRY
+        expect(plan.steps[0].specHash).toBe('ENTRY');
+        expect(plan.warnings).toEqual([
+            'Unreachable spec node: ISO_A',
+            'Unreachable spec node: ISO_B', 
+            'Unreachable spec node: ISO_C'
+        ]);
+    });
+
+    it('resume method catch block handles executor failures with null error', async () => {
+        const executor = new NullExecutor();
+        const engine = new SpecEngine({ executor: executor as any, retryPolicy: { maxAttempts: 1 } });
+
+        // Graph: A (auto) -> H (human) -> TARGET (auto that throws null)
+        const graph: ToolGraph = buildToolGraph(b => b
+            .addSpec({ hash: 'A', intent: 'autonomous', entry: true })
+            .addSpec({ hash: 'H', intent: 'human' })
+            .addSpec({ hash: 'TARGET', intent: 'autonomous' })
+            .addEdge('A', 'H')
+            .addEdge('H', 'TARGET')
+        );
+
+        // Run and pause at human spec
+        const first = await engine.run(graph);
+        expect(first.status).toBe('awaiting_input');
+        expect(first.awaitingSpec).toBe('H');
+
+        // Build serialized state for resume
+        const planner = new BasicExecutionPlanner();
+        const plan = planner.buildPlan(graph);
+        const serialized = {
+            plan,
+            currentIndex: plan.steps.findIndex(s => s.specHash === 'H'),
+            executed: ['A'],
+            results: { A: { ok: true } },
+            warnings: [],
+            awaitingSpec: 'H',
+            sessionContext: {}
+        };
+
+        // Resume with human input - should fail when executing TARGET spec and hit line 504
+        const resumed = await engine.resume(graph, serialized, {
+            specHash: 'H',
+            humanOutput: { human: 'input' }
+        });
+
+        expect(resumed.status).toBe('error');
+        expect(resumed.error?.message).toMatch(/Execution failed at spec TARGET/);
+        expect(resumed.error?.message).toMatch(/Autonomous executor error/);
+        if (resumed.errorCode !== undefined) {
+            expect(resumed.errorCode).toBe(SpecEngineErrorCode.EXECUTOR_FAILED);
+        }
+    });
+
+    it('successful resume completes and releases lease (covers lines 509-510)', async () => {
+        const executor = { execute: async (hash: string) => ({ ok: true, spec: hash }) };
+        const lease = {
+            acquire: vi.fn(async () => ({ leaseId: 'test-lease' })),
+            renew: vi.fn(async () => { }),
+            release: vi.fn(async () => { })
+        };
+        const engine = new SpecEngine({ executor: executor as any, leaseProvider: lease });
+
+        // Graph: A (auto) -> H (human) -> B (auto)
+        const graph: ToolGraph = buildToolGraph(b => b
+            .addSpec({ hash: 'A', intent: 'autonomous', entry: true })
+            .addSpec({ hash: 'H', intent: 'human' })
+            .addSpec({ hash: 'B', intent: 'autonomous' })
+            .addEdge('A', 'H')
+            .addEdge('H', 'B')
+        );
+
+        // Run and pause at human spec with lease
+        const first = await engine.run(graph, { sessionId: 'sess1', clientId: 'client1' });
+        expect(first.status).toBe('awaiting_input');
+        expect(first.awaitingSpec).toBe('H');
+
+        // Build serialized state for resume
+        const planner = new BasicExecutionPlanner();
+        const plan = planner.buildPlan(graph);
+        const serialized = {
+            plan,
+            currentIndex: plan.steps.findIndex(s => s.specHash === 'H'),
+            executed: ['A'],
+            results: { A: { ok: true, spec: 'A' } },
+            warnings: [],
+            awaitingSpec: 'H',
+            sessionContext: {}
+        };
+
+        // Resume with human input - should complete successfully and release lease
+        const resumed = await engine.resume(graph, serialized, {
+            specHash: 'H',
+            humanOutput: { human: 'input' }
+        }, { sessionId: 'sess1', clientId: 'client1' });
+
+        expect(resumed.status).toBe('completed');
+        expect(resumed.executed).toEqual(['A', 'H', 'B']);
+        expect(resumed.results?.B).toEqual({ ok: true, spec: 'B' });
+        
+        // Verify lease was acquired for run and resume acquires and releases its own lease
+        expect(lease.acquire).toHaveBeenCalledTimes(2); // once for run, once for resume
+        expect(lease.release).toHaveBeenCalledWith('test-lease'); // verify lease was released
     });
 });
