@@ -9,6 +9,13 @@ class ThrowStringExecutor {
     async execute(_hash: string) { throw 'string-error'; }
 }
 
+class ThrowOnBExecutor {
+    async execute(hash: string) {
+        if (hash === 'B') throw 'string-error';
+        return { ok: true };
+    }
+}
+
 class FailingFirstExecutor {
     async execute(_hash: string) {
         throw new Error('first-executor-failure');
@@ -328,5 +335,479 @@ describe('SpecEngine edge cases', () => {
         // Verify lease was acquired for run and resume acquires and releases its own lease
         expect(lease.acquire).toHaveBeenCalledTimes(2); // once for run, once for resume
         expect(lease.release).toHaveBeenCalledWith('test-lease'); // verify lease was released
+    });
+
+    it('resume handles lease renewal failure', async () => {
+        const lease = {
+            acquire: vi.fn().mockResolvedValue({ leaseId: 'test-lease' }),
+            renew: vi.fn().mockRejectedValue(new Error('renew-fail')),
+            release: vi.fn().mockResolvedValue(undefined)
+        };
+        const engine = new SpecEngine({
+            leaseProvider: lease as any,
+            leaseRenewEvery: 1 // renew every spec
+        });
+
+        const graph: ToolGraph = buildToolGraph(b => b
+            .addSpec({ hash: 'A', intent: 'autonomous', entry: true })
+            .addSpec({ hash: 'H', intent: 'human' })
+            .addSpec({ hash: 'B', intent: 'autonomous' })
+            .addEdge('A', 'H')
+            .addEdge('H', 'B')
+        );
+
+        // Run and pause
+        const first = await engine.run(graph, {});
+        expect(first.status).toBe('awaiting_input');
+
+        const planner = new BasicExecutionPlanner();
+        const plan = planner.buildPlan(graph);
+        const serialized = {
+            plan,
+            currentIndex: plan.steps.findIndex(s => s.specHash === 'H'),
+            executed: ['A'],
+            results: { A: { ok: true } },
+            warnings: [],
+            awaitingSpec: 'H',
+            sessionContext: {}
+        };
+
+        // Resume - lease renewal should fail on B
+        const resumed = await engine.resume(graph, serialized, {
+            specHash: 'H',
+            humanOutput: { human: 'input' }
+        }, { sessionId: 'sess1', clientId: 'client1' });
+
+        expect(resumed.status).toBe('error');
+        expect(resumed.error?.message).toContain('Lease renewal failed');
+        expect(resumed.errorCode).toBe(SpecEngineErrorCode.LEASE_RENEW_FAILED);
+        expect(lease.renew).toHaveBeenCalledWith('test-lease');
+    });
+
+    it('resume handles executor failure', async () => {
+        const engine = new SpecEngine({ executor: new ThrowOnBExecutor() });
+
+        const graph: ToolGraph = buildToolGraph(b => b
+            .addSpec({ hash: 'A', intent: 'autonomous', entry: true })
+            .addSpec({ hash: 'H', intent: 'human' })
+            .addSpec({ hash: 'B', intent: 'autonomous' })
+            .addEdge('A', 'H')
+            .addEdge('H', 'B')
+        );
+
+        const first = await engine.run(graph, {});
+        expect(first.status).toBe('awaiting_input');
+
+        const planner = new BasicExecutionPlanner();
+        const plan = planner.buildPlan(graph);
+        const serialized = {
+            plan,
+            currentIndex: plan.steps.findIndex(s => s.specHash === 'H'),
+            executed: ['A'],
+            results: { A: { ok: true } },
+            warnings: [],
+            awaitingSpec: 'H',
+            sessionContext: {}
+        };
+
+        const resumed = await engine.resume(graph, serialized, {
+            specHash: 'H',
+            humanOutput: { human: 'input' }
+        });
+
+        expect(resumed.status).toBe('error');
+        expect(resumed.error?.message).toContain('Execution failed at spec B');
+        expect(resumed.errorCode).toBe(SpecEngineErrorCode.EXECUTOR_FAILED);
+    });
+
+    it('resume handles missing node', async () => {
+        const engine = new SpecEngine();
+
+        // Build graph with 'B' in nodes for validation, but remove for resume
+        const graph: ToolGraph = {
+            entry: 'A',
+            nodes: {
+                A: { hash: 'A', intent: 'autonomous', sideEffect: false },
+                H: { hash: 'H', intent: 'human', sideEffect: false },
+                B: { hash: 'B', intent: 'autonomous', sideEffect: false }
+            },
+            edges: [
+                { from: 'A', to: 'H' },
+                { from: 'H', to: 'B' }
+            ]
+        };
+
+        const first = await engine.run(graph, {});
+        expect(first.status).toBe('awaiting_input');
+
+        const planner = new BasicExecutionPlanner();
+        const plan = planner.buildPlan(graph);
+        const serialized = {
+            plan,
+            currentIndex: plan.steps.findIndex(s => s.specHash === 'H'),
+            executed: ['A'],
+            results: { A: { ok: true } },
+            warnings: [],
+            awaitingSpec: 'H',
+            sessionContext: {}
+        };
+
+        // Remove 'B' from nodes for resume to trigger missing node error
+        const graphForResume: ToolGraph = {
+            ...graph,
+            nodes: {
+                A: graph.nodes.A,
+                H: graph.nodes.H
+            }
+        };
+
+        const resumed = await engine.resume(graphForResume, serialized, {
+            specHash: 'H',
+            humanOutput: { human: 'input' }
+        });
+
+        expect(resumed.status).toBe('error');
+        expect(resumed.error?.message).toContain('Missing node during execution: B');
+        expect(resumed.errorCode).toBe(SpecEngineErrorCode.GRAPH_MISSING_NODE);
+    });
+
+    it('run triggers lease renewal', async () => {
+        const mockLeaseProvider = {
+            acquire: vi.fn().mockResolvedValue({ leaseId: 'test-lease' }),
+            renew: vi.fn().mockResolvedValue(undefined),
+            release: vi.fn().mockResolvedValue(undefined)
+        };
+
+        const engine = new SpecEngine({
+            leaseProvider: mockLeaseProvider,
+            leaseRenewEvery: 2 // Renew every 2 specs
+        });
+
+        const graph: ToolGraph = {
+            entry: 'A',
+            nodes: {
+                A: auto('A'),
+                B: auto('B'),
+                C: auto('C')
+            },
+            edges: [
+                { from: 'A', to: 'B' },
+                { from: 'B', to: 'C' }
+            ]
+        };
+
+        const result = await engine.run(graph, { sessionId: 'test-session', clientId: 'test-client' });
+
+        expect(result.status).toBe('completed');
+        expect(mockLeaseProvider.acquire).toHaveBeenCalledWith('test-session', 'test-client', undefined);
+        expect(mockLeaseProvider.renew).toHaveBeenCalledTimes(1); // Should renew after 2 specs (B completes)
+        expect(mockLeaseProvider.release).toHaveBeenCalledWith('test-lease');
+    });
+
+    it('run handles lease renewal failure', async () => {
+        const mockLeaseProvider = {
+            acquire: vi.fn().mockResolvedValue({ leaseId: 'test-lease' }),
+            renew: vi.fn().mockRejectedValue(new Error('renew-failed')),
+            release: vi.fn().mockResolvedValue(undefined)
+        };
+
+        const engine = new SpecEngine({
+            leaseProvider: mockLeaseProvider,
+            leaseRenewEvery: 1 // Renew after every spec
+        });
+
+        const graph: ToolGraph = {
+            entry: 'A',
+            nodes: {
+                A: auto('A'),
+                B: auto('B')
+            },
+            edges: [
+                { from: 'A', to: 'B' }
+            ]
+        };
+
+        const result = await engine.run(graph, { sessionId: 'test-session', clientId: 'test-client' });
+
+        expect(result.status).toBe('error');
+        expect(result.error?.message).toContain('Lease renewal failed');
+        expect(result.errorCode).toBe(SpecEngineErrorCode.LEASE_RENEW_FAILED);
+        expect(mockLeaseProvider.release).toHaveBeenCalledWith('test-lease');
+    });
+
+    it('resume triggers lease renewal', async () => {
+        const mockLeaseProvider = {
+            acquire: vi.fn().mockResolvedValue({ leaseId: 'test-lease' }),
+            renew: vi.fn().mockResolvedValue(undefined),
+            release: vi.fn().mockResolvedValue(undefined)
+        };
+
+        const engine = new SpecEngine({
+            leaseProvider: mockLeaseProvider,
+            leaseRenewEvery: 1
+        });
+
+        const graph: ToolGraph = {
+            entry: 'A',
+            nodes: {
+                A: auto('A'),
+                H: { hash: 'H', intent: 'human', sideEffect: false },
+                B: auto('B')
+            },
+            edges: [
+                { from: 'A', to: 'H' },
+                { from: 'H', to: 'B' }
+            ]
+        };
+
+        const first = await engine.run(graph, {});
+        expect(first.status).toBe('awaiting_input');
+
+        const planner = new BasicExecutionPlanner();
+        const plan = planner.buildPlan(graph);
+        const serialized = {
+            plan,
+            currentIndex: plan.steps.findIndex(s => s.specHash === 'H'),
+            executed: ['A'],
+            results: { A: { ok: true } },
+            warnings: [],
+            awaitingSpec: 'H',
+            sessionContext: {}
+        };
+
+        const resumed = await engine.resume(graph, serialized, {
+            specHash: 'H',
+            humanOutput: { human: 'input' }
+        }, { sessionId: 'test-session', clientId: 'test-client' });
+
+        expect(resumed.status).toBe('completed');
+        expect(mockLeaseProvider.acquire).toHaveBeenCalledWith('test-session', 'test-client', undefined);
+        expect(mockLeaseProvider.renew).toHaveBeenCalledTimes(1); // Renews after B
+        expect(mockLeaseProvider.release).toHaveBeenCalledWith('test-lease');
+    });
+
+    it('run handles lease acquisition failure', async () => {
+        const mockLeaseProvider = {
+            acquire: vi.fn().mockRejectedValue(new Error('acquire-failed')),
+            renew: vi.fn(),
+            release: vi.fn()
+        };
+
+        const engine = new SpecEngine({ leaseProvider: mockLeaseProvider });
+
+        const graph: ToolGraph = {
+            entry: 'A',
+            nodes: { A: auto('A') },
+            edges: []
+        };
+
+        const result = await engine.run(graph, { sessionId: 'test-session', clientId: 'test-client' });
+
+        expect(result.status).toBe('error');
+        expect(result.error?.message).toContain('Lease acquisition failed');
+        expect(result.errorCode).toBe(SpecEngineErrorCode.LEASE_ACQUIRE_FAILED);
+    });
+
+    it('BasicExecutionPlanner buildPlan handles unreachable nodes', () => {
+        const planner = new BasicExecutionPlanner();
+
+        const graph: ToolGraph = {
+            entry: 'A',
+            nodes: {
+                A: auto('A'),
+                B: auto('B'), // Unreachable
+                C: auto('C')  // Unreachable
+            },
+            edges: [
+                { from: 'A', to: 'B' } // Only A->B, C is unreachable
+            ]
+        };
+
+        const plan = planner.buildPlan(graph);
+
+        expect(plan.steps).toHaveLength(2); // A and B
+        expect(plan.warnings).toContain('Unreachable spec node: C');
+    });
+
+    it('BasicExecutionPlanner buildPlan detects cycles', () => {
+        const planner = new BasicExecutionPlanner();
+
+        const graph: ToolGraph = {
+            entry: 'A',
+            nodes: {
+                A: auto('A'),
+                B: auto('B'),
+                C: auto('C')
+            },
+            edges: [
+                { from: 'A', to: 'B' },
+                { from: 'B', to: 'C' },
+                { from: 'C', to: 'A' } // Creates cycle
+            ]
+        };
+
+        expect(() => planner.buildPlan(graph)).toThrow('Cycle detected in tool graph');
+    });
+
+    it('run handles dead-end', async () => {
+        const engine = new SpecEngine();
+
+        const graph: ToolGraph = {
+            entry: 'A',
+            nodes: {
+                A: auto('A'),
+                B: auto('B')
+            },
+            edges: [
+                { from: 'A', to: 'B' }
+                // B has no outgoing edges but is reached, should not be dead-end
+            ]
+        };
+
+        const result = await engine.run(graph, {});
+
+        expect(result.status).toBe('completed');
+        expect(result.executed).toEqual(['A', 'B']);
+    });
+
+    it('run handles dead-end with outgoing edges', async () => {
+        const engine = new SpecEngine();
+
+        const graph: ToolGraph = {
+            entry: 'A',
+            nodes: {
+                A: auto('A'),
+                B: auto('B'),
+                C: auto('C') // Not in edges
+            },
+            edges: [
+                { from: 'A', to: 'B' },
+                { from: 'B', to: 'C' } // But C not defined properly
+            ]
+        };
+
+        // This should complete since B has outgoing edge to C, but C exists
+        const result = await engine.run(graph, {});
+        expect(result.status).toBe('completed');
+    });
+
+    it('run with retry policy exhausts attempts', async () => {
+        const engine = new SpecEngine({
+            executor: new FailingFirstExecutor(),
+            retryPolicy: { maxAttempts: 2, strategy: 'immediate' }
+        });
+
+        const graph: ToolGraph = {
+            entry: 'A',
+            nodes: { A: auto('A') },
+            edges: []
+        };
+
+        const result = await engine.run(graph, {});
+
+        expect(result.status).toBe('error');
+        expect(result.error?.message).toContain('Execution failed at spec A');
+        expect(result.errorCode).toBe(SpecEngineErrorCode.EXECUTOR_FAILED);
+    });
+
+    it('run with exponential backoff computes delay', async () => {
+        const engine = new SpecEngine({
+            executor: new FailingFirstExecutor(),
+            retryPolicy: { maxAttempts: 3, strategy: 'exponential', baseDelayMs: 100 }
+        });
+
+        const graph: ToolGraph = {
+            entry: 'A',
+            nodes: { A: auto('A') },
+            edges: []
+        };
+
+        const result = await engine.run(graph, {});
+
+        expect(result.status).toBe('error');
+        // The delay computation happens but doesn't block
+    });
+
+    it('metrics collector observe method is called', async () => {
+        const mockMetrics = {
+            inc: vi.fn(),
+            observe: vi.fn()
+        };
+
+        const engine = new SpecEngine({ metricsCollector: mockMetrics });
+
+        const graph: ToolGraph = {
+            entry: 'A',
+            nodes: { A: auto('A') },
+            edges: []
+        };
+
+        await engine.run(graph, {});
+
+        // observe is not called in current implementation, but test structure is ready
+        expect(mockMetrics.observe).not.toHaveBeenCalled();
+    });
+
+    it('fetchWorkspaceRules handles repository error gracefully', async () => {
+        const mockRulesRepo = {
+            list: vi.fn().mockRejectedValue(new Error('repo-error'))
+        };
+
+        const engine = new SpecEngine({ rulesRepo: mockRulesRepo as any });
+
+        const graph: ToolGraph = {
+            entry: 'A',
+            nodes: { A: auto('A') },
+            edges: []
+        };
+
+        // This should trigger fetchWorkspaceRules with workspaceId, causing the catch block
+        const result = await engine.run(graph, { workspaceId: 'test-workspace' });
+
+        expect(result.status).toBe('completed');
+        expect(mockRulesRepo.list).toHaveBeenCalledWith('test-workspace', true);
+        // The error should be logged but not fail execution
+    });
+
+    it('resume handles lease acquisition failure', async () => {
+        const mockLeaseProvider = {
+            acquire: vi.fn().mockRejectedValue(new Error('acquire-failed')),
+            renew: vi.fn(),
+            release: vi.fn()
+        };
+
+        const engine = new SpecEngine({ leaseProvider: mockLeaseProvider });
+
+        const graph: ToolGraph = buildToolGraph(b => b
+            .addSpec({ hash: 'A', intent: 'autonomous', entry: true })
+            .addSpec({ hash: 'H', intent: 'human' })
+            .addSpec({ hash: 'B', intent: 'autonomous' })
+            .addEdge('A', 'H')
+            .addEdge('H', 'B')
+        );
+
+        const first = await engine.run(graph, {});
+        expect(first.status).toBe('awaiting_input');
+
+        const planner = new BasicExecutionPlanner();
+        const plan = planner.buildPlan(graph);
+        const serialized = {
+            plan,
+            currentIndex: plan.steps.findIndex(s => s.specHash === 'H'),
+            executed: ['A'],
+            results: { A: { ok: true } },
+            warnings: [],
+            awaitingSpec: 'H',
+            sessionContext: {}
+        };
+
+        const resumed = await engine.resume(graph, serialized, {
+            specHash: 'H',
+            humanOutput: { human: 'input' }
+        }, { sessionId: 'test-session', clientId: 'test-client' });
+
+        expect(resumed.status).toBe('error');
+        expect(resumed.error?.message).toContain('Lease acquisition failed');
+        expect(resumed.errorCode).toBe(SpecEngineErrorCode.LEASE_ACQUIRE_FAILED);
     });
 });

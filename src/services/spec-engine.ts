@@ -108,6 +108,7 @@ export interface SpecEngineOptions {
   journalAdapter?: ActionJournalAdapter; // Phase 5 journal seam
   metricsCollector?: MetricsCollector; // Phase 6 metrics seam
   retryPolicy?: RetryPolicy; // Phase 7 retry seam
+  rulesRepo?: WorkspaceRulesRepository; // For testing
 }
 
 // Phase 7: Basic retry policy definition
@@ -185,7 +186,7 @@ export class SpecEngine {
     this.metrics = opts.metricsCollector ?? new NoopMetricsCollector();
     this.retry = opts.retryPolicy ?? { maxAttempts: 1, strategy: 'immediate' };
     this.globalDb = new GlobalDatabaseService();
-    this.rulesRepo = new WorkspaceRulesRepository(this.globalDb);
+    this.rulesRepo = opts.rulesRepo ?? new WorkspaceRulesRepository(this.globalDb);
   }
   // (import relocated to top)
 
