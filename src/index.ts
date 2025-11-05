@@ -292,6 +292,14 @@ function createMCPToolHandlers(): MCPToolHandlers {
 }
 
 async function startStdioMode(cliOptions: CmdOptions) {
+  // In stdio mode, prefix all logs with [DEBUG] and ensure they go to stderr
+  if (cliOptions.mode === 'stdio') {
+    const originalLog = console.log;
+    const originalError = console.error;
+    console.log = (...args) => originalError('[DEBUG]', ...args);
+    console.error = (...args) => originalError('[DEBUG]', ...args);
+  }
+
   // POTENTIAL ISSUE: This console.log goes to stdout, violating MCP protocol
   if (cliOptions.mode !== 'stdio') {
     // Allow error logs only in test for debugging

@@ -17,7 +17,7 @@
     "build:ui": "pnpm --filter ui run build",
     "seed:specly": "tsx src/scripts/seed-specly.ts",
     "dev": "concurrently --names=\"MCP,UI\" --prefix-colors=\"blue,green\" \"pnpm -w run dev:server\" \"pnpm --filter ui run dev\"",
-    "dev:server": "tsx --watch src/index.ts",
+    "dev:server": "tsx --watch src/index.ts --stdio",
     "dev:ui": "pnpm --filter ui run dev",
     "serve": "pnpm -w run build && node build/index.js --port=8989",
     "test": "vitest run",
@@ -28,7 +28,7 @@
     "lint": "pnpm -w run lint:server && pnpm --filter ui run lint",
     "lint:server": "tsc --noEmit",
     "lint:ui": "pnpm --filter ui run lint",
-    "inspector": "@modelcontextprotocol/inspector build/index.js"
+    "inspector": "pnpx @modelcontextprotocol/inspector build/index.js"
   },
   "engines": {
     "node": ">=20.0.0"
