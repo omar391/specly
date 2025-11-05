@@ -375,4 +375,62 @@ describe('WorkspaceRegistry', () => {
       expect(workspace?.name).toBe('Special @#$ Workspace');
     });
   });
+
+  describe('Error Handling', () => {
+    it('should handle database errors during activity timeout gracefully', async () => {
+      const workspacePath = join(testDir, 'error-timeout-workspace');
+      mkdirSync(workspacePath, { recursive: true });
+      mkdirSync(join(workspacePath, '.task'), { recursive: true });
+
+      const workspaceId = await registry.registerWorkspace(workspacePath);
+
+      // Mock console.error to verify it's called
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      // Close the database to simulate a database error
+      await drizzleDb.close();
+
+      // Start the registry to trigger activity monitoring
+      await registry.start();
+
+      // Wait for timeout + buffer to ensure the callback runs
+      await new Promise(resolve => setTimeout(resolve, 1200));
+
+      // Verify error was logged (line 329)
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining(`Failed to update workspace ${workspaceId} status:`),
+        expect.any(Error)
+      );
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should handle errors during periodic status updates gracefully', async () => {
+      const workspacePath = join(testDir, 'error-status-workspace');
+      mkdirSync(workspacePath, { recursive: true });
+      mkdirSync(join(workspacePath, '.task'), { recursive: true });
+
+      await registry.registerWorkspace(workspacePath);
+
+      // Mock console.error to verify it's called
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      // Start the registry
+      await registry.start();
+
+      // Close the database to simulate a database error during status update
+      await drizzleDb.close();
+
+      // Wait for cleanup interval to run and trigger error
+      await new Promise(resolve => setTimeout(resolve, 700));
+
+      // Verify error was logged (line 354)
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Error updating workspace statuses:',
+        expect.any(Error)
+      );
+
+      consoleErrorSpy.mockRestore();
+    });
+  });
 });
