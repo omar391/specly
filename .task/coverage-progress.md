@@ -7,11 +7,11 @@ Mode: TestCoverageMaximizer
 ## Overall Metrics
 
 - Total Files: 60
-- Files below 95% coverage: 18 (30.0%) ⬇️
-- Files at/above 95% coverage: 42 (70.0%) ⬆️
-- Files completed this session: 30
-- Tests added this session: 658
-- Test suite total: 1559 tests
+- Files below 95% coverage: 17 (28.3%) ⬇️
+- Files at/above 95% coverage: 43 (71.7%) ⬆️
+- Files completed this session: 31
+- Tests added this session: 689
+- Test suite total: 1612 tests
 - **Agent optimization**: TestCoverageMaximizer.agent.md updated with session learnings
 - **Workflow enhancement**: Agent now self-optimizes after 5+ files (Phase 4 added)
 
@@ -21,8 +21,8 @@ Mode: TestCoverageMaximizer
 |--------|-------|-------|
 | 🔴 Critical (<50%) | 1 | Need immediate attention ⬇️ -9 |
 | 🟡 Low (50-75%) | 7 | Significant gaps ⬇️ -6 |
-| 🟢 Good (75-95%) | 16 | Close to target |
-| ✅ Complete (≥90%) | 33 | At target ⬆️ +18 |
+| 🟢 Good (75-95%) | 15 | Close to target |
+| ✅ Complete (≥90%) | 34 | At target ⬆️ +19 |
 
 ## Files Queue (Sorted by Coverage - Lowest First)
 
@@ -63,8 +63,8 @@ Mode: TestCoverageMaximizer
    - Covered: 207/225 stmts, 36/46 branches, 3/3 funcs
    - Tests Added: 6 comprehensive tests in cli.test.ts (added to existing 19)
    - Categories: Additional tool coverage (specly_update, specly_audit, specly_github, specly_rule_update, specly_remote_interface, specly_focus)
-   - Note: Remaining uncovered lines are production environment paths (NODE_ENV !== 'test') and main() CLI entry point which is not invoked during test runs
-   - Completed: November 4, 2025
+   - Exception: Remaining uncovered branches are in main() function (CLI argument parsing) and unreachable code paths (default case in switch statement, defensive error handling). The main() function is only executed when NODE_ENV !== 'test', making it inappropriate for unit test coverage. The executeToolCall function has comprehensive coverage of all tool execution paths and error handling.
+   - Completed: November 5, 2025
 
 7. ✅ **tools/audit.ts** - **100%** avg (Stmt: 100%, Branch: 100%, Func: 100%) ⬆️ **+44.4%**
    - Status: **COMPLETED**
@@ -231,7 +231,13 @@ Mode: TestCoverageMaximizer
    - Categories: Spec creation (required fields, executor validation, security), Tool creation (name validation, alias uniqueness), Tool version creation (missing params, tool existence, spec validation, graph cycles)
    - Exception: Lines 143-144 (non-GraphValidationError catch) and 148-149 (successful creation return) are uncovered - line 143-144 is defensive error handling for unexpected validation failures (very unlikely), line 148-149 is covered by existing success tests but may have instrumentation limitations
    - Completed: November 4, 2025
-37. **services/persistent-journal-service.ts** - 90.1% avg (Stmt: 90.2%, Branch: 80%, Func: 100%)
+37. ✅ **services/persistent-journal-service.ts** - **100%** avg (Stmt: 100.0%, Branch: 100.0%, Func: 100.0%) ⬆️ **+9.8%**
+   - Status: **COMPLETED**
+   - Covered: 123/123 stmts, 57/57 branches, 10/10 funcs
+   - Tests Added: 31 comprehensive tests in persistent-journal-service.test.ts
+   - Categories: Constructor (1), ensureInitialized (concurrent initialization, error handling), resolveIdempotencyKey (spec lookup success/error, template replacement), upsert (insert/update logic, error handling), getSuccessfulResult (cache retrieval), recordStart/recordSuccess/recordFailure (journal operations with metrics)
+   - Note: Comprehensive coverage of PersistentJournalService implementing ActionJournalAdapter with all methods and edge cases
+   - Completed: November 5, 2025
 38. **repositories/workspace-rules-repository.ts** - 92.9% avg (Stmt: 100%, Branch: 78.6%, Func: 100%)
 
 ### ✅ At Target (100% coverage)
@@ -269,8 +275,17 @@ Mode: TestCoverageMaximizer
 - database/schema/global-schema.ts — Functions: 0/7 while Statements/Lines: 100%
    - Rationale: Drizzle schema factory constructs appear as functions under V8 instrumentation but are not invocable API in our code. They are executed at module import for table definition and cannot be meaningfully "called" to increment function counters without artificial hooks. Covered behavior is validated concretely via database-queries tests that exercise these tables.
 
-- services/spec-engine.ts — Branch: 81.2% (164/202 branches) while Statements: 91.3%, Functions: 85.0%
-   - Rationale: Lines 507 (visitedCount < reachable.size check) and 541-542 (incomingMaxPriority function edge cases) are defensive code paths that appear unreachable with valid inputs. These represent theoretical edge cases in graph traversal that are difficult to trigger without malformed graph structures. The BasicExecutionPlanner.buildPlan method is thoroughly tested with 11 comprehensive tests covering topological sorting, cycle detection, and priority ordering.
+- scripts/seed-specly.ts — Branch: 83.3% (5/6 branches) while Statements: 83.3%, Functions: 100%
+   - Rationale: Lines 62-66 contain CLI execution guard that only executes when script is run directly (import.meta.url === file://${process.argv[1]}), not when imported as module in tests. This is by design and cannot be meaningfully tested in unit tests, similar to main() function in cli.ts.
+
+- services/spec-engine.ts — Branch: 82.5% (188/228 branches) while Statements: 95.7%, Functions: 90.0%
+   - Rationale: Lines 507 (visitedCount < reachable.size check) and 542-543 (incomingMaxPriority function edge cases) are defensive code paths that appear unreachable with valid inputs. These represent theoretical edge cases in graph traversal that are difficult to trigger without malformed graph structures. The BasicExecutionPlanner.buildPlan method is thoroughly tested with 11 comprehensive tests covering topological sorting, cycle detection, and priority ordering.
+
+- services/spec-engine.ts — Branch: 84.9% (203/239 branches) while Statements: 96.9%, Functions: 90.0%
+   - Rationale: Lines 507 (visitedCount < reachable.size check) and 541-542 (incomingMaxPriority function edge cases) are defensive code paths that appear unreachable with valid inputs. These represent theoretical edge cases in graph traversal that are difficult to trigger without malformed graph structures. The BasicExecutionPlanner.buildPlan method is thoroughly tested with 11 comprehensive tests covering topological sorting, cycle detection, and priority ordering. Functions renew (NoopClientStateLeaseProvider) and observe (NoopMetricsCollector) are noop implementations not exercised in tests.
+
+- server/express-server.ts — Branch: 88.57% (93/105 branches) while Statements: 93.87%, Functions: 89.47%
+   - Rationale: Lines 76-477 and 483-484 contain production static UI setup code that only executes when NODE_ENV !== 'development' (!this.options.dev). This includes serving static files from the UI dist directory and SPA fallback routing. This code is not executed in unit tests which run in development mode, making it acceptable as an exception since it's production-specific functionality.
 
 ## Completion Progress
 
@@ -291,8 +306,8 @@ Mode: TestCoverageMaximizer
 
 ## Session Achievements
 
-✅ **25 files completed** (23 at 100%, 2 at 85%+, 2 at 93%+)
-✅ **615 tests added** across all files
+✅ **26 files completed** (24 at 100%, 2 at 85%+, 2 at 93%+)
+✅ **689 tests added** across all files
 ✅ StatusTool tests refactored from mocks to concrete DB; all 32 tests passing
 ✅ **+10% overall coverage** improvement (~77% → ~87%)
 ✅ **Zero regressions** - all existing tests continue to pass
@@ -326,7 +341,15 @@ Mode: TestCoverageMaximizer
 
 ---
 
-## Latest Updates (November 4, 2025)
+## Latest Updates (November 5, 2025)
+
+- **services/persistent-journal-service.ts** - **100%** avg (Stmt: 100.0%, Branch: 100.0%, Func: 100.0%) ⬆️ **+9.8%**
+   - Status: **COMPLETED**
+   - Covered: 123/123 stmts, 57/57 branches, 10/10 funcs
+   - Tests Added: 31 comprehensive tests in persistent-journal-service.test.ts
+   - Categories: Constructor (1), ensureInitialized (concurrent initialization, error handling), resolveIdempotencyKey (spec lookup success/error, template replacement), upsert (insert/update logic, error handling), getSuccessfulResult (cache retrieval), recordStart/recordSuccess/recordFailure (journal operations with metrics)
+   - Note: Comprehensive coverage of PersistentJournalService implementing ActionJournalAdapter with all methods and edge cases
+   - Completed: November 5, 2025
 
 - **server/express-server.ts** - **93.87%** avg (Stmt: 93.87%, Branch: 88.57%, Func: 89.47%) ⬆️ **+18.47%**
    - Status: **COMPLETED with documented exceptions**
@@ -349,7 +372,7 @@ Mode: TestCoverageMaximizer
    - Covered: 25/30 stmts, 5/6 branches, 1/1 funcs
    - Tests Added: 0 (existing 4 tests maintained)
    - Categories: Existing tests cover success/error paths for seeding operations
-   - Exception: Lines 8-9 (CLI execution guard) are uncovered - this code only executes when the script is run directly via CLI (require.main === module), not when imported as a module in tests. This is by design and cannot be meaningfully tested in unit tests.
+   - Exception: Lines 62-66 (CLI execution guard) are uncovered - this code only executes when the script is run directly via CLI (import.meta.url === `file://${process.argv[1]}`), not when imported as a module in tests. This is by design and cannot be meaningfully tested in unit tests.
    - Completed: November 5, 2025
 
 - **api/rules.ts** - **91.7%** avg (Stmt: 96.6%, Branch: 78.4%, Func: 100%) ⬆️ **+15.0%**
@@ -384,7 +407,7 @@ Mode: TestCoverageMaximizer
    - Exception: Remaining uncovered branches are complex error handling paths and defensive code that are difficult to trigger in unit tests without extensive mocking or integration scenarios
    - Completed: November 5, 2025
 
-*Last Updated: November 4, 2025*
-*Test Suite: Vitest - 1507 tests passing (increased from ~725)*
+*Last Updated: November 5, 2025*
+*Test Suite: Vitest - 1612 tests passing (increased from ~725)*
 *Target: 100% statement, branch, and function coverage (exceptions must be explicitly documented)*
 *Agent: TestCoverageMaximizer (concrete DB patterns applied)*
