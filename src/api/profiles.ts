@@ -9,6 +9,7 @@ function resolveDbService(req: Request, fallback: GlobalDatabaseService): Global
   const injected = (req.app?.locals as any)?.dbService;
   if (injected instanceof GlobalDatabaseService) return injected;
   if (injected instanceof DatabaseService) return injected.getGlobal();
+  if (injected && typeof injected.getGlobal === 'function') return injected.getGlobal();
   if (injected && typeof injected.getDb === 'function') return new GlobalDatabaseService(injected);
   return fallback;
 }

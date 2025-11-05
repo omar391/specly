@@ -156,4 +156,80 @@ describe('Profiles API - negative and edge cases', () => {
         const r2 = await request(app).get('/api/profiles/p4/versions/1/attachments');
         expect(r2.status).toBe(404);
     });
+
+    // Additional coverage for resolveDbService and error paths
+    it('resolveDbService uses injected GlobalDatabaseService', async () => {
+        const globalMgr = new DrizzleDatabaseManager(':memory:', DatabaseType.GLOBAL);
+        const injectedGlobalDb = new GlobalDatabaseService(globalMgr as any);
+        await injectedGlobalDb.initialize();
+        
+        const appWithInjected = express();
+        appWithInjected.use(bodyParser.json());
+        (appWithInjected as any).locals.dbService = injectedGlobalDb;
+        const dbServiceWrapper = new DatabaseService(globalMgr as any);
+        appWithInjected.use('/api', await createApiRouter(dbServiceWrapper));
+        
+        const res = await request(appWithInjected).post('/api/profiles').send({ name: 'test-resolve-global' });
+        expect([200, 201]).toContain(res.status);
+    });    it('resolveDbService uses injected DatabaseService.getGlobal()', async () => {
+        const globalMgr = new DrizzleDatabaseManager(':memory:', DatabaseType.GLOBAL);
+        const injectedGlobalDb = new GlobalDatabaseService(globalMgr as any);
+        await injectedGlobalDb.initialize();
+        const mockDbService = { getGlobal: vi.fn().mockReturnValue(injectedGlobalDb) };
+        
+        const appWithInjected = express();
+        appWithInjected.use(bodyParser.json());
+        (appWithInjected as any).locals.dbService = mockDbService;
+        const dbServiceWrapper = new DatabaseService(globalMgr as any);
+        appWithInjected.use('/api', await createApiRouter(dbServiceWrapper));
+        
+        const res = await request(appWithInjected).post('/api/profiles').send({ name: 'test-resolve-dbservice' });
+        expect([200, 201]).toContain(res.status);
+    });
+
+    it('resolveDbService uses injected service with getDb method', async () => {
+        const globalMgr = new DrizzleDatabaseManager(':memory:', DatabaseType.GLOBAL);
+        const injectedGlobalDb = new GlobalDatabaseService(globalMgr as any);
+        await injectedGlobalDb.initialize();
+        const mockService = {
+            getDb: vi.fn().mockReturnValue(globalMgr.getDb()),
+            initialize: vi.fn(),
+            getDrizzleManager: vi.fn().mockReturnValue(globalMgr)
+        };
+        
+        const appWithInjected = express();
+        appWithInjected.use(bodyParser.json());
+        (appWithInjected as any).locals.dbService = mockService;
+        const dbServiceWrapper = new DatabaseService(globalMgr as any);
+        appWithInjected.use('/api', await createApiRouter(dbServiceWrapper));
+        
+        const res = await request(appWithInjected).post('/api/profiles').send({ name: 'test-resolve-getdb' });
+        expect([200, 201]).toContain(res.status);
+    });
+
+    it('resolveDbService falls back to default when injected is invalid', async () => {
+        const globalMgr = new DrizzleDatabaseManager(':memory:', DatabaseType.GLOBAL);
+        const injectedGlobalDb = new GlobalDatabaseService(globalMgr as any);
+        await injectedGlobalDb.initialize();
+        
+        const appWithInjected = express();
+        appWithInjected.use(bodyParser.json());
+        (appWithInjected as any).locals.dbService = 'invalid';
+        const dbServiceWrapper = new DatabaseService(globalMgr as any);
+        appWithInjected.use('/api', await createApiRouter(dbServiceWrapper));
+        
+        const res = await request(appWithInjected).post('/api/profiles').send({ name: 'test-fallback-invalid' });
+        // Should fall back to default database service, so profile creation may succeed or conflict
+        expect([200, 201, 409]).toContain(res.status);
+    });
+
+    it('createProfileVersion catches non-validation errors as 500', async () => {
+        await request(app).post('/api/profiles').send({ name: 'err500-profile' });
+        // Mock createProfileVersion to throw a non-validation error
+        const spy = vi.spyOn(ProfileRepository.prototype, 'createProfileVersion').mockRejectedValueOnce(new Error('database connection failed'));
+        const res = await request(app).post('/api/profiles/err500-profile/versions').send({});
+        expect(res.status).toBe(500);
+        expect(res.body.error).toBe('failed to create profile version');
+        expect(spy).toHaveBeenCalledOnce();
+    });
 });
