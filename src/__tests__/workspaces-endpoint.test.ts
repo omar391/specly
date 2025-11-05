@@ -349,6 +349,45 @@ describe('Workspaces Endpoint', () => {
       expect(response.body.data.workspaces[0].active_task).toBe('No UpdatedAt Task');
     });
 
+    it('should sort tasks by updatedAt when priorities are equal', async () => {
+      await globalDb.createWorkspace({
+        id: 'ws-1',
+        path: workspaceTestPath,
+        name: 'Test Workspace',
+        status: 'active'
+      });
+
+      const workspaceDb = new WorkspaceDatabaseService(workspaceTestPath);
+      await workspaceDb.initialize();
+
+      // Create two tasks with same priority but different updatedAt
+      const now = new Date();
+      const earlier = new Date(now.getTime() - 1000); // 1 second earlier
+
+      await workspaceDb.createTask({
+        id: 'task-1',
+        title: 'Earlier Task',
+        status: 'in_progress',
+        priority: 'medium',
+        updatedAt: earlier.toISOString()
+      });
+
+      await workspaceDb.createTask({
+        id: 'task-2',
+        title: 'Later Task',
+        status: 'in_progress',
+        priority: 'medium',
+        updatedAt: now.toISOString()
+      });
+
+      const response = await request(server.getApp())
+        .get('/api/workspaces')
+        .expect(200);
+
+      // Should select the later updated task
+      expect(response.body.data.workspaces[0].active_task).toBe('Later Task');
+    });
+
     it('should handle workspaces with undefined status gracefully', async () => {
       // Create workspace without status
       await globalDb.createWorkspace({
