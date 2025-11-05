@@ -50,6 +50,7 @@ import { UpdateResourcesTool, updateResourcesToolSchema } from './tools/update-r
 import { UpdateStepsTool, updateStepsToolSchema } from './tools/update-steps.js';
 import { InstanceManager } from './server/instance-manager.js';
 import { SpeclyToolResult } from './types/index.js';
+import { createMCPClient } from './utils/mcp-client.js';
 
 // Legacy multi-step types removed; all tools now return SpeclyToolResult.
 
@@ -87,7 +88,7 @@ async function initializeServer() {
 
     // Initialize services with pure Drizzle operations
     seedManager = new SeedManager(globalDrizzleManager);
-  orchestrator = new PromptOrchestrator(globalDrizzleManager);
+    orchestrator = new PromptOrchestrator(globalDrizzleManager);
 
     // Initialize tools with pure Drizzle database manager
     initTool = new InitToolNew(globalDrizzleManager);
@@ -104,8 +105,8 @@ async function initializeServer() {
     updateResourcesTool = new UpdateResourcesTool(globalDrizzleManager);
     updateStepsTool = new UpdateStepsTool(globalDrizzleManager);
 
-  // Initialize global seed data (MCP server mappings etc.)
-  await seedManager.initializeGlobalData();
+    // Initialize global seed data (MCP server mappings etc.)
+    await seedManager.initializeGlobalData();
 
   } catch (error) {
     console.error('Error initializing server:', error);
@@ -291,6 +292,78 @@ function createMCPToolHandlers(): MCPToolHandlers {
   };
 }
 
+/**
+ * Start stdio mode as proxy: forward MCP requests to main instance via MCP client
+ * This creates a reverse MCP gateway - proxy acts as both server (to its clients) and client (to main)
+ */
+async function startStdioProxyMode(cliOptions: CmdOptions, instanceManager: InstanceManager) {
+  // Redirect logs to stderr in stdio mode
+  const originalLog = console.log;
+  const originalError = console.error;
+  console.log = (...args) => originalError('[DEBUG]', ...args);
+  console.error = (...args) => originalError('[DEBUG]', ...args);
+
+  console.error('[DEBUG] Starting Specly MCP server in STDIO PROXY mode');
+
+  // Create MCP client to connect to main instance
+  const { client: mcpClient, close: closeClient } = await createMCPClient({
+    port: instanceManager.port,
+    clientName: 'specly-proxy',
+    version: InstanceManager.VERSION,
+  });
+
+  console.error('[DEBUG] MCP client connected to main instance');
+
+  // Create server for this proxy's clients (stdio)
+  const server = new Server(
+    {
+      name: "specly",
+      version: InstanceManager.VERSION,
+    },
+    {
+      capabilities: {
+        tools: {},
+      },
+    }
+  );
+
+  // List available tools by forwarding to main via MCP client
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    return await mcpClient.listTools();
+  });
+
+  // Handle tool calls by forwarding to main via MCP client
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const { name, arguments: args } = request.params;
+
+    try {
+      // Forward through MCP protocol - this preserves all MCP semantics
+      return await mcpClient.callTool({ name, arguments: args });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return {
+        content: [{ type: "text", text: `Proxy error: ${errorMessage}` }],
+        isError: true
+      };
+    }
+  });
+
+  // Start the stdio transport for this proxy's clients
+  const transport = new StdioServerTransport();
+  await server.connect(transport);
+  console.error('[DEBUG] Specly MCP proxy server connected to stdio');
+
+  // Cleanup on exit
+  const shutdownHandler = async () => {
+    console.error('[DEBUG] Proxy shutting down...');
+    await closeClient();
+    process.exit(0);
+  };
+
+  process.on('SIGINT', shutdownHandler);
+  process.on('SIGTERM', shutdownHandler);
+}
+
 async function startStdioMode(cliOptions: CmdOptions) {
   // In stdio mode, prefix all logs with [DEBUG] and ensure they go to stderr
   if (cliOptions.mode === 'stdio') {
@@ -358,7 +431,7 @@ async function startHttpMode(port: number) {
   // Create Express server
   expressServer = new ExpressServer({ port, dev: process.env.NODE_ENV !== 'production' });
 
-  // Add /__version and /__shutdown endpoints for multi-instance/proxy logic
+  // Add /__version, /__shutdown, and /__transition endpoints for multi-instance/proxy logic
   expressServer.registerCustomEndpoints((app) => {
     app.get('/__version', (req, res) => {
       res.json({ version: require('./server/instance-manager.js').InstanceManager.VERSION });
@@ -366,6 +439,23 @@ async function startHttpMode(port: number) {
     app.post('/__shutdown', (req, res) => {
       res.status(200).json({ ok: true });
       setTimeout(() => process.exit(0), 100);
+    });
+    app.post('/__transition', (req, res) => {
+      res.status(200).json({ ok: true, message: 'Transitioning to proxy mode' });
+      // Gracefully restart as proxy: stop HTTP server, restart process
+      setTimeout(async () => {
+        console.log('[TRANSITION] Restarting as proxy instance...');
+        if (expressServer) {
+          await expressServer.stop();
+        }
+        // Respawn self with same args - will detect main exists and become proxy
+        const { spawn } = await import('child_process');
+        spawn(process.argv[0], process.argv.slice(1), {
+          detached: true,
+          stdio: 'inherit'
+        }).unref();
+        process.exit(0);
+      }, 100);
     });
   });
   // Setup MCP endpoint with SSE
@@ -459,9 +549,9 @@ async function main() {
       console.error(`[DEBUG] Starting in mode: ${cliOptions.mode}`);
     }
 
-  // Initialize server
-  await initializeServer();
-  await ensureSpeclySeed(!!cliOptions.forceSeed);
+    // Initialize server
+    await initializeServer();
+    await ensureSpeclySeed(!!cliOptions.forceSeed);
 
     // Start in appropriate mode
 
@@ -482,37 +572,44 @@ async function main() {
       // Check version of running main instance
       const mainVersion = await instanceManager.fetchMainVersion();
       if (mainVersion === InstanceManager.VERSION) {
-        // Proxy mode: forward all requests to main instance
-        const proxyServer = await instanceManager.startProxy();
-        const port = instanceManager.proxyPort;
-        console.log(`[PROXY MODE] Main instance running on port 8989. Proxying on port ${port}.`);
-        // Keep process alive
-        await new Promise(() => { });
+        // Same version: Start as proxy instance
+        // Proxy instances still serve their clients (stdio/http) but forward actual work to main
+        if (cliOptions.mode === 'stdio') {
+          console.error(`[PROXY MODE] Main instance v${mainVersion} running on port 8989. Starting stdio proxy.`);
+          await startStdioProxyMode(cliOptions, instanceManager);
+        } else {
+          // HTTP mode: Start proxy server
+          const proxyServer = await instanceManager.startProxy();
+          const port = instanceManager.proxyPort;
+          console.log(`[PROXY MODE] Main instance v${mainVersion} running on port 8989. Proxying on port ${port}.`);
+          await new Promise(() => { }); // Keep alive
+        }
       } else {
-        // Version mismatch: request shutdown, wait, then become main
-        const shutdownOk = await instanceManager.requestMainShutdown();
-        if (shutdownOk) {
+        // Version mismatch: Request main to gracefully transition to proxy, then become new main
+        console.log(`[VERSION CHANGE] Current v${InstanceManager.VERSION}, main is v${mainVersion}. Taking over...`);
+        const transitionOk = await instanceManager.requestMainTransition();
+        if (transitionOk) {
           await instanceManager.waitForPort(10000);
           await instanceManager.removeLock();
           isMain = await instanceManager.tryBecomeMain();
           if (!isMain) {
-            throw new Error("Failed to take over as main instance after shutdown.");
+            throw new Error("Failed to take over as main instance after transition.");
           }
+          console.log(`[VERSION CHANGE] Successfully became main instance v${InstanceManager.VERSION}`);
+          // Old main should have restarted as proxy automatically
         } else {
-          throw new Error("Failed to shutdown old main instance (version mismatch).");
+          throw new Error("Failed to transition old main instance (version mismatch).");
         }
       }
     }
 
     // Main instance: proceed with normal startup
-    // we only allow stdio mode for main instance
-    // underlying reason is: we are using sqlite3 db which may cause issues for multi writer
     if (isMain) {
+      console.log(`[MAIN INSTANCE] Starting v${InstanceManager.VERSION}`);
       if (cliOptions.mode === 'stdio') {
-        // Avoid debug logs in stdio mode
         await startStdioMode(cliOptions);
       }
-      await startHttpMode(cliOptions.port || 3000);
+      await startHttpMode(cliOptions.port || 8989);
     }
 
   } catch (error) {

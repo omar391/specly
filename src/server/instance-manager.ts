@@ -22,10 +22,22 @@ export enum InstanceRole {
 }
 
 export class InstanceManager {
-  static VERSION = "0.1.0";
+  static VERSION = InstanceManager.getVersion();
 
   lockPath: string;
   port: number;
+
+  // Read version from package.json for sustainable version detection
+  private static getVersion(): string {
+    try {
+      // In dev: read from src/../package.json, in prod: from build/../package.json
+      const pkgPath = new URL('../../package.json', import.meta.url);
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+      return pkg.version || '0.1.0';
+    } catch {
+      return '0.1.0'; // fallback
+    }
+  }
 
   role: InstanceRole = InstanceRole.UNKNOWN;
   proxyPort: number | null = null;
@@ -151,6 +163,20 @@ export class InstanceManager {
     return new Promise((resolve) => {
       const req = http.request(
         { hostname: "127.0.0.1", port: this.port, path: "/__shutdown", method: "POST", timeout: 2000 },
+        (res) => {
+          resolve(res.statusCode === 200);
+        }
+      );
+      req.on("error", () => resolve(false));
+      req.end();
+    });
+  }
+
+  // Request main instance to gracefully transition to proxy mode (for version changes)
+  async requestMainTransition(): Promise<boolean> {
+    return new Promise((resolve) => {
+      const req = http.request(
+        { hostname: "127.0.0.1", port: this.port, path: "/__transition", method: "POST", timeout: 2000 },
         (res) => {
           resolve(res.statusCode === 200);
         }
