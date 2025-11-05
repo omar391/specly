@@ -83,8 +83,8 @@ describe('ToolsExecuteController', () => {
           s2: { intent: 'human', sideEffect: false }
         })
       };
-      mockDb.getGlobal.mockReturnValue(mockGlobalDb);
-      mockEngine.run.mockResolvedValue({
+      (mockDb.getGlobal as any).mockReturnValue(mockGlobalDb);
+      (mockEngine.run as any).mockResolvedValue({
         status: 'completed',
         executed: ['s1', 's2'],
         results: {},
@@ -113,7 +113,7 @@ describe('ToolsExecuteController', () => {
       const mockGlobalDb = {
         getToolVersion: vi.fn().mockResolvedValue(null)
       };
-      mockDb.getGlobal.mockReturnValue(mockGlobalDb);
+      (mockDb.getGlobal as any).mockReturnValue(mockGlobalDb);
 
       await controller.execute(req, res);
 
@@ -137,7 +137,7 @@ describe('ToolsExecuteController', () => {
           graphManifest: { invalid: 'manifest' }
         })
       };
-      mockDb.getGlobal.mockReturnValue(mockGlobalDb);
+      (mockDb.getGlobal as any).mockReturnValue(mockGlobalDb);
 
       await controller.execute(req, res);
 
@@ -168,8 +168,8 @@ describe('ToolsExecuteController', () => {
         awaitingSpec: 's1',
         sessionContext: {}
       };
-      mockStore.get.mockResolvedValue(pausedState);
-      mockEngine.resume.mockResolvedValue({
+      (mockStore.get as any).mockResolvedValue(pausedState);
+      (mockEngine.resume as any).mockResolvedValue({
         status: 'completed',
         executed: ['s1'],
         results: {},
@@ -178,7 +178,7 @@ describe('ToolsExecuteController', () => {
 
       await controller.execute(req, res);
 
-      expect(mockEngine.resume).toHaveBeenCalled();
+      expect((mockEngine.resume as any)).toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
     });
 
@@ -195,7 +195,7 @@ describe('ToolsExecuteController', () => {
         json: vi.fn()
       } as any;
 
-      mockStore.get.mockResolvedValue(null);
+      (mockStore.get as any).mockResolvedValue(null);
 
       await controller.execute(req, res);
 
@@ -215,7 +215,7 @@ describe('ToolsExecuteController', () => {
         json: vi.fn()
       } as any;
 
-      mockEngine.run.mockResolvedValue({
+      (mockEngine.run as any).mockResolvedValue({
         status: 'completed',
         executed: ['s1'],
         results: {},
@@ -224,7 +224,7 @@ describe('ToolsExecuteController', () => {
 
       await controller.execute(req, res);
 
-      expect(mockEngine.run).toHaveBeenCalled();
+      expect((mockEngine.run as any)).toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
         status: 'completed',
@@ -249,7 +249,7 @@ describe('ToolsExecuteController', () => {
         json: vi.fn()
       } as any;
 
-      mockEngine.run.mockResolvedValue({
+      (mockEngine.run as any).mockResolvedValue({
         status: 'awaiting_input',
         executed: [],
         results: {},
@@ -260,7 +260,7 @@ describe('ToolsExecuteController', () => {
 
       await controller.execute(req, res);
 
-      expect(mockStore.save).toHaveBeenCalledWith('token1', expect.any(Object));
+      expect((mockStore.save as any)).toHaveBeenCalledWith('token1', expect.any(Object));
       expect(res.status).toHaveBeenCalledWith(200);
     });
 
@@ -287,8 +287,8 @@ describe('ToolsExecuteController', () => {
         awaitingSpec: 's1',
         sessionContext: {}
       };
-      mockStore.get.mockResolvedValue(pausedState);
-      mockEngine.resume.mockResolvedValue({
+      (mockStore.get as any).mockResolvedValue(pausedState);
+      (mockEngine.resume as any).mockResolvedValue({
         status: 'completed',
         executed: ['s1'],
         results: {},
@@ -297,7 +297,7 @@ describe('ToolsExecuteController', () => {
 
       await controller.execute(req, res);
 
-      expect(mockStore.delete).toHaveBeenCalledWith('token1');
+      expect((mockStore.delete as any)).toHaveBeenCalledWith('token1');
     });
 
     it('should return 500 on internal error', async () => {
@@ -312,7 +312,7 @@ describe('ToolsExecuteController', () => {
         json: vi.fn()
       } as any;
 
-      mockEngine.run.mockRejectedValue(new Error('Engine error'));
+      (mockEngine.run as any).mockRejectedValue(new Error('Engine error'));
 
       await controller.execute(req, res);
 
@@ -332,7 +332,7 @@ describe('ToolsExecuteController', () => {
         json: vi.fn()
       } as any;
 
-      mockEngine.run.mockResolvedValue({
+      (mockEngine.run as any).mockResolvedValue({
         status: 'error',
         executed: [],
         results: {},
@@ -367,7 +367,7 @@ describe('ToolsExecuteController', () => {
         json: vi.fn()
       } as any;
 
-      mockEngine.run.mockResolvedValue({
+      (mockEngine.run as any).mockResolvedValue({
         status: 'error',
         executed: [],
         results: {},
@@ -393,7 +393,7 @@ describe('ToolsExecuteController', () => {
         json: vi.fn()
       } as any;
 
-      mockEngine.run.mockResolvedValue({
+      (mockEngine.run as any).mockResolvedValue({
         status: 'error',
         executed: [],
         results: {},
@@ -421,7 +421,7 @@ describe('ToolsExecuteController', () => {
       const mockGlobalDb = {
         getToolVersion: vi.fn().mockRejectedValue(new Error('Database connection failed'))
       };
-      mockDb.getGlobal.mockReturnValue(mockGlobalDb);
+      (mockDb.getGlobal as any).mockReturnValue(mockGlobalDb);
 
       await controller.execute(req, res);
 

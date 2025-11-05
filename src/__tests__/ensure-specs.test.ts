@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { ensureSpecs } from '../test-utils/ensure-specs.js';
-import { initializeGlobalDatabase, clearGlobalDatabaseCache } from '../database/drizzle-connection.js';
+import { initializeGlobalDatabase } from '../database/drizzle-connection.js';
 
 describe('ensureSpecs', () => {
   let tmpDir: string;
@@ -11,7 +11,7 @@ describe('ensureSpecs', () => {
   beforeEach(async () => {
     tmpDir = mkdtempSync(join(tmpdir(), 'ensure-specs-test-'));
     // Initialize global database for testing
-    await initializeGlobalDatabase(tmpDir);
+    await initializeGlobalDatabase();
   });
 
   afterEach(async () => {

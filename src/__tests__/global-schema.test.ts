@@ -312,6 +312,7 @@ describe('Global Schema Definitions', () => {
 
       validStatuses.forEach(status => {
         const entry: NewActionJournalEntry = {
+          id: 'test-id',
           sessionId: 'session-1',
           specHash: 'hash123',
           idempotencyKey: 'key123',
@@ -327,6 +328,7 @@ describe('Global Schema Definitions', () => {
 
       validRelations.forEach(relation => {
         const rule: typeof workspaceRulesNew.$inferInsert = {
+          id: 'rule-id',
           workspaceId: 'workspace-1',
           relation,
           rule: 'test rule'
@@ -341,6 +343,7 @@ describe('Global Schema Definitions', () => {
 
       validTypes.forEach(interfaceType => {
         const mapping: NewMcpServerMapping = {
+          id: 'mapping-id',
           interfaceType,
           mcpServerName: 'test-server'
         };
@@ -402,6 +405,7 @@ describe('Global Schema Definitions', () => {
 
     it('should have correct default values for actionJournal', () => {
       const entry: NewActionJournalEntry = {
+        id: 'aj1',
         sessionId: 'session-1',
         specHash: 'hash123',
         idempotencyKey: 'key123',

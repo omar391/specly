@@ -33,15 +33,23 @@ describe('StartTool', () => {
         id: 'ws-123',
         name: 'test-workspace',
         path: '/tmp/test-workspace',
-        status: 'active'
+        status: 'active' as const,
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+        lastActivity: '2024-01-01T00:00:00Z',
+        taskCount: 0,
+        activeTask: null
       };
       const mockSession = {
         id: 'session-123',
         workspaceId: 'ws-123',
-        isActive: true
+        isActive: true,
+        createdAt: '2024-01-01T00:00:00Z',
+        lastActivity: '2024-01-01T00:00:00Z'
       };
       const mockOrchestrationResult = {
-        prompt_text: 'Welcome to Specly session...'
+        prompt_text: 'Welcome to Specly session...',
+        session_data: {}
       };
 
       // Mock dependencies
@@ -96,24 +104,34 @@ describe('StartTool', () => {
         id: 'ws-existing',
         name: 'existing-workspace',
         path: '/tmp/existing-workspace',
-        status: 'idle'
+        status: 'idle',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z',
+        lastActivity: '2024-01-01T00:00:00Z',
+        taskCount: 0,
+        activeTask: null
       };
       const mockExistingSession = {
         id: 'old-session',
         workspaceId: 'ws-existing',
-        isActive: true
+        isActive: true,
+        createdAt: '2024-01-01T00:00:00Z',
+        lastActivity: '2024-01-01T00:00:00Z'
       };
       const mockNewSession = {
         id: 'new-session',
         workspaceId: 'ws-existing',
-        isActive: true
+        isActive: true,
+        createdAt: '2024-01-01T00:00:00Z',
+        lastActivity: '2024-01-01T00:00:00Z'
       };
       const mockOrchestrationResult = {
-        prompt_text: 'Resumed Specly session...'
+        prompt_text: 'Resumed Specly session...',
+        session_data: {}
       };
 
       // Mock dependencies
-      vi.mocked(mockGlobalDb.getWorkspaceByPath).mockResolvedValue(mockWorkspace);
+      vi.mocked(mockGlobalDb.getWorkspaceByPath).mockResolvedValue({ ...mockWorkspace, status: 'idle' as const });
       vi.mocked(mockGlobalDb.updateWorkspace).mockResolvedValue({ ...mockWorkspace, status: 'active' });
       vi.mocked(mockGlobalDb.getWorkspaceSessions).mockResolvedValue([mockExistingSession]);
       vi.mocked(mockGlobalDb.closeSession).mockResolvedValue();

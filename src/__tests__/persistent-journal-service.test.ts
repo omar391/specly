@@ -91,7 +91,7 @@ describe('PersistentJournalService', () => {
         });
 
         it('should accept metrics collector in options', () => {
-            const mockMetrics = { inc: vi.fn() };
+            const mockMetrics = { inc: vi.fn(), observe: vi.fn() };
             const serviceWithMetrics = new PersistentJournalService('test', { metrics: mockMetrics });
             expect(serviceWithMetrics).toBeInstanceOf(PersistentJournalService);
         });
@@ -235,7 +235,7 @@ describe('PersistentJournalService', () => {
         });
 
         it('should increment metrics on database errors', async () => {
-            const mockMetrics = { inc: vi.fn() };
+            const mockMetrics = { inc: vi.fn(), observe: vi.fn() };
             service = new PersistentJournalService('test-session', { metrics: mockMetrics });
 
             mockDb.limit.mockRejectedValue(new Error('DB error'));
@@ -246,7 +246,7 @@ describe('PersistentJournalService', () => {
         });
 
         it('should handle metrics errors gracefully', async () => {
-            const mockMetrics = { inc: vi.fn().mockImplementation(() => { throw new Error('Metrics error'); }) };
+            const mockMetrics = { inc: vi.fn().mockImplementation(() => { throw new Error('Metrics error'); }), observe: vi.fn() };
             service = new PersistentJournalService('test-session', { metrics: mockMetrics });
 
             mockDb.limit.mockRejectedValue(new Error('DB error'));
@@ -340,7 +340,7 @@ describe('PersistentJournalService', () => {
         });
 
         it('should pass options to constructor', () => {
-            const mockMetrics = { inc: vi.fn() };
+            const mockMetrics = { inc: vi.fn(), observe: vi.fn() };
             const journal = createPersistentJournal('test-session', { metrics: mockMetrics });
             expect(journal).toBeInstanceOf(PersistentJournalService);
         });

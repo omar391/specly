@@ -229,7 +229,7 @@ describe('ExpressServer', () => {
           .get('/mcp')
           .set('Mcp-Session-Id', sessionId)
           .timeout(500) // Short timeout since SSE would keep connection open
-          .then(res => {
+          .then((res: any) => {
             responseReceived = true;
             responseStatus = res.status;
             responseHeaders = res.headers;
