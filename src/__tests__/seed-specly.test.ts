@@ -134,4 +134,20 @@ describe('seed-specly script', () => {
         expect(errors[0].includes('Seed failed')).toBe(true);
         expect(exitSpy).toHaveBeenCalledWith(1);
     });
+
+    it('logs error and exits on database initialization failure', async () => {
+        // Arrange
+        vi.doMock('/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/database/global-queries.js', () => ({
+            initializeGlobalDatabaseService: async () => { throw new Error('DB init failed'); }
+        }));
+
+        // Act
+        const mod = await import('../scripts/seed-specly.js');
+        await mod.main();
+
+        // Assert
+        expect(errors.length).toBeGreaterThanOrEqual(1);
+        expect(errors[0].includes('Seed failed')).toBe(true);
+        expect(exitSpy).toHaveBeenCalledWith(1);
+    });
 });
