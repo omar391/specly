@@ -336,13 +336,13 @@ Mode: TestCoverageMaximizer
    - Exception: Lines 76-477 and 483-484 are uncovered - these appear to be production static UI setup code paths that are not executed in test environments (NODE_ENV !== 'production')
    - Completed: November 4, 2025
 
-- **services/spec-engine.ts** - **85.8%** avg (Stmt: 91.3%, Branch: 81.2%, Func: 85.0%) ⬆️ **+3.4%**
+- **services/spec-engine.ts** - **89.4%** avg (Stmt: 95.7%, Branch: 82.5%, Func: 90.0%) ⬆️ **+0.4%**
    - Status: **COMPLETED with documented exceptions**
-   - Covered: BasicExecutionPlanner.buildPlan method with topological sorting, cycle detection, priority-based ordering
-   - Tests Added: 11 comprehensive tests in spec-engine.test.ts (linear ordering, priority sorting, cycle detection, unreachable nodes, null priorities, empty graphs)
-   - Categories: Topological sorting (Kahn's algorithm), cycle detection, priority ordering with incomingMaxPriority, edge cases (empty graphs, unreachable nodes)
-   - Exception: Lines 507 (visitedCount < reachable.size check) and 541-542 (incomingMaxPriority function edge cases) are defensive code paths that appear unreachable with valid inputs. These represent theoretical edge cases in graph traversal that are difficult to trigger without malformed graph structures.
-   - Completed: November 4, 2025
+   - Covered: 398/416 stmts, 188/228 branches, 18/20 funcs
+   - Tests Added: 10 additional tests in spec-engine-coverage.test.ts
+   - Categories: fetchWorkspaceRules error handling (console.warn trigger), buildResumeToken format validation, journal upgrade logic, execution state defensive checks, resume method additional coverage (multiple human specs), BasicExecutionPlanner edge cases (no edges, complex priorities)
+   - Exception: Remaining uncovered branches are complex error handling paths and defensive code that are difficult to trigger in unit tests without extensive mocking or integration scenarios
+   - Completed: November 5, 2025
 
 - **api/rules.ts** - **91.7%** avg (Stmt: 96.6%, Branch: 78.4%, Func: 100%) ⬆️ **+15.0%**
    - Status: **COMPLETED with documented exception**
@@ -368,13 +368,13 @@ Mode: TestCoverageMaximizer
    - Note: Uncovered lines are defensive code (42-43: mkdirSync, 49-51: db constructor error, 81-83: console.log, 261-263: console.warn in legacy function) - difficult/impossible to trigger in tests
    - Completed: November 4, 2025
 
-18. ✅ **services/spec-engine.ts** - **85.8%** avg (Stmt: 91.3%, Branch: 81.2%, Func: 85.0%) ⬆️ **+3.4%**
+18. ✅ **services/spec-engine.ts** - **89.4%** avg (Stmt: 95.7%, Branch: 82.5%, Func: 90.0%) ⬆️ **+0.4%**
    - Status: **COMPLETED with documented exceptions**
-   - Covered: BasicExecutionPlanner.buildPlan method with topological sorting, cycle detection, priority-based ordering
-   - Tests Added: 11 comprehensive tests in spec-engine.test.ts (linear ordering, priority sorting, cycle detection, unreachable nodes, null priorities, empty graphs)
-   - Categories: Topological sorting (Kahn's algorithm), cycle detection, priority ordering with incomingMaxPriority, edge cases (empty graphs, unreachable nodes)
-   - Exception: Lines 507 (visitedCount < reachable.size check) and 541-542 (incomingMaxPriority function edge cases) are defensive code paths that appear unreachable with valid inputs. These represent theoretical edge cases in graph traversal that are difficult to trigger without malformed graph structures.
-   - Completed: November 4, 2025
+   - Covered: 398/416 stmts, 188/228 branches, 18/20 funcs
+   - Tests Added: 10 additional tests in spec-engine-coverage.test.ts
+   - Categories: fetchWorkspaceRules error handling (console.warn trigger), buildResumeToken format validation, journal upgrade logic, execution state defensive checks, resume method additional coverage (multiple human specs), BasicExecutionPlanner edge cases (no edges, complex priorities)
+   - Exception: Remaining uncovered branches are complex error handling paths and defensive code that are difficult to trigger in unit tests without extensive mocking or integration scenarios
+   - Completed: November 5, 2025
 
 *Last Updated: November 4, 2025*
 *Test Suite: Vitest - 1507 tests passing (increased from ~725)*
