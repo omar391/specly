@@ -184,6 +184,32 @@ describe('WorkspaceRegistry', () => {
       expect(after?.lastActivity.getTime()).toBeGreaterThan(initialActivity!.getTime());
     });
 
+    it('should update workspace activity by path when workspace exists', async () => {
+      const workspacePath = join(testDir, 'activity-by-path-workspace');
+      mkdirSync(workspacePath, { recursive: true });
+      mkdirSync(join(workspacePath, '.task'), { recursive: true });
+
+      const workspaceId = await registry.registerWorkspace(workspacePath);
+
+      // Spy on updateWorkspaceActivity to verify it's called
+      const updateSpy = vi.spyOn(registry, 'updateWorkspaceActivity');
+
+      await registry.updateWorkspaceActivityByPath(workspacePath);
+
+      expect(updateSpy).toHaveBeenCalledWith(workspaceId);
+    });
+
+    it('should not update activity by path when workspace does not exist', async () => {
+      const nonExistentPath = join(testDir, 'nonexistent-workspace');
+
+      // Spy on updateWorkspaceActivity to verify it's not called
+      const updateSpy = vi.spyOn(registry, 'updateWorkspaceActivity');
+
+      await registry.updateWorkspaceActivityByPath(nonExistentPath);
+
+      expect(updateSpy).not.toHaveBeenCalled();
+    });
+
     it('should find workspace by path after registration', async () => {
       const workspacePath = join(testDir, 'activity-path-workspace');
       mkdirSync(workspacePath, { recursive: true });
