@@ -596,6 +596,26 @@ describe('SpecEngine (SP-005)', () => {
       // Should have some delay (though we don't actually sleep in tests)
       expect(endTime - startTime).toBeGreaterThanOrEqual(0);
     });
+
+    it('executes long chain with default noop lease provider', async () => {
+      const graph: ToolGraph = {
+        entry: 'A',
+        nodes: {
+          A: makeNode('A'), B: makeNode('B'), C: makeNode('C'),
+          D: makeNode('D'), E: makeNode('E'), F: makeNode('F')
+        },
+        edges: [
+          { from: 'A', to: 'B' }, { from: 'B', to: 'C' }, { from: 'C', to: 'D' },
+          { from: 'D', to: 'E' }, { from: 'E', to: 'F' }
+        ]
+      };
+
+      const engine = new SpecEngine(); // uses default noop lease provider
+      const result = await engine.run(graph);
+
+      expect(result.status).toBe('completed');
+      expect(result.executed).toEqual(['A', 'B', 'C', 'D', 'E', 'F']);
+    });
   });
 
   describe('resume() method', () => {
@@ -834,4 +854,76 @@ describe('SpecEngine (SP-005)', () => {
       const result = await executor.execute('test-hash');
       expect(result).toEqual({ ok: true, spec: 'test-hash' });
     });
+
+  it('handles graph cycle validation error', async () => {
+    const graph: ToolGraph = {
+      entry: 'A',
+      nodes: {
+        A: makeNode('A'),
+        B: makeNode('B'),
+        C: makeNode('C')
+      },
+      edges: [
+        { from: 'A', to: 'B' },
+        { from: 'B', to: 'C' },
+        { from: 'C', to: 'A' } // creates cycle
+      ]
+    };
+
+    const engine = new SpecEngine();
+    const result = await engine.run(graph);
+
+    expect(result.status).toBe('error');
+    expect(result.errorCode).toBe(SpecEngineErrorCode.GRAPH_CYCLE);
+  });
+
+  it('handles graph self-loop validation error', async () => {
+    const graph: ToolGraph = {
+      entry: 'A',
+      nodes: {
+        A: makeNode('A'),
+        B: makeNode('B')
+      },
+      edges: [
+        { from: 'A', to: 'A' }, // self-loop
+        { from: 'A', to: 'B' }
+      ]
+    };
+
+    const engine = new SpecEngine();
+    const result = await engine.run(graph);
+
+    expect(result.status).toBe('error');
+    expect(result.errorCode).toBe(SpecEngineErrorCode.GRAPH_CYCLE);
+  });
+
+  it('resumes with persistent journal', async () => {
+    const mockJournal = new PersistentJournalService('session-1');
+    vi.mocked(mockJournal.recordSuccess).mockResolvedValue();
+
+    const serializedState = {
+      plan: { steps: [{ specHash: 'C', awaitingHuman: false }], warnings: [] },
+      currentIndex: 1,
+      executed: ['A', 'B'],
+      results: { A: {}, B: {} },
+      warnings: [],
+      awaitingSpec: 'B',
+      sessionContext: {}
+    };
+
+    const graph: ToolGraph = {
+      entry: 'A',
+      nodes: { A: makeNode('A'), B: makeNode('B', 'human'), C: makeNode('C') },
+      edges: [{ from: 'B', to: 'C' }]
+    };
+
+    const engine = new SpecEngine({ journalAdapter: mockJournal });
+    const result = await engine.resume(graph, serializedState, {
+      specHash: 'B',
+      humanOutput: { input: 'test' }
+    });
+
+    expect(result.status).toBe('completed');
+    expect(mockJournal.recordSuccess).toHaveBeenCalledWith('B', 1, { input: 'test' });
+  });
 });

@@ -42,20 +42,6 @@
     "coveredFuncs": 3
   },
   {
-    "file": "services/spec-engine.ts",
-    "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/services/spec-engine.ts",
-    "stmtPct": 96.875,
-    "branchPct": 85,
-    "funcPct": 90,
-    "avgPct": 90.625,
-    "totalStmts": 416,
-    "coveredStmts": 403,
-    "totalBranches": 240,
-    "coveredBranches": 204,
-    "totalFuncs": 20,
-    "coveredFuncs": 18
-  },
-  {
     "file": "server/express-server.ts",
     "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/server/express-server.ts",
     "stmtPct": 93.87755102040816,
@@ -222,6 +208,20 @@
     "coveredBranches": 57,
     "totalFuncs": 8,
     "coveredFuncs": 8
+  },
+  {
+    "file": "services/spec-engine.ts",
+    "path": "/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/src/services/spec-engine.ts",
+    "stmtPct": 96.88249400479616,
+    "branchPct": 85.24590163934425,
+    "funcPct": 100,
+    "avgPct": 94.0427985480468,
+    "totalStmts": 417,
+    "coveredStmts": 404,
+    "totalBranches": 244,
+    "coveredBranches": 208,
+    "totalFuncs": 20,
+    "coveredFuncs": 20
   },
   {
     "file": "services/metrics-collector.ts",
@@ -652,8 +652,8 @@
     "avgPct": 100,
     "totalStmts": 123,
     "coveredStmts": 123,
-    "totalBranches": 57,
-    "coveredBranches": 57,
+    "totalBranches": 56,
+    "coveredBranches": 56,
     "totalFuncs": 10,
     "coveredFuncs": 10
   },

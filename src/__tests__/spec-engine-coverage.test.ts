@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { SpecEngine, ToolGraph, SpecEngineErrorCode, BasicExecutionPlanner } from '../services/spec-engine.js';
+import { SpecEngine, ToolGraph, SpecEngineErrorCode, BasicExecutionPlanner, NoopAutonomousExecutor, NoopClientStateLeaseProvider, NoopActionJournalAdapter, NoopMetricsCollector } from '../services/spec-engine.js';
 import { buildToolGraph } from '../utils/tool-graph-builder.js';
 
 function node(hash: string, intent: 'human' | 'autonomous' = 'autonomous') {
@@ -205,6 +205,130 @@ describe('SpecEngine additional coverage tests', () => {
 
       // A first, then C (higher priority than B due to incoming edge to D), then B, then D
       expect(plan.steps.map(s => s.specHash)).toEqual(['A', 'C', 'B', 'D']);
+    });
+  });
+
+  describe('Noop implementations coverage', () => {
+    it('NoopAutonomousExecutor.execute returns expected output', async () => {
+      const executor = new NoopAutonomousExecutor();
+      const result = await executor.execute('test-hash');
+      expect(result).toEqual({ ok: true, spec: 'test-hash' });
+    });
+
+    it('NoopClientStateLeaseProvider methods are callable', async () => {
+      const engine = new SpecEngine();
+      const provider = (engine as any).leaseProvider;
+      const acquireResult = await provider.acquire('session', 'client');
+      expect(acquireResult).toEqual({ leaseId: 'noop' });
+
+      await expect(provider.renew('lease')).resolves.toBeUndefined();
+      await expect(provider.release('lease')).resolves.toBeUndefined();
+    });
+
+    it('NoopActionJournalAdapter methods are callable', async () => {
+      const engine = new SpecEngine();
+      const adapter = (engine as any).journal;
+      expect(() => adapter.recordStart('hash', 1)).not.toThrow();
+      expect(() => adapter.recordSuccess('hash', 1, { result: 'ok' })).not.toThrow();
+      expect(() => adapter.recordFailure('hash', 1, { message: 'error' })).not.toThrow();
+    });
+
+    it('NoopMetricsCollector methods are callable', () => {
+      const engine = new SpecEngine();
+      const collector = (engine as any).metrics;
+      expect(() => collector.inc('counter')).not.toThrow();
+      expect(() => collector.inc('counter', { label: 'value' })).not.toThrow();
+      expect(() => collector.observe('histogram', 1.0)).not.toThrow();
+      expect(() => collector.observe('histogram', 1.0, { label: 'value' })).not.toThrow();
+    });
+  });
+
+  describe('retry policy exponential backoff coverage', () => {
+    it('covers exponential backoff computation in retry loop', async () => {
+      let attemptCount = 0;
+      const mockExecutor = {
+        execute: vi.fn().mockImplementation(() => {
+          attemptCount++;
+          if (attemptCount < 3) throw new Error('fail');
+          return { ok: true, spec: 'A' };
+        })
+      };
+
+      const engine = new SpecEngine({
+        executor: mockExecutor,
+        retryPolicy: { maxAttempts: 3, strategy: 'exponential', baseDelayMs: 10 }
+      });
+
+      const graph: ToolGraph = {
+        entry: 'A',
+        nodes: { A: node('A') },
+        edges: []
+      };
+
+      const result = await engine.run(graph);
+
+      expect(result.status).toBe('completed');
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(3);
+    });
+  });
+
+  describe('resume method lease renewal coverage', () => {
+    it('covers lease renewal in resume method', async () => {
+      const mockLeaseProvider = {
+        acquire: vi.fn().mockResolvedValue({ leaseId: 'test-lease' }),
+        renew: vi.fn().mockResolvedValue(undefined),
+        release: vi.fn().mockResolvedValue(undefined)
+      };
+
+      const engine = new SpecEngine({
+        leaseProvider: mockLeaseProvider,
+        leaseRenewEvery: 1 // renew every spec
+      });
+
+      const graph: ToolGraph = buildToolGraph(b => b
+        .addSpec({ hash: 'A', intent: 'autonomous', entry: true })
+        .addSpec({ hash: 'H', intent: 'human' })
+        .addSpec({ hash: 'B', intent: 'autonomous' })
+        .addEdge('A', 'H')
+        .addEdge('H', 'B')
+      );
+
+      // Run to pause at H
+      const first = await engine.run(graph, { sessionId: 'session', clientId: 'client' });
+      expect(first.status).toBe('awaiting_input');
+
+      const serialized = {
+        plan: first.resumeToken ? { steps: [], warnings: [] } : { steps: [
+          { specHash: 'A', awaitingHuman: false },
+          { specHash: 'H', awaitingHuman: true },
+          { specHash: 'B', awaitingHuman: false }
+        ], warnings: [] },
+        currentIndex: 1,
+        executed: ['A'],
+        results: { A: { ok: true } },
+        warnings: [],
+        awaitingSpec: 'H',
+        sessionContext: {}
+      };
+
+      // Resume, should execute B and renew lease
+      const resumed = await engine.resume(graph, serialized, {
+        specHash: 'H',
+        humanOutput: { input: 'value' }
+      }, { sessionId: 'session', clientId: 'client' });
+
+      expect(resumed.status).toBe('completed');
+      expect(mockLeaseProvider.renew).toHaveBeenCalledWith('test-lease');
+      expect(mockLeaseProvider.release).toHaveBeenCalledWith('test-lease');
+    });
+  });
+
+  describe('buildResumeToken full coverage', () => {
+    it('buildResumeToken is fully covered', () => {
+      const engine = new SpecEngine();
+      // Access private method
+      const token = (engine as any).buildResumeToken({ currentIndex: 5 }, 'test-spec');
+      expect(token).toMatch(/^test-spec:5:\d+$/);
     });
   });
 });

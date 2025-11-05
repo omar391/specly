@@ -125,7 +125,7 @@ export interface ClientStateLeaseProvider {
   release(leaseId: string): Promise<void>;
 }
 
-class NoopClientStateLeaseProvider implements ClientStateLeaseProvider {
+export class NoopClientStateLeaseProvider implements ClientStateLeaseProvider {
   async acquire(_sessionId: string, _clientId: string, _force?: boolean) { return { leaseId: 'noop' }; }
   async renew(_leaseId: string) { /* noop */ }
   async release(_leaseId: string) { /* noop */ }
@@ -140,7 +140,7 @@ export interface ActionJournalAdapter {
   recordFailure(specHash: string, attempt: number, error: { message: string }): Promise<void> | void;
 }
 
-class NoopActionJournalAdapter implements ActionJournalAdapter {
+export class NoopActionJournalAdapter implements ActionJournalAdapter {
   recordStart(_specHash: string, _attempt: number) { /* noop */ }
   recordSuccess(_specHash: string, _attempt: number, _output: unknown) { /* noop */ }
   recordFailure(_specHash: string, _attempt: number, _error: { message: string }) { /* noop */ }
@@ -152,7 +152,7 @@ export interface MetricsCollector {
   observe(histogram: string, value: number, labels?: Record<string,string>): void;
 }
 
-class NoopMetricsCollector implements MetricsCollector {
+export class NoopMetricsCollector implements MetricsCollector {
   inc(_counter: string, _labels?: Record<string,string>) { /* noop */ }
   observe(_hist: string, _value: number, _labels?: Record<string,string>) { /* noop */ }
 }
@@ -375,6 +375,7 @@ export class SpecEngine {
                 if (this.retry.strategy === 'exponential') {
                   const delay = (this.retry.baseDelayMs ?? 50) * Math.pow(2, attempt - 1);
                   // Potential future: await wait(delay)
+                  this.metrics.observe('specly_engine_retry_delay_ms', delay);
                   void delay; // suppress unused lint
                 }
                 continue; // attempt another retry
