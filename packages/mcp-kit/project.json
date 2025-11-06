@@ -1,0 +1,31 @@
+{
+    "$schema": "../../node_modules/nx/schemas/project-schema.json",
+    "name": "mcp-kit",
+    "root": "packages/mcp-kit",
+    "targets": {
+        "build": {
+            "executor": "nx:run-commands",
+            "options": {
+                "command": "pnpm -C packages/mcp-kit run build"
+            }
+        },
+        "dev": {
+            "executor": "nx:run-commands",
+            "options": {
+                "command": "pnpm -C packages/mcp-kit run dev"
+            }
+        },
+        "test": {
+            "executor": "nx:run-commands",
+            "options": {
+                "command": "pnpm -C packages/mcp-kit run test"
+            }
+        },
+        "lint": {
+            "executor": "nx:run-commands",
+            "options": {
+                "command": "pnpm -C packages/mcp-kit run lint"
+            }
+        }
+    }
+}

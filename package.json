@@ -1,40 +1,53 @@
 {
-  "name": "specly",
+  "name": "specly-monorepo",
   "version": "0.1.0",
-  "description": "A Model Context Protocol server",
+  "description": "Specly MCP Server Monorepo",
   "private": true,
   "type": "module",
-  "bin": {
-    "specly": "./build/index.js"
-  },
-  "files": [
-    "build"
-  ],
   "scripts": {
-    "pretest": "tsx scripts/ensure-node-test-runtime.ts",
-    "build": "pnpm -w run build:server && pnpm --filter ui run build",
-    "build:server": "rsbuild build",
-    "build:ui": "pnpm --filter ui run build",
-    "seed:specly": "tsx src/scripts/seed-specly.ts",
-    "dev": "concurrently --names=\"MCP,UI\" --prefix-colors=\"blue,green\" \"pnpm -w run dev:server\" \"pnpm --filter ui run dev\"",
-    "dev:server": "tsx --watch src/index.ts --stdio",
-    "dev:ui": "pnpm --filter ui run dev",
-    "serve": "pnpm -w run build && node build/index.js --port=8989",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:ui": "vitest --ui",
-    "test:coverage": "vitest run --coverage",
-    "test:tool": "tsx src/cli.ts",
-    "lint": "pnpm -w run lint:server && pnpm --filter ui run lint",
-    "lint:server": "tsc --noEmit",
-    "lint:ui": "pnpm --filter ui run lint",
-    "inspector": "pnpx @modelcontextprotocol/inspector build/index.js"
+    "nx": "nx",
+    "graph": "nx graph",
+    "dev:all": "nx run-many -t dev --parallel",
+    "build:all": "nx run-many -t build --all",
+    "test:all": "nx run-many -t test --all",
+    "lint:all": "nx run-many -t lint --all",
+    "build": "pnpm --filter mcp-kit run build && pnpm --filter specly-server run build && pnpm --filter specly-ui run build",
+    "build:server": "pnpm --filter specly-server run build",
+    "build:ui": "pnpm --filter specly-ui run build",
+    "build:mcp-kit": "pnpm --filter mcp-kit run build",
+    "dev": "concurrently --names=\"MCP,UI\" --prefix-colors=\"blue,green\" \"pnpm --filter specly-server run dev\" \"pnpm --filter specly-ui run dev\"",
+    "dev:server": "pnpm --filter specly-server run dev",
+    "dev:ui": "pnpm --filter specly-ui run dev",
+    "serve": "pnpm run build:server && pnpm --filter specly-server run serve",
+    "test": "pnpm --filter specly-server run test",
+    "test:watch": "pnpm --filter specly-server run test:watch",
+    "test:ui": "pnpm --filter specly-server run test:ui",
+    "test:coverage": "pnpm --filter specly-server run test:coverage",
+    "lint": "pnpm --filter specly-server run lint && pnpm --filter specly-ui run lint",
+    "lint:server": "pnpm --filter specly-server run lint",
+    "lint:ui": "pnpm --filter specly-ui run lint",
+    "inspector": "pnpx @modelcontextprotocol/inspector packages/specly-server/dist/index.js",
+    "seed:specly": "pnpm --filter specly-server run seed:specly",
+    "subtree:mcp-kit:add": "git subtree add --prefix packages/mcp-kit mcp-kit main --squash",
+    "subtree:mcp-kit:push": "git subtree push --prefix packages/mcp-kit mcp-kit main",
+    "subtree:mcp-kit:pull": "git subtree pull --prefix packages/mcp-kit mcp-kit main --squash"
   },
   "engines": {
     "node": ">=20.0.0"
   },
+  "pnpm": {
+    "ignoredBuiltDependencies": [
+      "sqlite3"
+    ],
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "core-js",
+      "esbuild"
+    ]
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.15.0",
+    "@omar391/mcp-kit": "workspace:*",
     "@types/uuid": "^10.0.0",
     "better-sqlite3": "^12.2.0",
     "drizzle-orm": "^0.44.2",
@@ -58,19 +71,10 @@
     "@vitest/ui": "^3.2.4",
     "concurrently": "^9.2.0",
     "drizzle-kit": "^0.31.4",
+    "nx": "^22.0.2",
     "supertest": "^7.1.1",
     "tsx": "^4.20.3",
     "typescript": "^5.3.3",
     "vitest": "^3.2.4"
-  },
-  "pnpm": {
-    "ignoredBuiltDependencies": [
-      "sqlite3"
-    ],
-    "onlyBuiltDependencies": [
-      "better-sqlite3",
-      "core-js",
-      "esbuild"
-    ]
   }
 }

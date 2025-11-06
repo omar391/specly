@@ -1,0 +1,22 @@
+{
+    "$schema": "./node_modules/nx/schemas/nx-schema.json",
+    "npmScope": "omar391",
+    "workspaceLayout": {
+        "appsDir": ".",
+        "libsDir": "packages"
+    },
+    "targetDefaults": {
+        "build": {
+            "cache": true
+        },
+        "test": {
+            "cache": true
+        },
+        "lint": {
+            "cache": true
+        },
+        "dev": {
+            "cache": false
+        }
+    }
+}

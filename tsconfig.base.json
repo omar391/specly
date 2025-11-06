@@ -1,0 +1,20 @@
+{
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "Node16",
+        "moduleResolution": "Node16",
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "baseUrl": ".",
+        "paths": {
+            "@omar391/mcp-kit": [
+                "packages/mcp-kit/src/index.ts"
+            ],
+            "@omar391/mcp-kit/*": [
+                "packages/mcp-kit/src/*"
+            ]
+        }
+    }
+}

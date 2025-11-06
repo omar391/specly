@@ -11,21 +11,22 @@ A Model Context Protocol server for deterministic, hash-addressable multi-step a
 ```bash
 git clone <repository-url>
 cd specly-mcp
-npm install
-npm run build
+pnpm install
+pnpm build:all
 ```
 
 ### Launch Integrated Server
 
 ```bash
-# Start on default port 8989
-npm run serve
+# Build and start server on default port 8989
+pnpm serve
 
-# Or specify custom port
-npm start -- --port=9000
+# For development with TypeScript watch mode and UI hot reload
+pnpm dev
 
-# For development with TypeScript watch mode
-npm run dev
+# Or run server/UI separately
+pnpm dev:server  # Server only
+pnpm dev:ui      # UI only
 ```
 
 **Access Points:**
@@ -137,43 +138,62 @@ See [`docs/api-design.md`](./docs/api-design.md) for complete API reference.
 ### Build Process
 
 ```bash
-# Full build (TypeScript + UI)
-npm run build
+# Build all packages (mcp-kit, specly-server, specly-ui)
+pnpm build:all
 
-# TypeScript watch mode
-npm run dev
+# Build individual packages
+pnpm build:server
+pnpm build:ui
+pnpm build:mcp-kit
 
-# UI development (separate terminal)
-cd ui && npm run dev
+# Development with watch mode
+pnpm dev           # Server + UI with hot reload
+pnpm dev:server    # Server only
+pnpm dev:ui        # UI only
+
+# Nx graph visualization
+pnpm graph
 ```
 
-### Project Structure
+### Monorepo Structure
 
 ```text
 .
-├── src/                  # TypeScript source code
-│   ├── api/             # REST API endpoints (specs, tools, profiles, tasks, sessions)
-│   ├── services/        # SpecEngine, validators, lease provider, action journal
-│   ├── database/        # Drizzle ORM setup
-│   ├── repositories/    # Data access layer
-│   ├── utils/           # Hashing, graph validation, error mapping
-│   └── __tests__/       # Comprehensive test suite (218 tests)
-├── scripts/             # Development and automation scripts
-├── ui/                  # React web interface (separate build, integrated deployment)
-│   ├── src/             # React components
-│   └── dist/            # Built UI assets (served by main server)
-├── build/               # Compiled JavaScript
-├── api-design.md        # REST API specification (root-level for quick discovery)
-└── docs/                # Technical documentation
-    ├── specly-architecture.md  # Core concepts and design
-    ├── task.md          # Development task tracking
-    └── archive/         # Historical documentation (migrations, brainstorms)
+├── packages/
+│   ├── mcp-kit/              # 📦 Publishable MCP toolkit (@omar391/mcp-kit)
+│   │   ├── src/
+│   │   │   ├── client.ts     # MCP client utilities
+│   │   │   ├── node-instance/# Multi-instance coordination
+│   │   │   └── server/       # Server adapters
+│   │   │       ├── express/  # Node.js HTTP adapter
+│   │   │       └── edge/     # Serverless/Edge adapter
+│   │   └── README.md         # Complete API documentation
+│   ├── specly-server/        # 🖥️  Specly MCP server application
+│   │   ├── src/
+│   │   │   ├── api/          # REST API endpoints
+│   │   │   ├── services/     # SpecEngine, validators, journal
+│   │   │   ├── database/     # Drizzle ORM + migrations
+│   │   │   ├── repositories/ # Data access layer
+│   │   │   ├── server/       # Instance manager + Express setup
+│   │   │   ├── tools/        # MCP tools (init, add, focus, etc.)
+│   │   │   ├── utils/        # Hashing, graph validation
+│   │   │   └── __tests__/    # 1688+ tests
+│   │   └── dist/             # Compiled JavaScript
+│   └── specly-ui/            # 🎨 React web interface
+│       ├── src/              # React components & pages
+│       └── dist/             # Built UI assets (served by main server)
+├── docs/                     # 📚 Technical documentation
+│   ├── specly-architecture.md
+│   ├── mcp-kit-migration.md
+│   └── task.md
+└── pnpm-workspace.yaml       # Monorepo configuration
 ```
 
-**Structural Notes:**
-- **`ui/` at root level**: Separate frontend application with independent build system (Rsbuild), but deployed as integrated part of main server
-- **`scripts/` at root level**: Development utilities and automation scripts shared across backend and UI
-- **`api-design.md` at root**: Quick reference for API consumers without navigating into docs/
+**Architecture Notes:**
+- **Nx Orchestration**: Minimal Nx setup for coordinated builds across packages
+- **pnpm Workspaces**: Shared dependencies with workspace protocol
+- **mcp-kit**: Dual-repo strategy (git subtree) for standalone publishing
+- **Adapters**: Express (Node.js/SSE) and Edge (serverless/fetch) for multiple runtimes
 
 ### Database
 ### Seeding (Specly Baseline)
@@ -374,17 +394,20 @@ Complete examples available in [`docs/api-design.md`](./docs/api-design.md).
 
 ## 🧪 Testing
 
-Specly includes comprehensive test coverage with **196/196 tests passing (100% success rate)**:
+Specly includes comprehensive test coverage with **1688/1693 tests passing (99.7% success rate)**:
 
 ```bash
-# Run all tests
-npm test
+# Run all tests across packages
+pnpm test:all
+
+# Run server tests only
+pnpm --filter specly-server test
 
 # Run with coverage report
-npm run test:coverage
+pnpm --filter specly-server test:coverage
 
 # Run tests in watch mode
-npm run test:watch
+pnpm --filter specly-server test:watch
 ```
 
 **Test Suites:**

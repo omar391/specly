@@ -26,3 +26,7 @@ yarn.lock
 
 # OS files
 Thumbs.db
+packages/*/dist/
+packages/*/node_modules/
+AGENTS.md
+.nx/

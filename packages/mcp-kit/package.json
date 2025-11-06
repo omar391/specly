@@ -1,0 +1,72 @@
+{
+    "name": "@omar391/mcp-kit",
+    "version": "0.1.0",
+    "private": false,
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "import": "./dist/index.js",
+            "types": "./dist/index.d.ts"
+        },
+        "./client": {
+            "import": "./dist/client.js",
+            "types": "./dist/client.d.ts"
+        },
+        "./node-instance": {
+            "import": "./dist/node-instance/index.js",
+            "types": "./dist/node-instance/index.d.ts"
+        },
+        "./server/express": {
+            "import": "./dist/server/express/index.js",
+            "types": "./dist/server/express/index.d.ts"
+        },
+        "./server/edge": {
+            "import": "./dist/server/edge/index.js",
+            "types": "./dist/server/edge/index.d.ts"
+        },
+        "./server/handlers": {
+            "import": "./dist/server/handlers.js",
+            "types": "./dist/server/handlers.d.ts"
+        },
+        "./server/stdio": {
+            "import": "./dist/server/stdio.js",
+            "types": "./dist/server/stdio.d.ts"
+        },
+        "./utils/port-manager": {
+            "import": "./dist/utils/port-manager.js",
+            "types": "./dist/utils/port-manager.d.ts"
+        },
+        "./utils/process-manager": {
+            "import": "./dist/utils/process-manager.js",
+            "types": "./dist/utils/process-manager.d.ts"
+        },
+        "./utils/cli-parser": {
+            "import": "./dist/utils/cli-parser.js",
+            "types": "./dist/utils/cli-parser.d.ts"
+        },
+        "./utils/cli-mcp-client": {
+            "import": "./dist/utils/cli-mcp-client.js",
+            "types": "./dist/utils/cli-mcp-client.d.ts"
+        }
+    },
+    "files": [
+        "dist"
+    ],
+    "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "dev": "tsc -w -p tsconfig.json",
+        "lint": "tsc --noEmit",
+        "test": "vitest run"
+    },
+    "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.15.0"
+    },
+    "devDependencies": {
+        "@rsbuild/core": "^1.4.5",
+        "@types/node": "^20.19.4",
+        "typescript": "^5.3.3",
+        "vitest": "^3.2.4"
+    }
+}

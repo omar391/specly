@@ -1,0 +1,184 @@
+/**
+ * Generic CLI Parser for MCP Servers
+ * 
+ * Extensible command line argument parsing for MCP server applications
+ */
+
+export interface BaseCliOptions {
+    port: number;
+    mode: 'http' | 'stdio';
+    dev: boolean;
+    help: boolean;
+    killExisting: boolean;
+}
+
+export interface CliParserConfig<T extends BaseCliOptions = BaseCliOptions> {
+    /** Default port number */
+    defaultPort?: number;
+    /** Default mode */
+    defaultMode?: 'http' | 'stdio';
+    /** Application name for help text */
+    appName?: string;
+    /** Application description */
+    appDescription?: string;
+    /** Custom options parser */
+    customOptionsParser?: (args: string[], options: T) => T;
+    /** Custom help text */
+    customHelpText?: string;
+}
+
+/**
+ * Returns true if running in stdio mode (either --stdio in argv or STDIO_MODE env set)
+ */
+export function isStdioMode(): boolean {
+    return process.argv.includes('--stdio') || process.env.STDIO_MODE === '1';
+}
+
+/**
+ * Generic CLI parser with extensibility for app-specific options
+ */
+export function parseCliArgs<T extends BaseCliOptions = BaseCliOptions>(
+    args: string[] = process.argv.slice(2),
+    config: CliParserConfig<T> = {}
+): T {
+    const options: BaseCliOptions = {
+        port: config.defaultPort ?? 8989,
+        mode: config.defaultMode ?? 'http',
+        dev: false,
+        help: false,
+        killExisting: true,
+    };
+
+    for (let i = 0; i < args.length; i++) {
+        const arg = args[i];
+
+        // Handle --option=value format
+        if (arg.includes('=')) {
+            const [option, value] = arg.split('=', 2);
+
+            switch (option) {
+                case '--port':
+                    const portNum = parseInt(value, 10);
+                    if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+                        throw new Error(`Invalid port number: ${value}. Port must be between 1 and 65535.`);
+                    }
+                    options.port = portNum;
+                    break;
+
+                default:
+                    throw new Error(`Unknown option: ${option}`);
+            }
+            continue;
+        }
+
+        switch (arg) {
+            case '--port':
+            case '-p':
+                const portArg = args[i + 1];
+                if (portArg && !portArg.startsWith('-')) {
+                    const port = parseInt(portArg, 10);
+                    if (!isNaN(port) && port > 0 && port <= 65535) {
+                        options.port = port;
+                        i++; // Skip next arg since we consumed it
+                    } else {
+                        throw new Error(`Invalid port number: ${portArg}`);
+                    }
+                } else {
+                    throw new Error('--port requires a port number');
+                }
+                break;
+
+            case '--stdio':
+                options.mode = 'stdio';
+                break;
+
+            case '--http':
+                options.mode = 'http';
+                break;
+
+            case '--dev':
+                options.dev = true;
+                break;
+
+            case '--help':
+            case '-h':
+                options.help = true;
+                break;
+
+            case '--no-kill':
+                options.killExisting = false;
+                break;
+
+            // Legacy compatibility
+            case '--sse':
+                options.mode = 'http';
+                break;
+
+            default:
+                if (arg.startsWith('-')) {
+                    throw new Error(`Unknown option: ${arg}`);
+                }
+                break;
+        }
+    }
+
+    // Allow custom parser to extend/modify options
+    if (config.customOptionsParser) {
+        return config.customOptionsParser(args, options as T);
+    }
+
+    return options as T;
+}
+
+/**
+ * Display generic help text with optional customization
+ */
+export function displayHelp(config: CliParserConfig = {}): void {
+    const appName = config.appName ?? 'MCP Server';
+    const appDescription = config.appDescription ?? 'Model Context Protocol Server';
+    const defaultPort = config.defaultPort ?? 8989;
+
+    console.log(`
+${appDescription}
+
+USAGE:
+  ${appName.toLowerCase().replace(/\s+/g, '-')} [OPTIONS]
+
+OPTIONS:
+  --port, -p <number>    Port number to run on (default: ${defaultPort})
+  --stdio               Run in STDIO mode for MCP clients
+  --http                Run in HTTP mode (default)
+  --dev                 Enable development mode
+  --no-kill             Don't kill existing instances on the port
+  --help, -h            Show this help message
+
+EXAMPLES:
+  ${appName.toLowerCase().replace(/\s+/g, '-')}                          # Start on port ${defaultPort}
+  ${appName.toLowerCase().replace(/\s+/g, '-')} --port 3000              # Start on port 3000
+  ${appName.toLowerCase().replace(/\s+/g, '-')} --stdio                  # Start in STDIO mode for MCP
+  ${appName.toLowerCase().replace(/\s+/g, '-')} --dev --port 3001        # Development mode on port 3001
+
+MODES:
+  HTTP Mode (default):
+    - MCP via Server-Sent Events at http://localhost:<port>/mcp
+    - Optional REST API and UI can be added by the application
+    
+  STDIO Mode:
+    - Compatible with MCP clients that expect STDIO transport
+    - No HTTP endpoints
+${config.customHelpText ? '\n' + config.customHelpText : ''}
+`);
+}
+
+/**
+ * Validate CLI options
+ */
+export function validateCliOptions(options: BaseCliOptions): void {
+    if (options.port < 1 || options.port > 65535) {
+        throw new Error(`Port must be between 1 and 65535, got: ${options.port}`);
+    }
+
+    if (options.mode !== 'http' && options.mode !== 'stdio') {
+        throw new Error(`Mode must be 'http' or 'stdio', got: ${options.mode}`);
+    }
+}
