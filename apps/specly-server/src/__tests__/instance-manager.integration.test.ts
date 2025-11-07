@@ -145,8 +145,15 @@ describe('Instance Manager Root-to-Child Process System', () => {
 
     describe('Port Management and Server Detection', () => {
         it('should detect when port is available', async () => {
-            // Use a random high port that should be available
-            const testManager = new InstanceManager(testLockPath, testPort + 100);
+            // Use an ephemeral port to avoid parallel test collisions
+            const tmpServer = http.createServer();
+            await new Promise<void>((resolve) => tmpServer.listen(0, '127.0.0.1', resolve));
+            const addr = tmpServer.address();
+            if (!addr || typeof addr !== 'object') throw new Error('No ephemeral address');
+            const freePort = addr.port as number;
+            await new Promise<void>((resolve) => tmpServer.close(() => resolve()));
+
+            const testManager = new InstanceManager(testLockPath, freePort);
             const isAvailable = await testManager.waitForPort(2000);
             expect(isAvailable).toBe(true);
         });

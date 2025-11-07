@@ -26,7 +26,7 @@
     "lint": "pnpm --filter specly-server run lint && pnpm --filter specly-ui run lint",
     "lint:server": "pnpm --filter specly-server run lint",
     "lint:ui": "pnpm --filter specly-ui run lint",
-    "inspector": "pnpx @modelcontextprotocol/inspector packages/specly-server/dist/index.js",
+    "inspector": "pnpx @modelcontextprotocol/inspector apps/specly-server/dist/index.js",
     "seed:specly": "pnpm --filter specly-server run seed:specly",
     "subtree:mcp-kit:add": "git subtree add --prefix packages/mcp-kit mcp-kit main --squash",
     "subtree:mcp-kit:push": "git subtree push --prefix packages/mcp-kit mcp-kit main",
