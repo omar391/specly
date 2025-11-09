@@ -10,7 +10,6 @@ import {
   validateCliOptions as validateGenericCliOptions,
   isStdioMode as genericIsStdioMode,
   type BaseCliOptions,
-  type CliParserConfig,
 } from '@omar391/mcp-kit/utils/cli-parser';
 
 /**
@@ -30,24 +29,18 @@ export interface CliOptions extends BaseCliOptions {
 export function parseCliArgs(args: string[] = process.argv.slice(2)): CliOptions {
   // Pre-process Specly-specific options and filter them out
   let forceSeed = process.env.SPECLY_FORCE_SEED === '1';
-  const filteredArgs: string[] = [];
 
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-    if (arg === '--force-seed') {
-      forceSeed = true;
-      // Don't add to filteredArgs - this is Specly-specific
-    } else {
-      filteredArgs.push(arg);
-    }
-  }
-
-  // Parse base options with filtered args
-  const baseOptions = parseGenericCliArgs<BaseCliOptions>(filteredArgs, {
+  // Parse base options with custom flag handler for Specly-specific flags
+  const baseOptions = parseGenericCliArgs<BaseCliOptions>(args, {
     defaultPort: 8989,
     defaultMode: 'http',
     appName: 'Specly',
-    appDescription: 'Specly MCP Server'
+    appDescription: 'Specly MCP Server',
+    customFlagHandlers: {
+      '--force-seed': () => {
+        forceSeed = true;
+      },
+    },
   });
 
   // Extend with Specly-specific options

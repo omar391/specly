@@ -6,6 +6,8 @@
 
 - 🚀 **Multi-runtime support**: Node.js (Express), Edge/Serverless (fetch-based)
 - 🔄 **Multi-instance coordination**: Lock-based instance management with proxy support
+- 🧭 **Server bootstrap seam**: `startMcpServer` (express/edge) and `startMcpExpressServer` wire MCP handlers with coordination helpers
+- 🧰 **Extensible CLI parsing**: Shared argument parser with custom flag hooks
 - 🛠️ **MCP client utilities**: Connect to and call MCP servers programmatically
 - 📦 **Tree-shakeable**: Import only what you need via subpath exports
 
@@ -98,6 +100,113 @@ if (isMain) {
     await manager.startProxy();
   }
 }
+
+### CLI Parsing Helpers
+
+Add project-specific flags while keeping the core CLI contract consistent:
+
+```typescript
+import { parseCliArgs, displayHelp, type BaseCliOptions } from '@omar391/mcp-kit/utils/cli-parser';
+
+interface SpeclyCliOptions extends BaseCliOptions {
+  forceSeed?: boolean;
+}
+
+const options = parseCliArgs<SpeclyCliOptions>(process.argv.slice(2), {
+  appName: 'Specly Server',
+  defaultPort: 3100,
+  customFlagHandlers: {
+    '--force-seed': ({ options }) => {
+      options.forceSeed = true;
+    },
+  },
+});
+
+if (options.help) {
+  displayHelp({ appName: 'Specly Server' });
+  process.exit(0);
+}
+
+// Use extended options to toggle seed/background jobs
+if (options.forceSeed) {
+  await runSeedRoutine();
+}
+```
+
+Handlers receive the full argument list and can optionally return the number of additional arguments consumed. A `customOptionsParser` hook is also available for advanced validation or derived defaults.
+
+### MCP Server Bootstrap API
+
+Spin up an MCP server by selecting `'express'` or `'edge'` at the call site while keeping coordination hooks and lifecycle callbacks:
+
+```typescript
+import { startMcpServer, InstanceRole } from '@omar391/mcp-kit/server';
+import { toolHandlers } from './tools.js';
+
+const result = await startMcpServer({
+  kind: 'express',
+  toolHandlers,
+  serverName: 'specly',
+  serverVersion: '2.0.0',
+  coordinateInstance: {
+    desiredVersion: '2.0.0',
+    waitForPortTimeoutMs: 10_000,
+  },
+  onCoordinateDecision: (decision) => {
+    if (decision.status === 'main' && decision.reason === 'version-transition') {
+      console.log(`Promoted to main (was ${decision.previousVersion ?? 'unknown'})`);
+    }
+  },
+  onBeforeStart: async ({ coordination }) => {
+    if (coordination?.reason === 'initial') {
+      await ensureSeedData();
+    }
+  },
+});
+
+if (result.transport === 'edge') {
+  // Edge handler returned (see example below)
+} else if (result.role === InstanceRole.PROXY) {
+  console.log('Proxy mode, forwarding traffic');
+}
+```
+
+Pass `kind: 'edge'` to receive a fetch-compatible handler:
+
+```typescript
+const { handler } = await startMcpServer({
+  kind: 'edge',
+  toolHandlers,
+  edge: { serverName: 'edge-specly', serverVersion: '1.0.0' },
+});
+
+export default { fetch: handler };
+```
+
+If you prefer to call the Express bootstrap directly, use `startMcpExpressServer(options)` with the same option shape shown above (minus `kind`).
+
+### Test Utilities
+
+Inject and manage test-only dependencies without leaking state into production code:
+
+```typescript
+import { createTestInstanceAccessors } from '@omar391/mcp-kit/test-utils/create-test-instance-accessors';
+
+interface Databases {
+  drizzleManager: object;
+  dbService: object;
+}
+
+const instances = createTestInstanceAccessors<Databases>();
+
+instances.setInstances({ drizzleManager, dbService });
+const state = instances.getInstances();
+expect(state.isInitialized).toBe(true);
+
+instances.resetInstances();
+```
+
+The helper wraps `createSharedTestInstanceHelpers` and provides consistent `setInstances`, `resetInstances`, `getInstances`, and `hasInstances` utilities that application packages can re-export under project-specific names.
 ```
 
 ## Architecture

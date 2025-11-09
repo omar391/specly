@@ -96,3 +96,5 @@ export function createMcpEdgeHandler(
         });
     };
 }
+
+export type McpEdgeHandler = ReturnType<typeof createMcpEdgeHandler>;

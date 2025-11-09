@@ -339,9 +339,9 @@ npm run serve  # Auto-recreates schema and seeds baseline
 | `--stdio` | STDIO mode for MCP clients | `node build/index.js --stdio` |
 | `--port=N` | HTTP mode on port N | `node build/index.js --port=8989` |
 | `--http` | Force HTTP mode (default) | `node build/index.js --http` |
-| `--dev` | Development mode | `node build/index.js --dev` |
+| `--dev` | Force development mode (overrides `NODE_ENV`) | `node build/index.js --dev` |
 | `--help` | Show help | `node build/index.js --help` |
-| `--no-kill` | Don't kill existing processes | `node build/index.js --no-kill` |
+| `--no-kill` | Skip port cleanup; startup fails if port busy | `node build/index.js --no-kill` |
 | `--force-seed` | Force re-seed of baseline specs/tools | `node build/index.js --force-seed` |
 
 ### API Reference
@@ -394,7 +394,7 @@ Complete examples available in [`docs/api-design.md`](./docs/api-design.md).
 
 ## 🧪 Testing
 
-Specly includes comprehensive test coverage with **1688/1693 tests passing (99.7% success rate)**:
+Specly includes comprehensive test coverage with **≈1700 automated tests across packages**:
 
 ```bash
 # Run all tests across packages

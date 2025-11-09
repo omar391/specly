@@ -1,3 +1,4 @@
+import { createDatabaseTestAccessors } from './create-database-test-accessors.js';
 import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
 import type { GlobalDatabaseService } from '../database/global-queries.js';
 
@@ -8,10 +9,7 @@ import type { GlobalDatabaseService } from '../database/global-queries.js';
  * for testing purposes. These functions should only be used in test environments.
  */
 
-// Internal state for test database instances
-let testGlobalDrizzleManager: DrizzleDatabaseManager | null = null;
-let testGlobalDbService: GlobalDatabaseService | null = null;
-let testToolsInitialized = false;
+const helpers = createDatabaseTestAccessors<DrizzleDatabaseManager, GlobalDatabaseService>();
 
 /**
  * Set the CLI's global database instances for testing
@@ -24,9 +22,7 @@ export function setTestDatabaseInstances(
     drizzleManager: DrizzleDatabaseManager,
     dbService: GlobalDatabaseService
 ): void {
-    testGlobalDrizzleManager = drizzleManager;
-    testGlobalDbService = dbService;
-    testToolsInitialized = true;
+    helpers.setInstances({ drizzleManager, dbService });
 }
 
 /**
@@ -34,9 +30,7 @@ export function setTestDatabaseInstances(
  * Clears all injected test database instances and resets initialization state
  */
 export function resetDatabaseInstances(): void {
-    testGlobalDrizzleManager = null;
-    testGlobalDbService = null;
-    testToolsInitialized = false;
+    helpers.resetInstances();
 }
 
 /**
@@ -50,10 +44,13 @@ export function getTestDatabaseInstances(): {
     dbService: GlobalDatabaseService | null;
     isInitialized: boolean;
 } {
+    const state = helpers.getInstances();
+    const { value, isInitialized } = state;
+
     return {
-        drizzleManager: testGlobalDrizzleManager,
-        dbService: testGlobalDbService,
-        isInitialized: testToolsInitialized
+        drizzleManager: value?.drizzleManager ?? null,
+        dbService: value?.dbService ?? null,
+        isInitialized,
     };
 }
 
@@ -63,5 +60,10 @@ export function getTestDatabaseInstances(): {
  * @returns True if test instances are set and initialized
  */
 export function hasTestDatabaseInstances(): boolean {
-    return testToolsInitialized && testGlobalDrizzleManager !== null && testGlobalDbService !== null;
+    if (!helpers.hasInstances()) {
+        return false;
+    }
+
+    const { value } = helpers.getInstances();
+    return Boolean(value?.drizzleManager && value?.dbService);
 }

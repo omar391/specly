@@ -13,21 +13,11 @@ import { initializeGlobalDatabaseService, type GlobalDatabaseService } from './d
 import { DatabaseService } from './services/database-service.js';
 import { SeedManager } from './services/seed-manager.js';
 import { PromptOrchestrator } from './services/prompt-orchestrator.js';
-
-// Type definitions
-interface CmdOptions {
-  mode?: 'stdio' | 'http';
-  port?: number;
-  help?: boolean;
-  forceSeed?: boolean;
-}
-
-// Utils
-import { parseCliArgs, displayHelp } from './utils/cli-parser.js';
+import { parseCliArgs, displayHelp, type CliOptions } from './utils/cli-parser.js';
 import { ensurePortAvailable as ensurePortFree } from '@omar391/mcp-kit/utils/port-manager';
 
-// Express server
-import { ExpressServer, MCPToolHandlers } from './server/express-server.js';
+import type { MCPToolHandlers } from '@omar391/mcp-kit/server/express';
+import { startMcpServer } from '@omar391/mcp-kit/server';
 
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { createToolHandlers } from '@omar391/mcp-kit/server/handlers';
@@ -45,9 +35,10 @@ import { RuleUpdateTool, ruleUpdateToolSchema } from './tools/rule-update.js';
 import { RemoteInterfaceTool, remoteInterfaceToolSchema } from './tools/remote-interface.js';
 import { UpdateResourcesTool, updateResourcesToolSchema } from './tools/update-resources.js';
 import { UpdateStepsTool, updateStepsToolSchema } from './tools/update-steps.js';
-import { InstanceManager } from './server/instance-manager.js';
+import { InstanceManager, InstanceRole } from './server/instance-manager.js';
 import { SpeclyToolResult } from './types/index.js';
 import { startStdioProxy } from '@omar391/mcp-kit/node-instance';
+import { configureSpeclyApp, setupSpeclyApi } from './server/specly-express-hooks.js';
 
 // Legacy multi-step types removed; all tools now return SpeclyToolResult.
 
@@ -71,7 +62,8 @@ let updateStepsTool: UpdateStepsTool;
 
 let globalDbService: GlobalDatabaseService;
 let databaseService: DatabaseService;
-let expressServer: ExpressServer | null = null;
+
+let serverInitialized = false;
 
 async function initializeServer() {
   try {
@@ -105,10 +97,18 @@ async function initializeServer() {
     // Initialize global seed data (MCP server mappings etc.)
     await seedManager.initializeGlobalData();
 
+    serverInitialized = true;
   } catch (error) {
     console.error('Error initializing server:', error);
     throw error;
   }
+}
+
+async function ensureServerInitialized(): Promise<void> {
+  if (serverInitialized) {
+    return;
+  }
+  await initializeServer();
 }
 
 function createMCPToolHandlers(): MCPToolHandlers {
@@ -147,100 +147,10 @@ function createMCPToolHandlers(): MCPToolHandlers {
 // Proxy: forward MCP stdio to main via generic mcp-kit utility
 // (No wrapper function needed anymore)
 
-async function startStdioMode(cliOptions: CmdOptions) {
+async function startStdioMode(cliOptions: CliOptions) {
+  await ensureServerInitialized();
   const toolHandlers = createMCPToolHandlers();
   await startStdioServer({ serverName: 'specly', serverVersion: '0.1.0', handlers: toolHandlers, debug: true });
-}
-
-async function startHttpMode(port: number) {
-  console.log(`Starting Specly integrated server on port ${port}`);
-
-  // Ensure port is free (killing any processes using it)
-  const portFree = await ensurePortFree(port);
-  if (!portFree) {
-    throw new Error(`Unable to free port ${port} for Specly server`);
-  }
-
-  // Create Express server
-  expressServer = new ExpressServer({ port, dev: process.env.NODE_ENV !== 'production' });
-
-  // Add /__version, /__shutdown, and /__transition endpoints for multi-instance/proxy logic
-  expressServer.registerCustomEndpoints((app) => {
-    app.get('/__version', (req, res) => {
-      res.json({ version: require('./server/instance-manager.js').InstanceManager.VERSION });
-    });
-    app.post('/__shutdown', (req, res) => {
-      res.status(200).json({ ok: true });
-      setTimeout(() => process.exit(0), 100);
-    });
-    app.post('/__transition', (req, res) => {
-      res.status(200).json({ ok: true, message: 'Transitioning to proxy mode' });
-      // Gracefully restart as proxy: stop HTTP server, restart process
-      setTimeout(async () => {
-        console.log('[TRANSITION] Restarting as proxy instance...');
-        if (expressServer) {
-          await expressServer.stop();
-        }
-        // Respawn self with same args - will detect main exists and become proxy
-        const { spawn } = await import('child_process');
-        spawn(process.argv[0], process.argv.slice(1), {
-          detached: true,
-          stdio: 'inherit'
-        }).unref();
-        process.exit(0);
-      }, 100);
-    });
-  });
-  // Setup MCP endpoint with SSE
-  const toolHandlers = createMCPToolHandlers();
-  expressServer.setupMCPEndpoint(toolHandlers);
-
-  // Setup REST API endpoints
-  await expressServer.setupAPIEndpoints(databaseService);
-
-  // Setup health check
-  expressServer.setupHealthCheck();
-
-  // Setup graceful shutdown handling with Express server cleanup
-  setupGracefulShutdown();
-
-  // Start the server
-  await expressServer.start();
-}
-
-function setupGracefulShutdown(): void {
-  const shutdownHandler = async (signal: string) => {
-    console.log(`\n${signal} received. Shutting down Specly Integrated Server gracefully...`);
-
-    try {
-      if (expressServer) {
-        await expressServer.stop();
-      }
-    } catch (error) {
-      console.error('Error during shutdown:', error);
-    }
-
-    console.log('Specly Integrated Server shutdown complete.');
-    process.exit(0);
-  };
-
-  process.on('SIGINT', () => shutdownHandler('SIGINT'));
-  process.on('SIGTERM', () => shutdownHandler('SIGTERM'));
-  process.on('SIGUSR1', () => shutdownHandler('SIGUSR1'));
-  process.on('SIGUSR2', () => shutdownHandler('SIGUSR2'));
-
-  // Handle uncaught exceptions gracefully
-  process.on('uncaughtException', (error) => {
-    console.error('Uncaught Exception:', error);
-    console.log('Shutting down due to uncaught exception...');
-    process.exit(1);
-  });
-
-  process.on('unhandledRejection', (reason, promise) => {
-    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-    console.log('Shutting down due to unhandled rejection...');
-    process.exit(1);
-  });
 }
 
 async function ensureSpeclySeed(force: boolean) {
@@ -260,8 +170,8 @@ async function ensureSpeclySeed(force: boolean) {
   }
 }
 
-async function main() {
-  let cliOptions: CmdOptions | undefined;
+export async function main() {
+  let cliOptions: CliOptions | undefined;
   try {
     // Parse CLI arguments
     cliOptions = parseCliArgs();
@@ -282,33 +192,68 @@ async function main() {
       console.error(`[DEBUG] Starting in mode: ${cliOptions.mode}`);
     }
 
-    // Initialize server
-    await initializeServer();
-    await ensureSpeclySeed(!!cliOptions.forceSeed);
+    const port = cliOptions.port ?? 8989;
+    const dev = cliOptions.dev || process.env.NODE_ENV !== 'production';
+    const instanceManager = new InstanceManager(undefined, port);
 
-    // Start in appropriate mode
-
-    // Multi-instance/proxy logic
-    const instanceManager = new InstanceManager();
-    let isMain = await instanceManager.tryBecomeMain();
-    if (!isMain) {
-      // Read lock and check PID liveness
-      const lock = await instanceManager.readLock();
-      if (!lock || !InstanceManager.isPidAlive(lock.pid)) {
-        // Stale lock, remove and try to become main again
-        await instanceManager.removeLock();
-        isMain = await instanceManager.tryBecomeMain();
-      }
-    }
-
-    if (!isMain) {
-      // Check version of running main instance
-      const mainVersion = await instanceManager.fetchMainVersion();
-      if (mainVersion === InstanceManager.VERSION) {
-        // Same version: Start as proxy instance
-        // Proxy instances still serve their clients (stdio/http) but forward actual work to main
-        if (cliOptions.mode === 'stdio') {
-          console.error(`[PROXY MODE] Main instance v${mainVersion} running on port 8989. Starting stdio proxy.`);
+    const serverResult = await startMcpServer({
+      kind: 'express',
+      port,
+      dev,
+      serverName: 'specly',
+      serverVersion: InstanceManager.VERSION,
+      instanceManager,
+      autoProxy: cliOptions.mode !== 'stdio',
+      expressOptions: {
+        port,
+        dev,
+        info: { name: 'specly', version: InstanceManager.VERSION, uiHintUrl: 'http://localhost:5173' },
+        endpoints: { apiBase: '/api', mcpBase: '/mcp', healthPath: '/health' },
+        cors: { allowAnyLocalhost: true, credentials: true },
+      },
+      coordinateInstance: {
+        desiredVersion: InstanceManager.VERSION,
+        waitForPortTimeoutMs: 10000,
+        removeStaleLock: true,
+      },
+      toolHandlers: async () => {
+        await ensureServerInitialized();
+        return createMCPToolHandlers();
+      },
+      configureApp: async (app) => {
+        configureSpeclyApp(app, { dev });
+      },
+      setupApi: async (server) => {
+        await ensureServerInitialized();
+        await setupSpeclyApi(server, databaseService);
+      },
+      onBeforeStart: async () => {
+        await ensureServerInitialized();
+        const killExisting = cliOptions!.killExisting;
+        const portFree = await ensurePortFree(port, killExisting);
+        if (!portFree) {
+          if (!killExisting) {
+            throw new Error(`Port ${port} is already in use and --no-kill was provided (start aborted).`);
+          }
+          throw new Error(`Unable to free port ${port} for Specly server`);
+        }
+        await ensureSpeclySeed(!!cliOptions!.forceSeed);
+        instanceManager.startBackgroundJobs(globalDbService);
+      },
+      onAfterStart: async () => {
+        console.log(`Specly backend server running on http://localhost:${port}`);
+        console.log(`  API: http://localhost:${port}/api`);
+        console.log(`  MCP: http://localhost:${port}/mcp`);
+        console.log(`  Health: http://localhost:${port}/health`);
+        if (dev) {
+          console.log(`  CORS: Enabled for localhost development`);
+          console.log(`  Note: UI should run separately on http://localhost:5173`);
+        }
+      },
+      onProxyStart: async (context) => {
+        const mainVersion = InstanceManager.VERSION;
+        if (cliOptions!.mode === 'stdio') {
+          console.error(`[PROXY MODE] Main instance v${mainVersion} running on port ${instanceManager.port}. Starting stdio proxy.`);
           await startStdioProxy({
             port: instanceManager.port,
             serverName: 'specly',
@@ -317,38 +262,45 @@ async function main() {
             debug: true,
           });
         } else {
-          // HTTP mode: Start proxy server
-          const proxyServer = await instanceManager.startProxy();
-          const port = instanceManager.proxyPort;
-          console.log(`[PROXY MODE] Main instance v${mainVersion} running on port 8989. Proxying on port ${port}.`);
-          await new Promise(() => { }); // Keep alive
+          const proxyPort = context.instanceManager.proxyPort;
+          console.log(`[PROXY MODE] Main instance v${mainVersion} running on port ${instanceManager.port}. Proxying on port ${proxyPort}.`);
         }
-      } else {
-        // Version mismatch: Request main to gracefully transition to proxy, then become new main
-        console.log(`[VERSION CHANGE] Current v${InstanceManager.VERSION}, main is v${mainVersion}. Taking over...`);
-        const transitionOk = await instanceManager.requestMainTransition();
-        if (transitionOk) {
-          await instanceManager.waitForPort(10000);
-          await instanceManager.removeLock();
-          isMain = await instanceManager.tryBecomeMain();
-          if (!isMain) {
-            throw new Error("Failed to take over as main instance after transition.");
-          }
-          console.log(`[VERSION CHANGE] Successfully became main instance v${InstanceManager.VERSION}`);
-          // Old main should have restarted as proxy automatically
-        } else {
-          throw new Error("Failed to transition old main instance (version mismatch).");
-        }
-      }
+      },
+      gracefulShutdown: async ({ expressServer }) => {
+        instanceManager.stopBackgroundJobs();
+        await expressServer.stop();
+      },
+      controlEndpoints: {
+        onShutdown: async () => {
+          instanceManager.stopBackgroundJobs();
+        },
+        onTransition: async () => {
+          instanceManager.stopBackgroundJobs();
+          setTimeout(async () => {
+            const { spawn } = await import('child_process');
+            spawn(process.argv[0], process.argv.slice(1), {
+              detached: true,
+              stdio: 'inherit',
+            }).unref();
+          }, 100);
+        },
+      },
+    });
+
+    if (serverResult.role === InstanceRole.PROXY) {
+      return;
     }
 
-    // Main instance: proceed with normal startup
-    if (isMain) {
-      console.log(`[MAIN INSTANCE] Starting v${InstanceManager.VERSION}`);
-      if (cliOptions.mode === 'stdio') {
-        await startStdioMode(cliOptions);
-      }
-      await startHttpMode(cliOptions.port || 8989);
+    const coordination = serverResult.coordination;
+    if (coordination?.reason === 'version-transition') {
+      const previous = coordination.previousVersion ?? 'unknown';
+      console.log(`[VERSION CHANGE] Current v${InstanceManager.VERSION}, main is v${previous}. Taking over...`);
+      console.log(`[VERSION CHANGE] Successfully became main instance v${InstanceManager.VERSION}`);
+    }
+
+    console.log(`[MAIN INSTANCE] Starting v${InstanceManager.VERSION}`);
+    if (cliOptions.mode === 'stdio') {
+      await startStdioMode(cliOptions);
     }
 
   } catch (error) {
@@ -363,11 +315,18 @@ async function main() {
 if (import.meta.url === `file://${process.argv[1]}`) {
   main().catch((err) => {
     // Only log error if not in stdio mode
-    let cliOptions: CmdOptions;
+    let cliOptions: CliOptions;
     try {
       cliOptions = parseCliArgs();
     } catch {
-      cliOptions = {};
+      cliOptions = {
+        port: 8989,
+        mode: 'http',
+        dev: false,
+        help: false,
+        killExisting: true,
+        forceSeed: false,
+      };
     }
     if (!cliOptions.mode || cliOptions.mode !== 'stdio') {
       console.error(err);

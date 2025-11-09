@@ -12,6 +12,16 @@ export interface BaseCliOptions {
     killExisting: boolean;
 }
 
+export interface FlagHandlerContext<T extends BaseCliOptions = BaseCliOptions> {
+    args: string[];
+    index: number;
+    options: T;
+}
+
+export type CustomFlagHandler<T extends BaseCliOptions = BaseCliOptions> = (
+    context: FlagHandlerContext<T>
+) => number | void;
+
 export interface CliParserConfig<T extends BaseCliOptions = BaseCliOptions> {
     /** Default port number */
     defaultPort?: number;
@@ -25,6 +35,8 @@ export interface CliParserConfig<T extends BaseCliOptions = BaseCliOptions> {
     customOptionsParser?: (args: string[], options: T) => T;
     /** Custom help text */
     customHelpText?: string;
+    /** Custom flag handlers for application-specific options */
+    customFlagHandlers?: Record<string, CustomFlagHandler<T>>;
 }
 
 /**
@@ -115,6 +127,14 @@ export function parseCliArgs<T extends BaseCliOptions = BaseCliOptions>(
                 break;
 
             default:
+                const handler = config.customFlagHandlers?.[arg];
+                if (handler) {
+                    const consumed = handler({ args, index: i, options: options as T });
+                    if (typeof consumed === 'number' && consumed > 0) {
+                        i += consumed;
+                    }
+                    break;
+                }
                 if (arg.startsWith('-')) {
                     throw new Error(`Unknown option: ${arg}`);
                 }

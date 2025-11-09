@@ -15,5 +15,10 @@
         "dist",
         "**/*.test.ts",
         "**/__tests__/**"
+    ],
+    "references": [
+        {
+            "path": "../../packages/mcp-kit/tsconfig.json"
+        }
     ]
 }

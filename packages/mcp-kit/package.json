@@ -22,6 +22,10 @@
             "import": "./dist/server/express/index.js",
             "types": "./dist/server/express/index.d.ts"
         },
+        "./server": {
+            "import": "./dist/server/index.js",
+            "types": "./dist/server/index.d.ts"
+        },
         "./server/edge": {
             "import": "./dist/server/edge/index.js",
             "types": "./dist/server/edge/index.d.ts"
@@ -49,6 +53,14 @@
         "./utils/cli-mcp-client": {
             "import": "./dist/utils/cli-mcp-client.js",
             "types": "./dist/utils/cli-mcp-client.d.ts"
+        },
+        "./test-utils/test-instance-registry": {
+            "import": "./dist/test-utils/test-instance-registry.js",
+            "types": "./dist/test-utils/test-instance-registry.d.ts"
+        },
+        "./test-utils/create-test-instance-accessors": {
+            "import": "./dist/test-utils/create-test-instance-accessors.js",
+            "types": "./dist/test-utils/create-test-instance-accessors.d.ts"
         }
     },
     "files": [
@@ -66,6 +78,8 @@
     "devDependencies": {
         "@rsbuild/core": "^1.4.5",
         "@types/node": "^20.19.4",
+        "@types/supertest": "^2.0.16",
+        "supertest": "^6.3.3",
         "typescript": "^5.3.3",
         "vitest": "^3.2.4"
     }

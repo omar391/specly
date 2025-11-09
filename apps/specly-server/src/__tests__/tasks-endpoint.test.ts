@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
-import { ExpressServer } from '../server/express-server.js';
+import { createExpressServer, type IExpressServer } from '@omar391/mcp-kit/server/express';
 import { DrizzleDatabaseManager, DatabaseType } from '../database/drizzle-connection.js';
 import { DatabaseService } from '../services/database-service.js';
+import { setupSpeclyApi } from '../server/specly-express-hooks.js';
 
 // Helper to build minimal valid task payloads
 const taskPayload = (overrides: Partial<{ title: string; description: string; priority: 'high' | 'medium' | 'low'; assets: any[]; external_references: any[]; metadata: any; tags: any[] }> = {}) => ({
@@ -13,7 +14,7 @@ const taskPayload = (overrides: Partial<{ title: string; description: string; pr
 });
 
 describe('Tasks API Endpoints (concrete DB, supertest)', () => {
-  let server: ExpressServer;
+  let server: IExpressServer;
   let drizzleDb: DrizzleDatabaseManager;
   let databaseService: DatabaseService;
   let app: any;
@@ -25,10 +26,14 @@ describe('Tasks API Endpoints (concrete DB, supertest)', () => {
     await drizzleDb.initialize();
     databaseService = new DatabaseService(drizzleDb);
 
-    server = new ExpressServer({ port: 0, dev: true });
-    await server.start();
-    await server.setupAPIEndpoints(databaseService);
-    app = server.getApp();
+    server = createExpressServer({
+      port: 0,
+      dev: true,
+      info: { name: 'specly', version: 'test', uiHintUrl: 'http://localhost:5173' },
+      endpoints: { apiBase: '/api', mcpBase: '/mcp', healthPath: '/health' },
+    });
+    await setupSpeclyApi(server, databaseService);
+    app = server.app;
 
     // Create a workspace in GLOBAL DB
     workspaceId = 'ws-' + Math.random().toString(36).slice(2, 8);

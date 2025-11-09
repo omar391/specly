@@ -361,6 +361,14 @@ Rules:
 - Linear profile inheritance avoids conflict resolution heuristics (no diamond merges).
 - Soft delete + time-based purge ensures auditability without unbounded growth.
 
+## 21. Runtime Bootstrap & CLI Seams
+- Specly CLI now delegates argument parsing to `@omar391/mcp-kit/utils/cli-parser` with custom flag handlers (e.g. `--force-seed`) so team-specific toggles extend the shared `BaseCliOptions` contract without copy-paste parsing logic.
+- Server startup flows call `startMcpServer({ kind: 'express', ... })` from `@omar391/mcp-kit/server`, which wires the Express bootstrap, tool handlers, control endpoints (`/__version`, `/__shutdown`, `/__transition`), and graceful shutdown hooks.
+- Multi-instance decisions use `coordinateInstanceRole` from `@omar391/mcp-kit/node-instance` before starting HTTP services; the helper removes stale locks, negotiates version upgrades, and returns coordination metadata passed into Specly’s `onBeforeStart`/`onAfterStart` hooks for seeding/background job orchestration.
+- Proxy fallbacks remain available (auto or manual) via the `startMcpServer` Express result (`InstanceRole.PROXY`), keeping Specly’s CLI/UI wiring agnostic to whether the current process is serving HTTP traffic or deferring to another main instance.
+- `--dev` flagging now sets the Express bootstrap’s `dev` mode even when `NODE_ENV=production`, enabling targeted local diagnostics without mutating environment variables.
+- `--no-kill` surfaces the shared `killExisting=false` branch: Specly skips port cleanup and aborts startup with an explicit error if another process owns the MCP port, matching the documented operator contract.
+
 ---
 
 ## Appendix A: Security & Validation Limits

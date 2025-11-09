@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { ExpressServer } from '../server/express-server.js';
+import { createExpressServer, type IExpressServer } from '@omar391/mcp-kit/server/express';
 import { DatabaseService } from '../services/database-service.js';
 import { DrizzleDatabaseManager, DatabaseType } from '../database/drizzle-connection.js';
 import { GlobalDatabaseService } from '../database/global-queries.js';
@@ -10,9 +10,12 @@ import request from 'supertest';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { mkdirSync, rmSync, existsSync } from 'fs';
+import { setupSpeclyApi } from '../server/specly-express-hooks.js';
+
+type TestExpressServer = IExpressServer & { getApp: () => IExpressServer['app'] };
 
 describe('Workspaces Endpoint', () => {
-  let server: ExpressServer;
+  let server: TestExpressServer;
   let drizzleDb: DrizzleDatabaseManager;
   let databaseService: DatabaseService;
   let globalDb: GlobalDatabaseService;
@@ -35,9 +38,14 @@ describe('Workspaces Endpoint', () => {
     globalDb = databaseService.getGlobal();
 
     // Create server instance
-    server = new ExpressServer({ port: 0, dev: true });
-    await server.start();
-    await server.setupAPIEndpoints(databaseService);
+    const baseServer = createExpressServer({
+      port: 0,
+      dev: true,
+      info: { name: 'specly', version: 'test', uiHintUrl: 'http://localhost:5173' },
+      endpoints: { apiBase: '/api', mcpBase: '/mcp', healthPath: '/health' },
+    });
+    server = Object.assign(baseServer, { getApp: () => baseServer.app });
+    await setupSpeclyApi(server, databaseService);
   });
 
   afterEach(async () => {
