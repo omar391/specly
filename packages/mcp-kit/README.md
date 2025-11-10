@@ -83,7 +83,7 @@ export default handler;
 Coordinate multiple Node processes with lock-based instance management:
 
 ```typescript
-import { BaseInstanceManager, InstanceRole } from '@omar391/mcp-kit/node-instance';
+import { BaseInstanceManager, InstanceRole } from '@omar391/mcp-kit/server/express/node-instance';
 
 const manager = new BaseInstanceManager({ port: 8989, version: '1.0.0' });
 
@@ -214,10 +214,23 @@ The helper wraps `createSharedTestInstanceHelpers` and provides consistent `setI
 ```
 @omar391/mcp-kit/
 ├── client              # MCP client utilities
-├── node-instance       # Multi-instance coordination
-└── server/
-    ├── express         # Express.js adapter (Node.js)
-    └── edge            # Fetch-based handler (Edge/Serverless)
+├── server/
+│   ├── express/        # Express.js adapter (Node.js)
+│   │   ├── node-instance/  # Multi-instance coordination
+│   │   ├── port-manager.ts # Port management utilities
+│   │   ├── process-manager.ts # Process signal handling
+│   │   ├── proxy/       # HTTP proxy with metadata
+│   │   ├── server.ts    # Express server wrapper
+│   │   ├── transport.ts # Server orchestration
+│   │   └── index.ts     # Express exports
+│   ├── edge/           # Fetch-based handler (Edge/Serverless)
+│   ├── stdio.ts        # Stdio transport
+│   ├── handlers.ts     # Tool handler utilities
+│   └── index.ts        # Unified server bootstrap
+├── utils/              # Generic utilities
+│   ├── cli-parser.ts   # CLI argument parsing
+│   └── cli-mcp-client.ts # MCP client CLI
+└── test-utils/         # Testing helpers
 ```
 
 ## API Reference
@@ -246,9 +259,38 @@ The helper wraps `createSharedTestInstanceHelpers` and provides consistent `setI
   - `requestMainTransition()` - Graceful takeover
   - `startProxy()` - HTTP proxy to main instance
 
-## TypeScript
+## Breaking Changes
 
-Fully typed with TypeScript. All exports include `.d.ts` declarations.
+### v0.1.0 → v1.0.0
+
+**Module Restructuring**: Express-specific modules have been moved to scoped paths for better separation of concerns.
+
+**Migration Guide:**
+
+```typescript
+// Before
+import { BaseInstanceManager } from '@omar391/mcp-kit/node-instance';
+import { port utilities } from '@omar391/mcp-kit/utils/port-manager';
+
+// After
+import { BaseInstanceManager } from '@omar391/mcp-kit/server/express/node-instance';
+import { port utilities } from '@omar391/mcp-kit/server/express/port-manager';
+```
+
+**New API Customization**: The Express server now supports omitting API endpoints for pure MCP servers:
+
+```typescript
+startMcpExpressServer({
+  // ... other options
+  expressOptions: {
+    endpoints: {
+      apiBase: null, // Omit API endpoint from health/root responses
+    }
+  }
+});
+```
+
+**Enhanced Proxy Metadata**: Proxy instances now include metadata headers for better observability.
 
 ## License
 

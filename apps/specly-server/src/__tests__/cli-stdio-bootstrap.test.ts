@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
-import { InstanceRole } from '@omar391/mcp-kit/node-instance';
+import { InstanceRole } from '@omar391/mcp-kit/server/express';
 
 const {
     parseCliArgsMock,
@@ -66,7 +66,7 @@ vi.mock('../utils/cli-parser.js', () => ({
     displayHelp: displayHelpMock,
 }));
 
-vi.mock('@omar391/mcp-kit/utils/port-manager', () => ({
+vi.mock('@omar391/mcp-kit/server/express/port-manager', () => ({
     ensurePortAvailable: ensurePortAvailableMock,
 }));
 
@@ -102,15 +102,15 @@ const instanceManagerMocks = vi.hoisted(() => {
 });
 
 vi.mock('../server/instance-manager.js', async () => {
-    const actual = await vi.importActual<typeof import('@omar391/mcp-kit/node-instance')>('@omar391/mcp-kit/node-instance');
-    class InstanceManager {
+    const actual = await vi.importActual<typeof import('@omar391/mcp-kit/server/express')>('@omar391/mcp-kit/server/express');
+    class SpeclyInstanceManager {
         static VERSION = 'test-version';
         port: number;
         proxyPort: number;
         role = actual.InstanceRole.MAIN;
 
-        constructor(_lockPath?: string, port?: number) {
-            this.port = port ?? 8989;
+        constructor(_lockPath?: string, _port?: number) {
+            this.port = _port ?? 8989;
             this.proxyPort = this.port + 1;
         }
 
@@ -119,7 +119,7 @@ vi.mock('../server/instance-manager.js', async () => {
     }
 
     return {
-        InstanceManager,
+        SpeclyInstanceManager,
         InstanceRole: actual.InstanceRole,
     };
 });
@@ -189,8 +189,8 @@ vi.mock('../tools/update-steps.js', () => {
     return { UpdateStepsTool: Tool, updateStepsToolSchema: schema };
 });
 
-vi.mock('@omar391/mcp-kit/node-instance', async () => {
-    const actual = await vi.importActual<typeof import('@omar391/mcp-kit/node-instance')>('@omar391/mcp-kit/node-instance');
+vi.mock('@omar391/mcp-kit/server/express', async () => {
+    const actual = await vi.importActual<typeof import('@omar391/mcp-kit/server/express')>('@omar391/mcp-kit/server/express');
     return {
         ...actual,
         startStdioProxy: startStdioProxyMock,

@@ -3,7 +3,7 @@ import type { Mock } from 'vitest';
 import {
     coordinateInstanceRole,
     InstanceRole,
-    BaseInstanceManager,
+    InstanceManager,
     type InstanceLock,
     type InstanceManagerLike,
     type CoordinateInstanceProxyResult,
@@ -61,7 +61,7 @@ describe('coordinateInstanceRole', () => {
             readLock: vi.fn(async () => staleLock),
         });
 
-        const pidSpy = vi.spyOn(BaseInstanceManager, 'isPidAlive').mockReturnValue(false);
+        const pidSpy = vi.spyOn(InstanceManager, 'isPidAlive').mockReturnValue(false);
 
         const result = await coordinateInstanceRole({ instanceManager: manager, desiredVersion: '1.0.0' });
 
@@ -80,7 +80,7 @@ describe('coordinateInstanceRole', () => {
             readLock: vi.fn(async () => activeLock),
         });
 
-        const pidSpy = vi.spyOn(BaseInstanceManager, 'isPidAlive').mockReturnValue(true);
+        const pidSpy = vi.spyOn(InstanceManager, 'isPidAlive').mockReturnValue(true);
 
         const result = await coordinateInstanceRole({ instanceManager: manager, desiredVersion: '1.0.0' });
 
@@ -101,7 +101,7 @@ describe('coordinateInstanceRole', () => {
             fetchMainVersion: vi.fn(async () => '0.9.0'),
         });
 
-        const pidSpy = vi.spyOn(BaseInstanceManager, 'isPidAlive').mockReturnValue(true);
+        const pidSpy = vi.spyOn(InstanceManager, 'isPidAlive').mockReturnValue(true);
 
         const result = await coordinateInstanceRole({ instanceManager: manager, desiredVersion: '1.1.0', waitForPortTimeoutMs: 50 });
 
@@ -124,7 +124,7 @@ describe('coordinateInstanceRole', () => {
             requestMainTransition: vi.fn(async () => false),
         });
 
-        const pidSpy = vi.spyOn(BaseInstanceManager, 'isPidAlive').mockReturnValue(true);
+        const pidSpy = vi.spyOn(InstanceManager, 'isPidAlive').mockReturnValue(true);
 
         await expect(
             coordinateInstanceRole({ instanceManager: manager, desiredVersion: '1.0.0' })

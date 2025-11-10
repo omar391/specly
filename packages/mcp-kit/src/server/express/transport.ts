@@ -2,32 +2,34 @@ import type { Application } from 'express';
 import type { Server as HttpServer } from 'http';
 import { createExpressServer, type ExpressServerOptions, type IExpressServer } from './server.js';
 import type { MCPToolHandlers } from './mcp-adapter.js';
+import { ProxyManager } from './proxy.js';
 import {
-    BaseInstanceManager,
+    InstanceManager,
     InstanceRole,
     coordinateInstanceRole,
     type CoordinateInstanceOptions,
     type CoordinateInstanceResult,
     type CoordinateInstanceMainResult,
-} from '../../node-instance/index.js';
+    type IInstanceManager,
+} from './instance-manager.js';
 
-export interface StartNodeServerMainContext {
+export interface StartNodeServerMainContext<M extends IInstanceManager = IInstanceManager> {
     role: InstanceRole.MAIN;
     expressServer: IExpressServer;
-    instanceManager: BaseInstanceManager;
-    coordination?: CoordinateInstanceMainResult<BaseInstanceManager>;
+    instanceManager: M;
+    coordination?: CoordinateInstanceMainResult<M>;
 }
 
-export interface StartNodeServerProxyContext {
+export interface StartNodeServerProxyContext<M extends IInstanceManager = IInstanceManager> {
     role: InstanceRole.PROXY;
-    instanceManager: BaseInstanceManager;
+    instanceManager: M;
     proxyServer: HttpServer | null;
-    coordination?: CoordinateInstanceResult<BaseInstanceManager>;
+    coordination?: CoordinateInstanceResult<M>;
 }
 
-export type StartNodeServerResult = StartNodeServerMainContext | StartNodeServerProxyContext;
+export type StartNodeServerResult<M extends IInstanceManager = IInstanceManager> = StartNodeServerMainContext<M> | StartNodeServerProxyContext<M>;
 
-export interface McpExpressServerOptions {
+export interface McpExpressServerOptions<M extends IInstanceManager = InstanceManager> {
     toolHandlers: MCPToolHandlers | (() => MCPToolHandlers | Promise<MCPToolHandlers>);
     port?: number;
     dev?: boolean;
@@ -35,15 +37,15 @@ export interface McpExpressServerOptions {
     serverVersion?: string;
     lockPath?: string;
     metricsCollector?: { snapshot: () => unknown };
-    configureApp?: (app: Application, context: StartNodeServerMainContext) => void | Promise<void>;
-    setupApi?: (server: IExpressServer, context: StartNodeServerMainContext) => void | Promise<void>;
+    configureApp?: (app: Application, context: StartNodeServerMainContext<M>) => void | Promise<void>;
+    setupApi?: (server: IExpressServer, context: StartNodeServerMainContext<M>) => void | Promise<void>;
     createExpressServer?: (options: ExpressServerOptions) => IExpressServer;
-    instanceManager?: BaseInstanceManager;
+    instanceManager?: M;
     autoProxy?: boolean;
-    onBeforeStart?: (context: StartNodeServerMainContext) => void | Promise<void>;
-    onAfterStart?: (context: StartNodeServerMainContext) => void | Promise<void>;
-    onProxyStart?: (context: StartNodeServerProxyContext) => void | Promise<void>;
-    gracefulShutdown?: (context: StartNodeServerMainContext & { reason: string }) => void | Promise<void>;
+    onBeforeStart?: (context: StartNodeServerMainContext<M>) => void | Promise<void>;
+    onAfterStart?: (context: StartNodeServerMainContext<M>) => void | Promise<void>;
+    onProxyStart?: (context: StartNodeServerProxyContext<M>) => void | Promise<void>;
+    gracefulShutdown?: (context: StartNodeServerMainContext<M> & { reason: string }) => void | Promise<void>;
     shutdownSignals?: NodeJS.Signals[];
     exitOnShutdown?: boolean;
     controlEndpoints?: {
@@ -51,22 +53,22 @@ export interface McpExpressServerOptions {
         versionPath?: string;
         shutdownPath?: string;
         transitionPath?: string;
-        onShutdown?: (context: StartNodeServerMainContext & { reason: string }) => void | Promise<void>;
-        onTransition?: (context: StartNodeServerMainContext & { reason: string }) => void | Promise<void>;
+        onShutdown?: (context: StartNodeServerMainContext<M> & { reason: string }) => void | Promise<void>;
+        onTransition?: (context: StartNodeServerMainContext<M> & { reason: string }) => void | Promise<void>;
     };
     expressOptions?: Pick<ExpressServerOptions, 'cors' | 'info' | 'endpoints'> & {
         port?: number;
         dev?: boolean;
     };
-    coordinateInstance?: boolean | Omit<CoordinateInstanceOptions<BaseInstanceManager>, 'instanceManager'>;
-    onCoordinateDecision?: (result: CoordinateInstanceResult<BaseInstanceManager>) => void | Promise<void>;
+    coordinateInstance?: boolean | Omit<CoordinateInstanceOptions<M>, 'instanceManager'>;
+    onCoordinateDecision?: (result: CoordinateInstanceResult<M>) => void | Promise<void>;
 }
 
 export function isHandlersFactory(value: McpExpressServerOptions['toolHandlers']): value is () => MCPToolHandlers | Promise<MCPToolHandlers> {
     return typeof value === 'function' && !(value as unknown as MCPToolHandlers).listTools;
 }
 
-function buildExpressOptions(opts: McpExpressServerOptions, port: number, dev: boolean, version: string) {
+function buildExpressOptions<M extends IInstanceManager>(opts: McpExpressServerOptions<M>, port: number, dev: boolean, version: string) {
     const info = {
         name: opts.serverName ?? opts.expressOptions?.info?.name ?? 'mcp-kit-backend',
         version: opts.serverVersion ?? opts.expressOptions?.info?.version ?? version,
@@ -85,23 +87,23 @@ function buildExpressOptions(opts: McpExpressServerOptions, port: number, dev: b
     } satisfies ExpressServerOptions;
 }
 
-export async function startMcpExpressServer(opts: McpExpressServerOptions): Promise<StartNodeServerResult> {
+export async function startMcpExpressServer<M extends IInstanceManager = InstanceManager>(opts: McpExpressServerOptions<M>): Promise<StartNodeServerResult<M>> {
     const resolvedPort = opts.port ?? opts.expressOptions?.port ?? 8989;
     const defaultDev = process.env.NODE_ENV !== 'production';
     const dev = opts.dev ?? opts.expressOptions?.dev ?? defaultDev;
-    const version = opts.serverVersion ?? opts.expressOptions?.info?.version ?? BaseInstanceManager.defaultVersion;
+    const version = opts.serverVersion ?? opts.expressOptions?.info?.version ?? InstanceManager.defaultVersion;
 
-    const instanceManager = opts.instanceManager ?? new BaseInstanceManager({
+    const instanceManager: M = opts.instanceManager ?? new InstanceManager({
         lockPath: opts.lockPath,
         port: resolvedPort,
-        version,
-    });
+        getVersion: () => version,
+    }) as unknown as M;
 
     const coordinationEnabled = opts.coordinateInstance !== undefined && opts.coordinateInstance !== false;
 
-    const handleProxyReturn = async (coordination?: CoordinateInstanceResult<BaseInstanceManager>): Promise<StartNodeServerProxyContext> => {
+    const handleProxyReturn = async (coordination?: CoordinateInstanceResult<M>): Promise<StartNodeServerProxyContext<M>> => {
         if (opts.autoProxy === false) {
-            const proxyContext: StartNodeServerProxyContext = {
+            const proxyContext: StartNodeServerProxyContext<M> = {
                 role: InstanceRole.PROXY,
                 instanceManager,
                 proxyServer: null,
@@ -113,8 +115,19 @@ export async function startMcpExpressServer(opts: McpExpressServerOptions): Prom
             return proxyContext;
         }
 
-        const proxyServer = await instanceManager.startProxy();
-        const proxyContext: StartNodeServerProxyContext = {
+        const proxyManager = new ProxyManager();
+        const mainVersion = coordination?.status === 'proxy' ? coordination.mainVersion : null;
+        const metadata = {
+            mainVersion: mainVersion ?? undefined,
+            mainPort: resolvedPort,
+            instanceId: `proxy-${process.pid}`,
+            startTime: Date.now(),
+        };
+        const proxyServer = await proxyManager.start(resolvedPort, metadata);
+        instanceManager.proxyManager = proxyManager;
+        instanceManager.proxyPort = proxyManager.port;
+        instanceManager.role = InstanceRole.PROXY;
+        const proxyContext: StartNodeServerProxyContext<M> = {
             role: InstanceRole.PROXY,
             instanceManager,
             proxyServer,
@@ -126,7 +139,7 @@ export async function startMcpExpressServer(opts: McpExpressServerOptions): Prom
         return proxyContext;
     };
 
-    let coordinationResult: CoordinateInstanceResult<BaseInstanceManager> | undefined;
+    let coordinationResult: CoordinateInstanceResult<M> | undefined;
 
     if (coordinationEnabled) {
         const coordConfig = typeof opts.coordinateInstance === 'boolean' ? {} : opts.coordinateInstance ?? {};
@@ -157,7 +170,7 @@ export async function startMcpExpressServer(opts: McpExpressServerOptions): Prom
     const expressFactory: (options: ExpressServerOptions) => IExpressServer = opts.createExpressServer ?? createExpressServer;
     const expressServer = expressFactory(expressOptions);
 
-    const mainContext: StartNodeServerMainContext = {
+    const mainContext: StartNodeServerMainContext<M> = {
         role: InstanceRole.MAIN,
         expressServer,
         instanceManager,

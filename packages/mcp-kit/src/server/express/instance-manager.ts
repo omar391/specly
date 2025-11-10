@@ -1,9 +1,10 @@
 // Node multi-instance manager placeholder
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
-import http from 'http';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import * as http from 'http';
 import type { Server as HttpServer } from 'http';
+import { ProxyManager } from './proxy.js';
 
 export interface InstanceLock {
     pid: number;
@@ -17,31 +18,49 @@ export enum InstanceRole {
     UNKNOWN = 'unknown',
 }
 
-export interface BaseInstanceOptions {
+export interface InstanceManagerOptions {
     lockPath?: string;
     port?: number;
-    version?: string;
+    getVersion?: () => string;
+    fs?: typeof import('fs');
+}
+
+export interface IInstanceManager {
+    port: number;
+    version: string;
+    role: InstanceRole;
+    proxyPort: number | null;
+    proxyManager?: ProxyManager;
+    tryBecomeMain(): Promise<boolean>;
+    readLock(): Promise<InstanceLock | null>;
+    removeLock(): Promise<void>;
+    fetchMainVersion(): Promise<string | null>;
+    requestMainTransition(): Promise<boolean>;
+    waitForPort(timeoutMs?: number): Promise<boolean>;
 }
 
 /**
- * BaseInstanceManager: generic multi-instance coordinator with lock + proxy.
- * Framework-agnostic; no app-specific dependencies. Extend to add app hooks.
+ * InstanceManager: generic multi-instance coordinator with lock + proxy.
+ * Framework-agnostic; no app-specific dependencies. Use composition to add app hooks.
  */
-export class BaseInstanceManager {
+export class InstanceManager implements IInstanceManager {
     static defaultVersion = '0.1.0';
 
     private _lockPath: string;
     private _port: number;
-    private _version: string;
+    private _versionGetter: () => string;
+    private _fs: typeof import('fs');
 
     role: InstanceRole = InstanceRole.UNKNOWN;
     proxyPort: number | null = null;
     lock: InstanceLock | null = null;
+    proxyManager?: ProxyManager;
 
-    constructor(opts: BaseInstanceOptions = {}) {
+    constructor(opts: InstanceManagerOptions = {}) {
         this._lockPath = opts.lockPath ?? path.join(os.tmpdir(), 'mcp-kit-8989.lock');
         this._port = opts.port ?? 8989;
-        this._version = opts.version ?? (this.constructor as typeof BaseInstanceManager).defaultVersion;
+        this._versionGetter = opts.getVersion ?? (() => (this.constructor as typeof InstanceManager).defaultVersion);
+        this._fs = opts.fs ?? fs;
     }
 
     get lockPath(): string {
@@ -61,11 +80,7 @@ export class BaseInstanceManager {
     }
 
     get version(): string {
-        return this._version;
-    }
-
-    set version(value: string) {
-        this._version = value;
+        return this._versionGetter();
     }
 
     async tryBecomeMain(): Promise<boolean> {
@@ -167,9 +182,10 @@ export class BaseInstanceManager {
         });
     }
 
-    async waitForPort(timeoutMs = 10000): Promise<boolean> {
+    async waitForPort(timeoutMs?: number): Promise<boolean> {
+        const timeout = timeoutMs ?? 10000;
         const start = Date.now();
-        while (Date.now() - start < timeoutMs) {
+        while (Date.now() - start < timeout) {
             try {
                 const s = http.createServer();
                 await new Promise((resolve, reject) => {
@@ -185,31 +201,12 @@ export class BaseInstanceManager {
     }
 
     async startProxy(config?: { port?: number }): Promise<HttpServer> {
-        const targetPort = config?.port ?? this.port;
-        const httpProxy = (await import('http-proxy')).default;
-        const proxy = httpProxy.createProxyServer({
-            target: `http://127.0.0.1:${targetPort}`,
-            ws: true,
-            changeOrigin: true,
-            autoRewrite: true,
-        });
-
-        const server = http.createServer((req, res) => {
-            proxy.web(req, res, {}, (err: Error & { code?: string }) => {
-                res.writeHead(502, { 'Content-Type': 'text/plain' });
-                res.end('Proxy error: ' + err?.message);
-            });
-        });
-
-        server.on('upgrade', (req, socket, head) => {
-            proxy.ws(req, socket as any, head);
-        });
-
-        await new Promise<void>((resolve) => { server.listen(0, '127.0.0.1', () => resolve()); });
-        const address = server.address();
-        if (typeof address === 'object' && address && 'port' in address) {
-            this.proxyPort = address.port as number;
+        if (!this.proxyManager) {
+            this.proxyManager = new ProxyManager();
         }
+        const targetPort = config?.port ?? this.port;
+        const server = await this.proxyManager.start(targetPort);
+        this.proxyPort = this.proxyManager.port;
         this.role = InstanceRole.PROXY;
         return server;
     }
@@ -218,7 +215,7 @@ export class BaseInstanceManager {
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { createMCPClient } from '../client.js';
+import { createMCPClient } from '../../client.js';
 
 export interface StdioProxyConfig {
     port: number;
@@ -231,7 +228,7 @@ export interface StdioProxyConfig {
 export async function startStdioProxy(opts: StdioProxyConfig | { mainPort: number }) {
     const port = (opts as any).mainPort ?? (opts as StdioProxyConfig).port;
     const serverName = (opts as StdioProxyConfig).serverName ?? 'mcp-kit';
-    const serverVersion = (opts as StdioProxyConfig).serverVersion ?? BaseInstanceManager.defaultVersion;
+    const serverVersion = (opts as StdioProxyConfig).serverVersion ?? InstanceManager.defaultVersion;
     const clientName = (opts as StdioProxyConfig).clientName ?? `${serverName}-proxy`;
     const debug = (opts as StdioProxyConfig).debug ?? false;
 
@@ -296,24 +293,14 @@ export async function startStdioProxy(opts: StdioProxyConfig | { mainPort: numbe
     process.on('SIGTERM', shutdownHandler);
 }
 
-export interface InstanceManagerLike {
-    port: number;
-    tryBecomeMain(): Promise<boolean>;
-    readLock(): Promise<InstanceLock | null>;
-    removeLock(): Promise<void>;
-    fetchMainVersion(): Promise<string | null>;
-    requestMainTransition(): Promise<boolean>;
-    waitForPort(timeoutMs?: number): Promise<boolean>;
-}
-
-export interface CoordinateInstanceOptions<M extends InstanceManagerLike = BaseInstanceManager> {
+export interface CoordinateInstanceOptions<M extends IInstanceManager = InstanceManager> {
     instanceManager: M;
     desiredVersion?: string;
     waitForPortTimeoutMs?: number;
     removeStaleLock?: boolean;
 }
 
-export interface CoordinateInstanceMainResult<M extends InstanceManagerLike> {
+export interface CoordinateInstanceMainResult<M extends IInstanceManager> {
     status: 'main';
     role: InstanceRole.MAIN;
     instanceManager: M;
@@ -321,7 +308,7 @@ export interface CoordinateInstanceMainResult<M extends InstanceManagerLike> {
     previousVersion?: string | null;
 }
 
-export interface CoordinateInstanceProxyResult<M extends InstanceManagerLike> {
+export interface CoordinateInstanceProxyResult<M extends IInstanceManager> {
     status: 'proxy';
     role: InstanceRole.PROXY;
     instanceManager: M;
@@ -329,18 +316,18 @@ export interface CoordinateInstanceProxyResult<M extends InstanceManagerLike> {
     mainVersion: string | null;
 }
 
-export type CoordinateInstanceResult<M extends InstanceManagerLike> =
+export type CoordinateInstanceResult<M extends IInstanceManager> =
     | CoordinateInstanceMainResult<M>
     | CoordinateInstanceProxyResult<M>;
 
 /**
  * Coordinate multi-instance startup, handling stale lock recovery and version upgrades.
  */
-export async function coordinateInstanceRole<M extends InstanceManagerLike>(
+export async function coordinateInstanceRole<M extends IInstanceManager>(
     options: CoordinateInstanceOptions<M>
 ): Promise<CoordinateInstanceResult<M>> {
     const { instanceManager, waitForPortTimeoutMs = 10000, removeStaleLock = true } = options;
-    const desiredVersion = options.desiredVersion ?? (instanceManager as unknown as { version?: string }).version ?? BaseInstanceManager.defaultVersion;
+    const desiredVersion = options.desiredVersion ?? instanceManager.version ?? InstanceManager.defaultVersion;
 
     if (await instanceManager.tryBecomeMain()) {
         return {
@@ -354,7 +341,7 @@ export async function coordinateInstanceRole<M extends InstanceManagerLike>(
     let inspectedLock: InstanceLock | null = null;
     if (removeStaleLock) {
         inspectedLock = await instanceManager.readLock();
-        const isLockStale = !inspectedLock || !BaseInstanceManager.isPidAlive(inspectedLock.pid);
+        const isLockStale = !inspectedLock || !InstanceManager.isPidAlive(inspectedLock.pid);
         if (isLockStale) {
             await instanceManager.removeLock();
             if (await instanceManager.tryBecomeMain()) {

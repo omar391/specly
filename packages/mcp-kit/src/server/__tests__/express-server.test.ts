@@ -118,6 +118,16 @@ describe('ExpressServer (mcp-kit)', () => {
             expect(response.body.metrics).toEqual({ requests: 42 });
         });
 
+        it('omits api endpoint from health when apiBase is null', async () => {
+            server = new ExpressServer({ port: 3002, dev: true, endpoints: { apiBase: null } });
+            server.setupHealthAndRoot();
+
+            const response = await supertest(server.app).get('/health');
+            expect(response.status).toBe(200);
+            expect(response.body.endpoints.api).toBeUndefined();
+            expect(response.body.endpoints).toMatchObject({ mcp: '/mcp', health: '/health', mcp_sse: '/sse' });
+        });
+
         it('returns API discovery information on root', async () => {
             server = new ExpressServer({ port: 3002, dev: true });
             server.setupHealthAndRoot();
@@ -125,6 +135,16 @@ describe('ExpressServer (mcp-kit)', () => {
             const response = await supertest(server.app).get('/');
             expect(response.status).toBe(200);
             expect(response.body.endpoints).toMatchObject({ api: '/api', mcp: '/mcp' });
+        });
+
+        it('omits api endpoint when apiBase is null', async () => {
+            server = new ExpressServer({ port: 3002, dev: true, endpoints: { apiBase: null } });
+            server.setupHealthAndRoot();
+
+            const response = await supertest(server.app).get('/');
+            expect(response.status).toBe(200);
+            expect(response.body.endpoints.api).toBeUndefined();
+            expect(response.body.endpoints).toMatchObject({ mcp: '/mcp', health: '/health' });
         });
     });
 

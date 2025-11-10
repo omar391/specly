@@ -13,8 +13,9 @@
         "composite": true,
         "declaration": true,
         "declarationMap": true,
+        "declarationDir": "./dist",
         "sourceMap": false,
-        "noEmitOnError": true
+        "downlevelIteration": true,
     },
     "include": [
         "src/**/*"

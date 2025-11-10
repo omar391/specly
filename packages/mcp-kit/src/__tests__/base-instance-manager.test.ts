@@ -3,7 +3,8 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import http from 'http';
-import { BaseInstanceManager, InstanceRole } from '../node-instance/index.js';
+import { InstanceManager, InstanceRole } from '../server/express/instance-manager.js';
+import { ProxyManager } from '../server/express/proxy.js';
 
 function uniqueLockPath() {
     return path.join(os.tmpdir(), `mcp-kit-test-${Date.now()}-${Math.random().toString(36).slice(2)}.lock`);
@@ -23,13 +24,13 @@ async function closeServer(server?: http.Server) {
     }
 }
 
-describe('BaseInstanceManager (generic multi-instance coordination)', () => {
+describe('InstanceManager (generic multi-instance coordination)', () => {
     let lockPath: string;
-    let manager: BaseInstanceManager;
+    let manager: InstanceManager;
 
     beforeEach(() => {
         lockPath = uniqueLockPath();
-        manager = new BaseInstanceManager({ lockPath });
+        manager = new InstanceManager({ lockPath });
     });
 
     afterEach(async () => {
@@ -75,7 +76,7 @@ describe('BaseInstanceManager (generic multi-instance coordination)', () => {
 
     describe('Multi-Instance Contention', () => {
         it('only one instance becomes MAIN with same lock path', async () => {
-            const managers = Array.from({ length: 3 }, () => new BaseInstanceManager({ lockPath }));
+            const managers = Array.from({ length: 3 }, () => new InstanceManager({ lockPath }));
             const results = await Promise.all(managers.map(m => m.tryBecomeMain()));
             const successCount = results.filter(Boolean).length;
             expect(successCount).toBe(1);
@@ -91,9 +92,9 @@ describe('BaseInstanceManager (generic multi-instance coordination)', () => {
 
     describe('PID & Version Utilities', () => {
         it('isPidAlive true for current, false for invalid', () => {
-            expect(BaseInstanceManager.isPidAlive(process.pid)).toBe(true);
-            expect(BaseInstanceManager.isPidAlive(0)).toBe(false);
-            expect(BaseInstanceManager.isPidAlive(-5)).toBe(false);
+            expect(InstanceManager.isPidAlive(process.pid)).toBe(true);
+            expect(InstanceManager.isPidAlive(0)).toBe(false);
+            expect(InstanceManager.isPidAlive(-5)).toBe(false);
         });
 
         it('fetchMainVersion returns version, malformed & network return null', async () => {
@@ -105,7 +106,7 @@ describe('BaseInstanceManager (generic multi-instance coordination)', () => {
                     res.end(JSON.stringify({ version }));
                 } else { res.writeHead(404); res.end(); }
             });
-            manager = new BaseInstanceManager({ lockPath, port: started.port });
+            manager = new InstanceManager({ lockPath, port: started.port });
             await expect(manager.fetchMainVersion()).resolves.toBe(version);
             await closeServer(started.server);
 
@@ -113,7 +114,7 @@ describe('BaseInstanceManager (generic multi-instance coordination)', () => {
             const malformed = await startEphemeralServer((req, res) => {
                 if (req.url === '/__version') { res.writeHead(200); res.end('{oops'); } else { res.writeHead(404); res.end(); }
             });
-            manager = new BaseInstanceManager({ lockPath, port: malformed.port });
+            manager = new InstanceManager({ lockPath, port: malformed.port });
             await expect(manager.fetchMainVersion()).resolves.toBeNull();
             await closeServer(malformed.server);
 
@@ -129,7 +130,7 @@ describe('BaseInstanceManager (generic multi-instance coordination)', () => {
                 if (req.url === '/__transition' && req.method === 'POST') { res.writeHead(200); res.end('ok'); return; }
                 res.writeHead(404); res.end();
             });
-            manager = new BaseInstanceManager({ lockPath, port: started.port });
+            manager = new InstanceManager({ lockPath, port: started.port });
             await expect(manager.requestMainShutdown()).resolves.toBe(true);
             await expect(manager.requestMainTransition()).resolves.toBe(true);
             await closeServer(started.server);
@@ -143,7 +144,7 @@ describe('BaseInstanceManager (generic multi-instance coordination)', () => {
             const ephemeral = await startEphemeralServer((req, res) => { res.writeHead(200); res.end('ok'); });
             const candidate = ephemeral.port + 1; // likely free
             await closeServer(ephemeral.server);
-            manager = new BaseInstanceManager({ lockPath, port: candidate });
+            manager = new InstanceManager({ lockPath, port: candidate });
             await expect(manager.waitForPort(1000)).resolves.toBe(true);
         });
 
@@ -156,15 +157,19 @@ describe('BaseInstanceManager (generic multi-instance coordination)', () => {
                 listen: () => { setImmediate(() => listeners.error?.(new Error('EADDRINUSE'))); },
                 close: () => { }
             }) as unknown as http.Server);
-            manager = new BaseInstanceManager({ lockPath, port: 65534 });
+            manager = new InstanceManager({ lockPath, port: 65534 });
             await expect(manager.waitForPort(300)).resolves.toBe(false);
             (http.createServer as any).mockRestore?.() ?? (http.createServer = origCreate);
         });
 
         it('startProxy proxies to main and returns 502 after main stopped', async () => {
             const main = await startEphemeralServer((req, res) => { res.writeHead(200); res.end('from-main'); });
-            manager = new BaseInstanceManager({ lockPath, port: main.port });
-            const proxyServer = await manager.startProxy();
+            manager = new InstanceManager({ lockPath, port: main.port });
+            const proxyManager = new ProxyManager();
+            const proxyServer = await proxyManager.start(main.port);
+            manager.proxyManager = proxyManager;
+            manager.proxyPort = proxyManager.port;
+            manager.role = InstanceRole.PROXY;
             const proxyAddr = proxyServer.address();
             expect(typeof proxyAddr).toBe('object');
             const proxyPort = (proxyAddr as any).port as number;
@@ -180,14 +185,14 @@ describe('BaseInstanceManager (generic multi-instance coordination)', () => {
                 req.on('error', () => resolve(0)); req.end();
             });
             expect(code).toBe(502);
-            await closeServer(proxyServer);
+            await proxyManager.stop();
         });
     });
 
     describe('Takeover Scenario (version mismatch + shutdown)', () => {
         it('handles version mismatch then takeover after shutdown', async () => {
             // First manager becomes main (lock file only)
-            const first = new BaseInstanceManager({ lockPath, port: 0 });
+            const first = new InstanceManager({ lockPath, port: 0 });
             await first.writeLock();
             // Server with old version + shutdown endpoint
             const versionServer = http.createServer((req, res) => {
@@ -203,7 +208,7 @@ describe('BaseInstanceManager (generic multi-instance coordination)', () => {
             const addr = versionServer.address();
             const port = typeof addr === 'object' && addr ? (addr as any).port as number : 0;
 
-            const second = new BaseInstanceManager({ lockPath, port });
+            const second = new InstanceManager({ lockPath, port });
             // Cannot become main due to existing lock
             const secondMainAttempt = await second.tryBecomeMain();
             expect(secondMainAttempt).toBe(false);

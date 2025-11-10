@@ -5,7 +5,8 @@ import path from "path";
 import http from "http";
 import crypto from "crypto";
 
-import { InstanceManager, InstanceRole } from "../instance-manager.js";
+import { SpeclyInstanceManager, InstanceRole } from "../instance-manager.js";
+import { InstanceManager } from "@omar391/mcp-kit/server/express";
 import { GlobalDatabaseService } from "../../database/global-queries.js";
 import { BackgroundJobsService } from "../../services/background-jobs-service.js";
 import { DrizzleDatabaseManager, DatabaseType } from "../../database/drizzle-connection.js";
@@ -31,12 +32,12 @@ async function closeServer(server?: http.Server) {
 
 describe("InstanceManager Unit", () => {
     let lockPath: string;
-    let manager: InstanceManager;
+    let manager: SpeclyInstanceManager;
     let server: http.Server | undefined;
 
     beforeEach(() => {
         lockPath = uniqueLockPath();
-        manager = new InstanceManager(lockPath);
+        manager = new SpeclyInstanceManager(lockPath);
         server = undefined;
     });
 
@@ -65,7 +66,7 @@ describe("InstanceManager Unit", () => {
         const json = JSON.parse(raw);
         expect(typeof json.pid).toBe("number");
         expect(typeof json.timestamp).toBe("number");
-        expect(json.version).toBe(InstanceManager.VERSION);
+        expect(json.version).toBe(SpeclyInstanceManager.VERSION);
 
         await manager.removeLock();
         expect(fs.existsSync(lockPath)).toBe(false);

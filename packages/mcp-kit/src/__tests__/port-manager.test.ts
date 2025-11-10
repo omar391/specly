@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import * as portManager from '../utils/port-manager.js';
+import * as portManager from '../server/express/port-manager.js';
 import { exec } from 'child_process';
 import http from 'http';
 

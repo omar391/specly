@@ -9,3 +9,7 @@ export type {
     StartNodeServerMainContext,
     StartNodeServerProxyContext,
 } from './transport.js';
+export * from './instance-manager.js';
+export * from './proxy.js';
+export * from './port-manager.js';
+export * from './shutdown-manager.js';

@@ -16,7 +16,7 @@ export interface ExpressServerOptions {
         uiHintUrl?: string;
     };
     endpoints?: {
-        apiBase?: string;
+        apiBase?: string | null;
         mcpBase?: string; // informational only for root/health payload
         healthPath?: string;
     };
@@ -91,20 +91,23 @@ export class ExpressServer implements IExpressServer {
 
     setupHealthAndRoot(metricsCollector?: { snapshot: () => any }) {
         const healthPath = this.opts.endpoints?.healthPath ?? '/health';
-        const apiBase = this.opts.endpoints?.apiBase ?? '/api';
+        const apiBase = this.opts.endpoints?.apiBase !== undefined ? this.opts.endpoints.apiBase : '/api';
         const mcpBase = this.opts.endpoints?.mcpBase ?? '/mcp';
         const name = this.opts.info?.name ?? 'backend';
         const version = this.opts.info?.version ?? '0.1.0';
 
         this.app.get(healthPath, (_req, res) => {
-            const base = {
+            const base: any = {
                 status: 'healthy',
                 timestamp: new Date().toISOString(),
                 version,
                 mode: this.opts.dev ? 'development' : 'production',
                 port: this.opts.port,
-                endpoints: { api: apiBase, mcp: mcpBase, health: healthPath, mcp_sse: '/sse' },
+                endpoints: { mcp: mcpBase, health: healthPath, mcp_sse: '/sse' },
             };
+            if (apiBase !== null) {
+                base.endpoints.api = apiBase;
+            }
             if (metricsCollector && typeof metricsCollector.snapshot === 'function') {
                 res.json({ ...base, metrics: metricsCollector.snapshot() });
             } else {
@@ -113,14 +116,18 @@ export class ExpressServer implements IExpressServer {
         });
 
         this.app.get('/', (_req, res) => {
-            res.json({
+            const base: any = {
                 message: 'Specly Backend API',
                 version,
                 mode: this.opts.dev ? 'development' : 'production',
-                endpoints: { api: apiBase, mcp: mcpBase, health: healthPath },
+                endpoints: { mcp: mcpBase, health: healthPath },
                 cors: this.opts.dev ? 'enabled for localhost development' : 'disabled',
                 note: this.opts.dev ? `UI should be running separately on ${this.opts.info?.uiHintUrl ?? 'http://localhost:5173'}` : 'Backend API only',
-            });
+            };
+            if (apiBase !== null) {
+                base.endpoints.api = apiBase;
+            }
+            res.json(base);
         });
     }
 

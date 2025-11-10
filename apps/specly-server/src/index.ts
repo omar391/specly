@@ -14,7 +14,7 @@ import { DatabaseService } from './services/database-service.js';
 import { SeedManager } from './services/seed-manager.js';
 import { PromptOrchestrator } from './services/prompt-orchestrator.js';
 import { parseCliArgs, displayHelp, type CliOptions } from './utils/cli-parser.js';
-import { ensurePortAvailable as ensurePortFree } from '@omar391/mcp-kit/utils/port-manager';
+import { ensurePortAvailable as ensurePortFree } from '@omar391/mcp-kit/server/express/port-manager';
 
 import type { MCPToolHandlers } from '@omar391/mcp-kit/server/express';
 import { startMcpServer } from '@omar391/mcp-kit/server';
@@ -35,9 +35,9 @@ import { RuleUpdateTool, ruleUpdateToolSchema } from './tools/rule-update.js';
 import { RemoteInterfaceTool, remoteInterfaceToolSchema } from './tools/remote-interface.js';
 import { UpdateResourcesTool, updateResourcesToolSchema } from './tools/update-resources.js';
 import { UpdateStepsTool, updateStepsToolSchema } from './tools/update-steps.js';
-import { InstanceManager, InstanceRole } from './server/instance-manager.js';
+import { SpeclyInstanceManager, InstanceRole } from './server/instance-manager.js';
 import { SpeclyToolResult } from './types/index.js';
-import { startStdioProxy } from '@omar391/mcp-kit/node-instance';
+import { startStdioProxy } from '@omar391/mcp-kit/server/express';
 import { configureSpeclyApp, setupSpeclyApi } from './server/specly-express-hooks.js';
 
 // Legacy multi-step types removed; all tools now return SpeclyToolResult.
@@ -194,25 +194,25 @@ export async function main() {
 
     const port = cliOptions.port ?? 8989;
     const dev = cliOptions.dev || process.env.NODE_ENV !== 'production';
-    const instanceManager = new InstanceManager(undefined, port);
+    const instanceManager = new SpeclyInstanceManager(undefined, port);
 
     const serverResult = await startMcpServer({
       kind: 'express',
       port,
       dev,
       serverName: 'specly',
-      serverVersion: InstanceManager.VERSION,
+      serverVersion: SpeclyInstanceManager.VERSION,
       instanceManager,
       autoProxy: cliOptions.mode !== 'stdio',
       expressOptions: {
         port,
         dev,
-        info: { name: 'specly', version: InstanceManager.VERSION, uiHintUrl: 'http://localhost:5173' },
+        info: { name: 'specly', version: SpeclyInstanceManager.VERSION, uiHintUrl: 'http://localhost:5173' },
         endpoints: { apiBase: '/api', mcpBase: '/mcp', healthPath: '/health' },
         cors: { allowAnyLocalhost: true, credentials: true },
       },
       coordinateInstance: {
-        desiredVersion: InstanceManager.VERSION,
+        desiredVersion: SpeclyInstanceManager.VERSION,
         waitForPortTimeoutMs: 10000,
         removeStaleLock: true,
       },
@@ -251,13 +251,13 @@ export async function main() {
         }
       },
       onProxyStart: async (context) => {
-        const mainVersion = InstanceManager.VERSION;
+        const mainVersion = SpeclyInstanceManager.VERSION;
         if (cliOptions!.mode === 'stdio') {
           console.error(`[PROXY MODE] Main instance v${mainVersion} running on port ${instanceManager.port}. Starting stdio proxy.`);
           await startStdioProxy({
             port: instanceManager.port,
             serverName: 'specly',
-            serverVersion: InstanceManager.VERSION,
+            serverVersion: SpeclyInstanceManager.VERSION,
             clientName: 'specly-proxy',
             debug: true,
           });
@@ -294,11 +294,11 @@ export async function main() {
     const coordination = serverResult.coordination;
     if (coordination?.reason === 'version-transition') {
       const previous = coordination.previousVersion ?? 'unknown';
-      console.log(`[VERSION CHANGE] Current v${InstanceManager.VERSION}, main is v${previous}. Taking over...`);
-      console.log(`[VERSION CHANGE] Successfully became main instance v${InstanceManager.VERSION}`);
+      console.log(`[VERSION CHANGE] Current v${SpeclyInstanceManager.VERSION}, main is v${previous}. Taking over...`);
+      console.log(`[VERSION CHANGE] Successfully became main instance v${SpeclyInstanceManager.VERSION}`);
     }
 
-    console.log(`[MAIN INSTANCE] Starting v${InstanceManager.VERSION}`);
+    console.log(`[MAIN INSTANCE] Starting v${SpeclyInstanceManager.VERSION}`);
     if (cliOptions.mode === 'stdio') {
       await startStdioMode(cliOptions);
     }

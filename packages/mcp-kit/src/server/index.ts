@@ -7,7 +7,7 @@ import {
     type StartNodeServerProxyContext,
 } from './express/transport.js';
 import { createMcpEdgeHandler, type CreateEdgeHandlerOptions } from './edge/index.js';
-import { BaseInstanceManager } from '../node-instance/index.js';
+import { InstanceManager, type IInstanceManager } from './express/instance-manager.js';
 
 export type {
     McpExpressServerOptions,
@@ -35,10 +35,10 @@ export interface McpServerBaseOptions {
     serverVersion?: string;
 }
 
-export type McpServerExpressOptions = {
+export type McpServerExpressOptions<M extends IInstanceManager = InstanceManager> = {
     kind: 'express';
 } & McpServerBaseOptions &
-    Omit<McpExpressServerOptions, 'toolHandlers' | 'serverName' | 'serverVersion'>;
+    Omit<McpExpressServerOptions<M>, 'toolHandlers' | 'serverName' | 'serverVersion'>;
 
 export interface McpServerEdgeOptions extends McpServerBaseOptions {
     kind: 'edge';
@@ -49,9 +49,9 @@ export type McpServerOptions = McpServerExpressOptions | McpServerEdgeOptions;
 
 export type StartMcpServerResult = StartNodeServerResult | StartMcpServerEdgeContext;
 
-export async function startMcpServer(opts: McpServerExpressOptions): Promise<StartNodeServerResult>;
+export async function startMcpServer<M extends IInstanceManager = InstanceManager>(opts: McpServerExpressOptions<M> & { instanceManager?: M }): Promise<StartNodeServerResult<M>>;
 export async function startMcpServer(opts: McpServerEdgeOptions): Promise<StartMcpServerEdgeContext>;
-export async function startMcpServer(opts: McpServerOptions): Promise<StartMcpServerResult> {
+export async function startMcpServer<M extends IInstanceManager = InstanceManager>(opts: (McpServerExpressOptions<M> & { instanceManager?: M }) | McpServerEdgeOptions): Promise<StartMcpServerResult> {
     const kind = (opts as { kind?: string }).kind;
     if (kind !== 'express' && kind !== 'edge') {
         throw new Error("[mcp-kit] startMcpServer requires a 'kind' of 'express' or 'edge'.");
@@ -59,7 +59,7 @@ export async function startMcpServer(opts: McpServerOptions): Promise<StartMcpSe
 
     if (opts.kind === 'express') {
         const { kind: _kind, serverName, serverVersion, toolHandlers, ...rest } = opts;
-        const expressOptions: McpExpressServerOptions = {
+        const expressOptions: McpExpressServerOptions<M> = {
             ...rest,
             toolHandlers,
             serverName,
@@ -79,7 +79,7 @@ export async function startMcpServer(opts: McpServerOptions): Promise<StartMcpSe
 
     const serverVersion = edgeOverrides.serverVersion
         ?? opts.serverVersion
-        ?? BaseInstanceManager.defaultVersion;
+        ?? InstanceManager.defaultVersion;
 
     const handler = createMcpEdgeHandler({
         ...edgeOverrides,

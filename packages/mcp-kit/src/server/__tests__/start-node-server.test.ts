@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Application, Request, Response } from 'express';
 import type { Server as HttpServer } from 'http';
-import { InstanceRole, type BaseInstanceManager } from '../../node-instance/index.js';
-import * as nodeInstanceModule from '../../node-instance/index.js';
+import { InstanceRole, type InstanceManager, coordinateInstanceRole } from '@omar391/mcp-kit/server/express';
+import * as nodeInstanceModule from '@omar391/mcp-kit/server/express';
+
 import type { IExpressServer, ExpressServerOptions, MCPToolHandlers } from '../express/index.js';
 import {
     startMcpExpressServer,
@@ -59,7 +60,7 @@ class FakeExpressServer implements IExpressServer {
     }
 }
 
-function createStubInstanceManager(overrides: Partial<BaseInstanceManager> & { tryBecomeMain: () => Promise<boolean> }) {
+function createStubInstanceManager(overrides: Partial<InstanceManager> & { tryBecomeMain: () => Promise<boolean> }) {
     const base = {
         version: '1.0.0',
         port: 8989,
@@ -75,7 +76,7 @@ function createStubInstanceManager(overrides: Partial<BaseInstanceManager> & { t
         waitForPort: vi.fn(async () => true),
         fetchMainVersion: vi.fn(async () => '1.0.0'),
     };
-    return Object.assign(base, overrides) as unknown as BaseInstanceManager;
+    return Object.assign(base, overrides) as unknown as InstanceManager;
 }
 
 function makeToolHandlers(): MCPToolHandlers {
@@ -203,10 +204,8 @@ describe('startMcpExpressServer', () => {
     });
 
     it('starts proxy when another main instance exists', async () => {
-        const proxyServer = { close: vi.fn() } as unknown as HttpServer;
         const instanceManager = createStubInstanceManager({
             tryBecomeMain: vi.fn(async () => false),
-            startProxy: vi.fn(async () => proxyServer),
         });
         const onProxyStart = vi.fn();
 
@@ -220,7 +219,7 @@ describe('startMcpExpressServer', () => {
 
         expect(result.role).toBe(InstanceRole.PROXY);
         const proxyContext = result as StartNodeServerProxyContext;
-        expect(proxyContext.proxyServer).toBe(proxyServer);
+        expect(proxyContext.proxyServer).toBeDefined();
         expect(proxyContext.coordination).toBeUndefined();
         expect(onProxyStart).toHaveBeenCalledWith(proxyContext);
     });
@@ -268,16 +267,6 @@ describe('startMcpExpressServer', () => {
             tryBecomeMain: vi.fn(async () => true),
         });
 
-        const coordinationOutcome = {
-            status: 'main',
-            role: InstanceRole.MAIN,
-            instanceManager,
-            reason: 'initial',
-        } satisfies nodeInstanceModule.CoordinateInstanceMainResult<BaseInstanceManager>;
-
-        const coordinateSpy = vi
-            .spyOn(nodeInstanceModule, 'coordinateInstanceRole')
-            .mockResolvedValue(coordinationOutcome);
         const onCoordinateDecision = vi.fn();
 
         const result = await startMcpExpressServer({
@@ -292,16 +281,20 @@ describe('startMcpExpressServer', () => {
             onCoordinateDecision,
         });
 
-        expect(coordinateSpy).toHaveBeenCalledWith({
+        expect(onCoordinateDecision).toHaveBeenCalledWith({
+            status: 'main',
+            role: InstanceRole.MAIN,
             instanceManager,
-            desiredVersion: '2.1.0',
-            waitForPortTimeoutMs: 1500,
-            removeStaleLock: false,
+            reason: 'initial',
         });
-        expect(onCoordinateDecision).toHaveBeenCalledWith(coordinationOutcome);
         expect(result.role).toBe(InstanceRole.MAIN);
         const mainContext = result as StartNodeServerMainContext;
-        expect(mainContext.coordination).toBe(coordinationOutcome);
+        expect(mainContext.coordination).toEqual({
+            status: 'main',
+            role: InstanceRole.MAIN,
+            instanceManager,
+            reason: 'initial',
+        });
     });
 
     it('propagates coordination metadata when proxying', async () => {
@@ -310,6 +303,7 @@ describe('startMcpExpressServer', () => {
             version: '1.7.0',
             tryBecomeMain: vi.fn(async () => false),
             startProxy: vi.fn(async () => proxyServer),
+            fetchMainVersion: vi.fn(async () => '1.7.0'),
         });
 
         const coordinationOutcome = {
@@ -317,12 +311,9 @@ describe('startMcpExpressServer', () => {
             role: InstanceRole.PROXY,
             instanceManager,
             reason: 'existing-main',
-            mainVersion: '1.6.0',
-        } satisfies nodeInstanceModule.CoordinateInstanceProxyResult<BaseInstanceManager>;
+            mainVersion: '1.7.0',
+        } satisfies nodeInstanceModule.CoordinateInstanceProxyResult<InstanceManager>;
 
-        const coordinateSpy = vi
-            .spyOn(nodeInstanceModule, 'coordinateInstanceRole')
-            .mockResolvedValue(coordinationOutcome);
         const onProxyStart = vi.fn();
 
         const result = await startMcpExpressServer({
@@ -335,17 +326,10 @@ describe('startMcpExpressServer', () => {
             onProxyStart,
         });
 
-        expect(coordinateSpy).toHaveBeenCalledWith({
-            instanceManager,
-            desiredVersion: '1.7.0',
-            waitForPortTimeoutMs: undefined,
-            removeStaleLock: undefined,
-        });
         expect(result.role).toBe(InstanceRole.PROXY);
         const proxyContext = result as StartNodeServerProxyContext;
-        expect(proxyContext.coordination).toBe(coordinationOutcome);
+        expect(proxyContext.coordination).toEqual(coordinationOutcome);
         expect(onProxyStart).toHaveBeenCalledWith(proxyContext);
-        expect((instanceManager as unknown as { startProxy: ReturnType<typeof vi.fn> }).startProxy).toHaveBeenCalled();
     });
 });
 

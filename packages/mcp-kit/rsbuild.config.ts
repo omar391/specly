@@ -10,11 +10,8 @@ export default defineConfig({
         entry: {
             index: './src/index.ts',
             client: './src/client.ts',
-            // Stubs for future adapters
-            'http/index': './src/http/index.ts',
-            'express/index': './src/express/index.ts',
             'server/index': './src/server/index.ts',
-            'node-instance/index': './src/node-instance/index.ts'
+            'server/express/index': './src/server/express/index.ts',
         },
     },
     tools: {
