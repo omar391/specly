@@ -6,6 +6,8 @@ import * as http from 'http';
 import type { Server as HttpServer } from 'http';
 import { ProxyManager } from '../proxy/index.js';
 
+export { ProxyManager };
+
 export interface InstanceLock {
     pid: number;
     version: string;

@@ -24,12 +24,16 @@
 - **Coverage**: Comprehensive coverage of cycle detection, UUID generation, and edge cases
 - **Exceptions**: Unreachable error handlers (lines 45-47) - defensive code for invalid input validation
 
-## Remaining Files (< 95%)
-- [Next file to work on based on coverage analysis]
+## Files with Existing Good Coverage
+- global-queries.ts: 12 tests, comprehensive database operations
+- base-tool.ts: 33 tests, complete base class coverage
+- database-connection.ts: Existing tests
+- Many other files have existing test coverage
 
 ## Summary
 - Total test files: 90
 - Total tests: 1571
-- Files below 95%: 14
-- Current focus: workspace-rules-repository.ts (completed)</content>
+- Files below 95%: 14 (estimated)
+- Current focus: workspace-rules-repository.ts (completed)
+- Next: Need to identify files with <95% coverage using coverage analysis</content>
 <parameter name="filePath">/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/apps/specly-server/.task/coverage-progress.md

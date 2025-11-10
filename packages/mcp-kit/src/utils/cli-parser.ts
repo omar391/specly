@@ -7,7 +7,7 @@
 export interface BaseCliOptions {
     port: number;
     mode: 'http' | 'stdio';
-    dev: boolean;
+    local: boolean;
     help: boolean;
     killExisting: boolean;
 }
@@ -53,13 +53,13 @@ export function parseCliArgs<T extends BaseCliOptions = BaseCliOptions>(
     args: string[] = process.argv.slice(2),
     config: CliParserConfig<T> = {}
 ): T {
-    const options: BaseCliOptions = {
+    const options = {
         port: config.defaultPort ?? 8989,
         mode: config.defaultMode ?? 'http',
-        dev: false,
+        local: false,
         help: false,
         killExisting: true,
-    };
+    } as T;
 
     for (let i = 0; i < args.length; i++) {
         const arg = args[i];
@@ -74,7 +74,7 @@ export function parseCliArgs<T extends BaseCliOptions = BaseCliOptions>(
                     if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
                         throw new Error(`Invalid port number: ${value}. Port must be between 1 and 65535.`);
                     }
-                    options.port = portNum;
+                    (options as any).port = portNum;
                     break;
 
                 default:
@@ -90,7 +90,7 @@ export function parseCliArgs<T extends BaseCliOptions = BaseCliOptions>(
                 if (portArg && !portArg.startsWith('-')) {
                     const port = parseInt(portArg, 10);
                     if (!isNaN(port) && port > 0 && port <= 65535) {
-                        options.port = port;
+                        (options as any).port = port;
                         i++; // Skip next arg since we consumed it
                     } else {
                         throw new Error(`Invalid port number: ${portArg}`);
@@ -101,35 +101,36 @@ export function parseCliArgs<T extends BaseCliOptions = BaseCliOptions>(
                 break;
 
             case '--stdio':
-                options.mode = 'stdio';
+                (options as any).mode = 'stdio';
                 break;
 
             case '--http':
-                options.mode = 'http';
+                (options as any).mode = 'http';
                 break;
 
+            case '--local':
             case '--dev':
-                options.dev = true;
+                (options as any).local = true;
                 break;
 
             case '--help':
             case '-h':
-                options.help = true;
+                (options as any).help = true;
                 break;
 
             case '--no-kill':
-                options.killExisting = false;
+                (options as any).killExisting = false;
                 break;
 
             // Legacy compatibility
             case '--sse':
-                options.mode = 'http';
+                (options as any).mode = 'http';
                 break;
 
             default:
                 const handler = config.customFlagHandlers?.[arg];
                 if (handler) {
-                    const consumed = handler({ args, index: i, options: options as T });
+                    const consumed = handler({ args, index: i, options });
                     if (typeof consumed === 'number' && consumed > 0) {
                         i += consumed;
                     }
@@ -144,10 +145,10 @@ export function parseCliArgs<T extends BaseCliOptions = BaseCliOptions>(
 
     // Allow custom parser to extend/modify options
     if (config.customOptionsParser) {
-        return config.customOptionsParser(args, options as T);
+        return config.customOptionsParser(args, options);
     }
 
-    return options as T;
+    return options;
 }
 
 /**
@@ -168,7 +169,7 @@ OPTIONS:
   --port, -p <number>    Port number to run on (default: ${defaultPort})
   --stdio               Run in STDIO mode for MCP clients
   --http                Run in HTTP mode (default)
-  --dev                 Enable development mode
+  --local               Enable local features like instance manager and control endpoints
   --no-kill             Don't kill existing instances on the port
   --help, -h            Show this help message
 
@@ -176,7 +177,7 @@ EXAMPLES:
   ${appName.toLowerCase().replace(/\s+/g, '-')}                          # Start on port ${defaultPort}
   ${appName.toLowerCase().replace(/\s+/g, '-')} --port 3000              # Start on port 3000
   ${appName.toLowerCase().replace(/\s+/g, '-')} --stdio                  # Start in STDIO mode for MCP
-  ${appName.toLowerCase().replace(/\s+/g, '-')} --dev --port 3001        # Development mode on port 3001
+  ${appName.toLowerCase().replace(/\s+/g, '-')} --local --port 3001      # Local mode on port 3001
 
 MODES:
   HTTP Mode (default):

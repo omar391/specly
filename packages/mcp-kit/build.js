@@ -55,7 +55,6 @@ const universalEntries = {
     'server/core/middleware': './src/server/core/middleware.ts',
     'server/core/runtime': './src/server/core/runtime.ts',
     'server/handlers': './src/server/handlers.ts',
-    'server/__tests__/test-utils/create-test-instance-accessors': './src/server/__tests__/test-utils/create-test-instance-accessors.ts',
     'utils/cli-parser': './src/utils/cli-parser.ts',
 };
 
@@ -64,6 +63,7 @@ const localEntries = {
     'client': './src/client.ts',
     'server/index': './src/server/index.ts',
     'server/stdio': './src/server/stdio.ts',
+    'server/server-starter': './src/server/server-starter.ts',
     'server/local/node-instance': './src/server/local/node-instance/index.ts',
     'server/local/port-manager': './src/server/local/port-manager.ts',
 };
@@ -129,13 +129,16 @@ async function build() {
         // Use cp command to recursively copy all files from universal to root dist
         execSync(`cp -r ${universalDist}/* ${defaultDist}/ 2>/dev/null || true`, { stdio: 'inherit' });
 
+        // Copy local builds that should be available in default dist
+        console.log('Copying local builds for backwards compatibility...');
+        const nodeDist = 'dist/node';
+        execSync(`cp -r ${nodeDist}/server ${defaultDist}/ 2>/dev/null || true`, { stdio: 'inherit' });
+        execSync(`cp ${nodeDist}/index.js ${defaultDist}/ 2>/dev/null || true`, { stdio: 'inherit' });
+        execSync(`cp ${nodeDist}/client.js ${defaultDist}/ 2>/dev/null || true`, { stdio: 'inherit' });
+
         // Generate TypeScript declarations
         console.log('Generating TypeScript declarations...');
         execSync('npx tsc -p tsconfig.json --emitDeclarationOnly --skipLibCheck', { stdio: 'inherit' });
-
-        // Copy test-utils declarations from universal build
-        console.log('Copying test-utils declarations...');
-        execSync('cp dist/universal/server/__tests__/test-utils/create-test-instance-accessors.d.ts dist/server/__tests__/test-utils/ 2>/dev/null || true', { stdio: 'inherit' });
 
         // Copy declaration files to target directories
         console.log('Copying declaration files to target directories...');

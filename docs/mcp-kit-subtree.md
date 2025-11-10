@@ -2,7 +2,7 @@
 
 Set a remote for the standalone mcp-kit repo (one-time):
 
-```
+```bash
 # Example: set the remote URL first
 # git remote add mcp-kit git@github.com:omar391/mcp-kit.git
 
@@ -12,7 +12,7 @@ export MCP_KIT_REMOTE=mcp-kit
 
 Common operations:
 
-```
+```bash
 # Add subtree at packages/mcp-kit from remote main
 pnpm run subtree:mcp-kit:add
 

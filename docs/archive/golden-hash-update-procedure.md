@@ -31,7 +31,7 @@ pnpm test src/__tests__/hash.golden.test.ts --run
 ```
 
 Look for console output:
-```
+```text
 Golden hash for spec-new-case.json: abc123...
 Update GOLDEN_HASHES in hash.golden.test.ts with this value
 ```
@@ -63,7 +63,7 @@ If hash algorithm changes intentionally:
 2. Recompute ALL golden hashes
 3. Update GOLDEN_HASHES dictionary with new values
 4. Document in CHANGELOG.md:
-   ```
+   ```text
    ## [Version] - Date
    ### Breaking Changes
    - Hash algorithm updated: [reason]

@@ -77,3 +77,6 @@ export class ProxyManager {
         return this.metadata;
     }
 }
+
+// Re-export Hono-based proxy for modern usage
+export { startHonoProxy, type HonoProxyOptions } from './hono-proxy.js';

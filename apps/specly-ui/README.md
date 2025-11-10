@@ -6,19 +6,19 @@ This package contains the Specly web UI built with React 19, Rsbuild, TypeScript
 
 1) Install dependencies
 
-```
+```bash
 bun install
 ```
 
 2) Start the dev server
 
-```
+```bash
 bun run dev
 ```
 
 3) Production build
 
-```
+```bash
 bun run build
 ```
 
@@ -33,7 +33,7 @@ Optional: You can also use npm or pnpm if you prefer.
 
 Example (macOS/Linux):
 
-```
+```bash
 export VITE_API_BASE_URL=http://localhost:8989
 export VITE_MCP_SSE_URL=http://localhost:8989/mcp
 bun run dev

@@ -77,7 +77,7 @@
         "./server/local/node-instance": {
             "node": {
                 "import": "./dist/node/server/local/node-instance.js",
-                "types": "./dist/server/local/node-instance.d.ts"
+                "types": "./dist/server/local/node-instance/index.d.ts"
             }
         },
         "./server/local/port-manager": {
@@ -85,10 +85,6 @@
                 "import": "./dist/node/server/local/port-manager.js",
                 "types": "./dist/server/local/port-manager.d.ts"
             }
-        },
-        "./server/__tests__/test-utils/create-test-instance-accessors.js": {
-            "import": "./dist/server/__tests__/test-utils/create-test-instance-accessors.js",
-            "types": "./dist/server/__tests__/test-utils/create-test-instance-accessors.d.ts"
         },
         "./utils/cli-parser": {
             "import": "./dist/utils/cli-parser.js",
