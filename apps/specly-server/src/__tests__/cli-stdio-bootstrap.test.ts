@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
-import { InstanceRole } from '@omar391/mcp-kit/server/express';
+import { InstanceRole } from '@omar391/mcp-kit/server/local/node-instance';
 
 const {
     parseCliArgsMock,
@@ -13,6 +13,9 @@ const {
     fakeDb,
     fakeSeedManagerInitMock,
     fakeSeedManagerSeedMock,
+    createHonoMcpServerMock,
+    startHonoMcpServerMock,
+    serveMock,
 } = vi.hoisted(() => {
     const fakeDb = {
         all: vi.fn(async () => []),
@@ -45,6 +48,12 @@ const {
             toolsAttached: 0,
             workspaceBindings: 0,
         })),
+        createHonoMcpServerMock: vi.fn(() => ({
+            get: vi.fn(),
+            post: vi.fn(),
+        })),
+        startHonoMcpServerMock: vi.fn(),
+        serveMock: vi.fn(),
     };
 });
 
@@ -66,17 +75,22 @@ vi.mock('../utils/cli-parser.js', () => ({
     displayHelp: displayHelpMock,
 }));
 
-vi.mock('@omar391/mcp-kit/server/express/port-manager', () => ({
+vi.mock('@omar391/mcp-kit/server/local/port-manager', () => ({
     ensurePortAvailable: ensurePortAvailableMock,
+    ensurePortFree: ensurePortAvailableMock, // Alias for ensurePortAvailable
 }));
 
 vi.mock('../database/global-queries.js', () => ({
     initializeGlobalDatabaseService: initializeGlobalDatabaseServiceMock,
+    getGlobalDatabaseService: () => fakeGlobalDbService,
 }));
 
 vi.mock('../services/database-service.js', () => ({
     DatabaseService: class {
         constructor(_: unknown) { }
+        getGlobal() {
+            return fakeGlobalDbService;
+        }
     },
 }));
 
@@ -96,24 +110,27 @@ vi.mock('../services/prompt-orchestrator.js', () => ({
 
 const instanceManagerMocks = vi.hoisted(() => {
     return {
+        tryBecomeMain: vi.fn(),
         startBackgroundJobs: vi.fn(),
         stopBackgroundJobs: vi.fn(),
     };
 });
 
 vi.mock('../server/instance-manager.js', async () => {
-    const actual = await vi.importActual<typeof import('@omar391/mcp-kit/server/express')>('@omar391/mcp-kit/server/express');
+    const actual = await vi.importActual<typeof import('@omar391/mcp-kit/server/local/node-instance')>('@omar391/mcp-kit/server/local/node-instance');
     class SpeclyInstanceManager {
         static VERSION = 'test-version';
         port: number;
         proxyPort: number;
         role = actual.InstanceRole.MAIN;
+        version = 'test-version';
 
         constructor(_lockPath?: string, _port?: number) {
             this.port = _port ?? 8989;
             this.proxyPort = this.port + 1;
         }
 
+        tryBecomeMain = instanceManagerMocks.tryBecomeMain;
         startBackgroundJobs = instanceManagerMocks.startBackgroundJobs;
         stopBackgroundJobs = instanceManagerMocks.stopBackgroundJobs;
     }
@@ -189,19 +206,34 @@ vi.mock('../tools/update-steps.js', () => {
     return { UpdateStepsTool: Tool, updateStepsToolSchema: schema };
 });
 
-vi.mock('@omar391/mcp-kit/server/express', async () => {
-    const actual = await vi.importActual<typeof import('@omar391/mcp-kit/server/express')>('@omar391/mcp-kit/server/express');
+vi.mock('@omar391/mcp-kit/server/local/node-instance', async () => {
+    const actual = await vi.importActual<typeof import('@omar391/mcp-kit/server/local/node-instance')>('@omar391/mcp-kit/server/local/node-instance');
     return {
         ...actual,
         startStdioProxy: startStdioProxyMock,
     };
 });
 
+vi.mock('hono', () => ({
+    Hono: class {
+        all() { return this; }
+    },
+}));
+
+vi.mock('@hono/node-server', () => ({
+    serve: serveMock,
+}));
+
+vi.mock('@omar391/mcp-kit/server/core/hono-mcp', () => ({
+    createHonoMcpServer: createHonoMcpServerMock,
+}));
+
 vi.mock('@omar391/mcp-kit/server', async () => {
     const actual = await vi.importActual<typeof import('@omar391/mcp-kit/server')>('@omar391/mcp-kit/server');
     return {
         ...actual,
-        startMcpServer: startMcpServerMock,
+        startStdioServer: startMcpServerMock, // Reuse the mock for startStdioServer
+        startHonoMcpServer: startHonoMcpServerMock,
     };
 });
 
@@ -216,9 +248,13 @@ describe('Specly CLI bootstrap', () => {
         startMcpServerMock.mockReset();
         ensurePortAvailableMock.mockReset();
         initializeGlobalDatabaseServiceMock.mockReset();
+        createHonoMcpServerMock.mockReset();
+        startHonoMcpServerMock.mockReset();
+        serveMock.mockReset();
         fakeDb.all.mockReset();
         fakeSeedManagerInitMock.mockReset();
         fakeSeedManagerSeedMock.mockReset();
+        instanceManagerMocks.tryBecomeMain.mockReset();
         instanceManagerMocks.startBackgroundJobs.mockReset();
         instanceManagerMocks.stopBackgroundJobs.mockReset();
 
@@ -246,6 +282,8 @@ describe('Specly CLI bootstrap', () => {
     });
 
     it('disables autoProxy and launches stdio proxy when running in stdio mode', async () => {
+        instanceManagerMocks.tryBecomeMain.mockResolvedValue(false);
+
         let capturedOptions: any;
         let capturedInstanceManager: any;
 
@@ -275,12 +313,10 @@ describe('Specly CLI bootstrap', () => {
 
         await main();
 
-        expect(startMcpServerMock).toHaveBeenCalledTimes(1);
-        expect(capturedOptions?.autoProxy).toBe(false);
         expect(startStdioProxyMock).toHaveBeenCalledTimes(1);
         expect(ensurePortAvailableMock).not.toHaveBeenCalled();
         expect(startStdioProxyMock.mock.calls[0][0]).toMatchObject({
-            port: capturedInstanceManager?.port,
+            port: 4567,
             serverName: 'specly',
             serverVersion: expect.any(String),
             clientName: 'specly-proxy',
@@ -288,7 +324,9 @@ describe('Specly CLI bootstrap', () => {
         expect(exitSpy).not.toHaveBeenCalled();
     });
 
-    it('propagates dev flag and killExisting=true to startMcpServer', async () => {
+    it('propagates dev flag and killExisting=true to server setup', async () => {
+        instanceManagerMocks.tryBecomeMain.mockResolvedValue(true);
+
         parseCliArgsMock.mockReturnValue({
             mode: 'http',
             port: 6000,
@@ -296,16 +334,25 @@ describe('Specly CLI bootstrap', () => {
             help: false,
             killExisting: true,
             forceSeed: false,
+            local: true,
         });
 
-        startMcpServerMock.mockImplementation(async (options: any) => {
-            await options.onBeforeStart?.();
-            return {
-                role: InstanceRole.MAIN,
-                instanceManager: options.instanceManager,
-                proxyServer: null,
-                coordination: undefined,
-            };
+        createHonoMcpServerMock.mockReturnValue({
+            get: vi.fn(),
+            post: vi.fn(),
+        });
+
+        startHonoMcpServerMock.mockImplementation(async (options: any) => {
+            if (options.configureApp) {
+                await options.configureApp({ get: vi.fn(), post: vi.fn() });
+            }
+            if (options.setupRoutes) {
+                await options.setupRoutes({ get: vi.fn(), post: vi.fn() });
+            }
+            if (options.onAfterStart) {
+                await options.onAfterStart({ get: vi.fn(), post: vi.fn() });
+            }
+            return { get: vi.fn(), post: vi.fn() };
         });
 
         const { main } = await import('../index.ts');
@@ -313,15 +360,19 @@ describe('Specly CLI bootstrap', () => {
         await expect(main()).resolves.toBeUndefined();
 
         expect(ensurePortAvailableMock).toHaveBeenCalledWith(6000, true);
-        expect(startMcpServerMock).toHaveBeenCalledWith(expect.objectContaining({
-            dev: true,
-            expressOptions: expect.objectContaining({ dev: true, port: 6000 }),
+        expect(startHonoMcpServerMock).toHaveBeenCalledWith(expect.objectContaining({
+            serverName: 'specly',
+            serverVersion: expect.any(String),
+            port: 6000,
         }));
         expect(instanceManagerMocks.startBackgroundJobs).toHaveBeenCalled();
         expect(startStdioProxyMock).not.toHaveBeenCalled();
+        expect(serveMock).not.toHaveBeenCalled(); // serve is called inside startHonoMcpServer
     });
 
     it('aborts startup when --no-kill is provided and port is busy', async () => {
+        instanceManagerMocks.tryBecomeMain.mockResolvedValue(true);
+
         parseCliArgsMock.mockReturnValue({
             mode: 'http',
             port: 7000,
@@ -329,17 +380,16 @@ describe('Specly CLI bootstrap', () => {
             help: false,
             killExisting: false,
             forceSeed: false,
+            local: true,
         });
 
         ensurePortAvailableMock.mockResolvedValue(false);
 
-        startMcpServerMock.mockImplementation(async (options: any) => {
+        startHonoMcpServerMock.mockImplementation(async (options: any) => {
             await options.onBeforeStart?.();
             return {
-                role: InstanceRole.MAIN,
-                instanceManager: options.instanceManager,
-                proxyServer: null,
-                coordination: undefined,
+                get: vi.fn(),
+                post: vi.fn(),
             };
         });
 
@@ -352,7 +402,7 @@ describe('Specly CLI bootstrap', () => {
             await expect(main()).resolves.toBeUndefined();
 
             expect(ensurePortAvailableMock).toHaveBeenCalledWith(7000, false);
-            expect(startMcpServerMock).toHaveBeenCalledTimes(1);
+            expect(startHonoMcpServerMock).not.toHaveBeenCalled();
             expect(fakeSeedManagerSeedMock).not.toHaveBeenCalled();
             expect(startStdioProxyMock).not.toHaveBeenCalled();
             expect(exitSpy).toHaveBeenCalledWith(1);

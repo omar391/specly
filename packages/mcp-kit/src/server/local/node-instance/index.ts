@@ -4,7 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as http from 'http';
 import type { Server as HttpServer } from 'http';
-import { ProxyManager } from './proxy.js';
+import { ProxyManager } from '../proxy/index.js';
 
 export interface InstanceLock {
     pid: number;
@@ -215,7 +215,7 @@ export class InstanceManager implements IInstanceManager {
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { createMCPClient } from '../../client.js';
+import { createMCPClient } from '../../../client.js';
 
 export interface StdioProxyConfig {
     port: number;

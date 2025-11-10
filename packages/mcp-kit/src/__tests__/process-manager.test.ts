@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createShutdownHandler, registerSignalHandlers } from '../server/express/shutdown-manager.js';
+import { createShutdownHandler, registerSignalHandlers } from '../server/local/process-manager.js';
 
 describe('Process Manager (Generic mcp-kit)', () => {
   let mockConsoleLog: any;

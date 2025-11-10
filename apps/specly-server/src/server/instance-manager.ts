@@ -7,7 +7,7 @@ import * as http from "http";
 import type { Server as HttpServer } from 'http';
 import { BackgroundJobsService } from '../services/background-jobs-service.js';
 import type { GlobalDatabaseService } from '../database/global-queries.js';
-import { InstanceManager as McpInstanceManager, InstanceRole, type InstanceLock, ProxyManager } from '@omar391/mcp-kit/server/express';
+import { InstanceManager as McpInstanceManager, InstanceRole, type InstanceLock, ProxyManager } from '@omar391/mcp-kit/server/local/node-instance';
 
 export { InstanceRole, type InstanceLock };
 

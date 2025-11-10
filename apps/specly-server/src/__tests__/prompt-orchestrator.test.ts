@@ -464,4 +464,171 @@ describe('Prompt Orchestrator', () => {
       expect(result2.prompt_text).toContain('Execute system function');
     });
   });
+
+  describe('buildContext (private method)', () => {
+    it('should build context with all default values', () => {
+      const context = (orchestrator as any).buildContext({}, 'workspace-123');
+      
+      expect(context).toEqual({
+        workspace_path: 'current directory',
+        workspace_id: 'workspace-123',
+        workspace_name: 'Specly Project',
+        task_description: 'No description',
+        task_id: 'Unknown task',
+        task_title: 'Untitled Task',
+        task_priority: 'Medium',
+        task_status: 'Backlog',
+        task_progress: '0',
+        repository_url: 'No repository specified',
+        timestamp: expect.any(String),
+        created_at: expect.any(String),
+        updated_at: expect.any(String),
+        project_name: 'Specly Project',
+        tech_stack: 'Not specified',
+        workspace_rules: '',
+        session_id: 'unknown',
+        parent_task_id: '',
+        connected_files: '',
+        notes: '',
+        field_updated: '',
+        old_value: '',
+        new_value: '',
+        reason: ''
+      });
+    });
+
+    it('should build context with provided values', () => {
+      const args = {
+        workspace_path: '/custom/path',
+        workspace_name: 'My Workspace',
+        description: 'Custom description',
+        task_id: 'task-456',
+        task_title: 'Custom Title',
+        priority: 'High',
+        task_status: 'In Progress',
+        task_progress: 75,
+        repository_url: 'https://github.com/user/repo',
+        project_name: 'Custom Project',
+        tech_stack: 'Node.js, Express',
+        workspace_rules: 'No semicolons',
+        session_id: 'session-789',
+        parent_task_id: 'parent-123',
+        connected_files: 'file1.ts,file2.ts',
+        notes: 'Some notes',
+        field_updated: 'status',
+        old_value: 'backlog',
+        new_value: 'in_progress',
+        reason: 'User requested'
+      };
+
+      const context = (orchestrator as any).buildContext(args, 'workspace-123');
+
+      expect(context.workspace_path).toBe('/custom/path');
+      expect(context.workspace_name).toBe('My Workspace');
+      expect(context.task_description).toBe('Custom description');
+      expect(context.task_id).toBe('task-456');
+      expect(context.task_title).toBe('Custom Title');
+      expect(context.task_priority).toBe('High');
+      expect(context.task_status).toBe('In Progress');
+      expect(context.task_progress).toBe('75');
+      expect(context.repository_url).toBe('https://github.com/user/repo');
+      expect(context.project_name).toBe('Custom Project');
+      expect(context.tech_stack).toBe('Node.js, Express');
+      expect(context.workspace_rules).toBe('No semicolons');
+      expect(context.session_id).toBe('session-789');
+      expect(context.parent_task_id).toBe('parent-123');
+      expect(context.connected_files).toBe('file1.ts,file2.ts');
+      expect(context.notes).toBe('Some notes');
+      expect(context.field_updated).toBe('status');
+      expect(context.old_value).toBe('backlog');
+      expect(context.new_value).toBe('in_progress');
+      expect(context.reason).toBe('User requested');
+    });
+
+    it('should handle task_description fallback', () => {
+      const context = (orchestrator as any).buildContext({ task_description: 'Fallback description' }, 'ws-123');
+      expect(context.task_description).toBe('Fallback description');
+    });
+
+    it('should generate timestamp fields as ISO strings', () => {
+      const context = (orchestrator as any).buildContext({}, 'ws-123');
+      
+      expect(context.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+      expect(context.created_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+      expect(context.updated_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+    });
+  });
+
+  describe('replaceContextVariables (private method)', () => {
+    it('should replace context variables in text', () => {
+      const text = 'Project: {{context.project_name}} in {{context.workspace_path}} using {{context.tech_stack}}';
+      const context = {
+        project_name: 'My App',
+        workspace_path: '/home/user',
+        tech_stack: 'TypeScript'
+      };
+
+      const result = (orchestrator as any).replaceContextVariables(text, context);
+      
+      expect(result).toBe('Project: My App in /home/user using TypeScript');
+    });
+
+    it('should handle multiple occurrences of same variable', () => {
+      const text = '{{context.task_id}} - {{context.task_id}} - {{context.task_id}}';
+      const context = { task_id: 'TASK-123' };
+
+      const result = (orchestrator as any).replaceContextVariables(text, context);
+      
+      expect(result).toBe('TASK-123 - TASK-123 - TASK-123');
+    });
+
+    it('should handle multiple different variables', () => {
+      const text = 'Task {{context.task_id}} titled "{{context.task_title}}" with priority {{context.task_priority}}';
+      const context = {
+        task_id: 'task-456',
+        task_title: 'Implement Feature',
+        task_priority: 'High'
+      };
+
+      const result = (orchestrator as any).replaceContextVariables(text, context);
+      
+      expect(result).toBe('Task task-456 titled "Implement Feature" with priority High');
+    });
+
+    it('should not replace variables not in context', () => {
+      const text = 'Unknown {{context.unknown_var}} remains unchanged';
+      const context = { known_var: 'value' };
+
+      const result = (orchestrator as any).replaceContextVariables(text, context);
+      
+      expect(result).toBe('Unknown {{context.unknown_var}} remains unchanged');
+    });
+
+    it('should handle empty context object', () => {
+      const text = 'Text with {{context.var}} unchanged';
+      const context = {};
+
+      const result = (orchestrator as any).replaceContextVariables(text, context);
+      
+      expect(result).toBe('Text with {{context.var}} unchanged');
+    });
+
+    it('should handle special characters in replacement values', () => {
+      const text = 'Path: {{context.workspace_path}}';
+      const context = { workspace_path: '/path/with spaces & symbols' };
+
+      const result = (orchestrator as any).replaceContextVariables(text, context);
+      
+      expect(result).toBe('Path: /path/with spaces & symbols');
+    });
+
+    it('should handle regex special characters in variable names', () => {
+      const text = 'Value: {{context.field_updated}}';
+      const context = { 'field_updated': 'status' };
+
+      const result = (orchestrator as any).replaceContextVariables(text, context);
+      
+      expect(result).toBe('Value: status');
+    });
+  });
 });

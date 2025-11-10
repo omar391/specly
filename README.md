@@ -163,12 +163,22 @@ pnpm graph
 │   ├── mcp-kit/              # 📦 Publishable MCP toolkit (@omar391/mcp-kit)
 │   │   ├── src/
 │   │   │   ├── client.ts     # MCP client utilities
-│   │   │   ├── node-instance/# Multi-instance coordination
-│   │   │   └── server/       # Server adapters
-│   │   │       ├── express/  # Node.js HTTP adapter
-│   │   │       └── edge/     # Serverless/Edge adapter
-│   │   └── README.md         # Complete API documentation
-│   ├── specly-server/        # 🖥️  Specly MCP server application
+│   │   │   ├── server/
+│   │   │   │   ├── core/     # 🌍 Universal Hono-based MCP core
+│   │   │   │   │   ├── hono-mcp.ts    # Universal MCP server
+│   │   │   │   │   ├── handlers.ts    # Type-safe tool handlers
+│   │   │   │   │   ├── middleware.ts  # MCP protocol middleware
+│   │   │   │   │   ├── runtime.ts     # Runtime detection
+│   │   │   │   │   └── types.ts       # Shared types
+│   │   │   │   ├── local/    # 🖥️  Node.js/Bun specific features
+│   │   │   │   │   ├── express-bridge.ts  # Express integration
+│   │   │   │   │   ├── node-instance/     # Multi-instance coordination
+│   │   │   │   │   └── port-manager.ts    # Port management
+│   │   │   │   ├── handlers.ts # Tool handler utilities
+│   │   │   │   └── stdio.ts   # STDIO transport
+│   │   │   └── index.ts       # Server exports
+│   │   └── dist/              # Multi-target builds (universal/node/browser)
+│   └── specly-server/        # 🖥️  Specly MCP server application
 │   │   ├── src/
 │   │   │   ├── api/          # REST API endpoints
 │   │   │   ├── services/     # SpecEngine, validators, journal
@@ -184,16 +194,17 @@ pnpm graph
 │       └── dist/             # Built UI assets (served by main server)
 ├── docs/                     # 📚 Technical documentation
 │   ├── specly-architecture.md
-│   ├── mcp-kit-migration.md
+│   ├── mcp-kit-migration-v1.md  # 🚨 Breaking changes guide
 │   └── task.md
 └── pnpm-workspace.yaml       # Monorepo configuration
 ```
 
 **Architecture Notes:**
+- **Universal Core**: `mcp-kit` now provides a Hono-based MCP server that works across all JavaScript runtimes
+- **Runtime Detection**: Automatic detection of Node.js, Bun, Cloudflare Workers, Vercel Edge, etc.
+- **Multi-Target Builds**: Separate optimized builds for universal, Node.js, and browser environments
 - **Nx Orchestration**: Minimal Nx setup for coordinated builds across packages
 - **pnpm Workspaces**: Shared dependencies with workspace protocol
-- **mcp-kit**: Dual-repo strategy (git subtree) for standalone publishing
-- **Adapters**: Express (Node.js/SSE) and Edge (serverless/fetch) for multiple runtimes
 
 ### Database
 ### Seeding (Specly Baseline)

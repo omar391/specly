@@ -228,5 +228,63 @@ describe('NextStepTemplateGenerator', () => {
             // first call for wsA and wsB -> two fetches
             expect(spy).toHaveBeenCalledTimes(2);
         });
+
+        it('should handle unknown stepId in instruction templates (fallback to default)', async () => {
+            const flow = {
+                flow_steps: [
+                    { system_tool_fn: `${ToolNames.ADD}:unknown_step`, step_order: 1 },
+                    { system_tool_fn: `${ToolNames.ADD}:another_unknown`, step_order: 2 },
+                ]
+            };
+            vi.spyOn(NextStepTemplateGenerator.prototype as any, 'getToolFlow').mockResolvedValue(flow);
+
+            const result = await generator.generateNextStepInstructions(ToolNames.ADD);
+            expect(result).toBeTruthy();
+            expect(result!.instructionText).toContain("Continue with the unknown_step step");
+            expect(result!.stepId).toBe('unknown_step');
+        });
+
+        it('should cover various step template mappings', async () => {
+            const testCases = [
+                { stepId: 'confirm', expectedText: 'Confirm the changes' },
+                { stepId: 'analyze', expectedText: 'Analyze the current state' },
+                { stepId: 'plan', expectedText: 'Create a detailed plan' },
+                { stepId: 'implement', expectedText: 'Execute the planned changes' },
+                { stepId: 'detailed', expectedText: 'Generate detailed information' },
+                { stepId: 'recommendations', expectedText: 'Get personalized recommendations' },
+                { stepId: 'rules', expectedText: 'Review and apply workspace rules' },
+            ];
+
+            for (const { stepId, expectedText } of testCases) {
+                const flow = {
+                    flow_steps: [
+                        { system_tool_fn: `${ToolNames.STATUS}:${stepId}`, step_order: 1 },
+                    ]
+                };
+                vi.spyOn(NextStepTemplateGenerator.prototype as any, 'getToolFlow').mockResolvedValue(flow);
+
+                const result = await generator.generateNextStepInstructions(ToolNames.STATUS);
+                expect(result).toBeTruthy();
+                expect(result!.instructionText).toContain(expectedText);
+                expect(result!.stepId).toBe(stepId);
+
+                // Clear cache for next iteration
+                generator.clearCache();
+            }
+        });
+
+        it('should handle getToolFlow throwing an error', async () => {
+            vi.spyOn(NextStepTemplateGenerator.prototype as any, 'getToolFlow').mockRejectedValue(new Error('DB error'));
+
+            const result = await generator.generateNextStepInstructions(ToolNames.ADD);
+            expect(result).toBeNull();
+        });
+
+        it('should handle getAvailableNextSteps with error in getToolFlow', async () => {
+            vi.spyOn(NextStepTemplateGenerator.prototype as any, 'getToolFlow').mockRejectedValue(new Error('DB error'));
+
+            const result = await generator.getAvailableNextSteps(ToolNames.ADD);
+            expect(result).toEqual([]);
+        });
     });
 });

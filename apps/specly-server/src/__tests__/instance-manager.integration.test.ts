@@ -13,7 +13,7 @@ import os from 'os';
 import http from 'http';
 import { spawn, ChildProcess } from 'child_process';
 import { SpeclyInstanceManager, InstanceRole } from '../server/instance-manager.js';
-import { InstanceManager } from '@omar391/mcp-kit/server/express';
+import { InstanceManager } from '@omar391/mcp-kit/server/local/node-instance';
 
 describe('Instance Manager Root-to-Child Process System', () => {
     let testLockPath: string;

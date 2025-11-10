@@ -323,3 +323,6 @@ if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
         process.exit(1);
     });
 }
+
+// Export main for testing
+export { main };

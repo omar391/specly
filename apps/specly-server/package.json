@@ -28,6 +28,7 @@
         "node": ">=20.0.0"
     },
     "dependencies": {
+        "@hono/node-server": "^1.19.6",
         "@modelcontextprotocol/sdk": "^1.15.0",
         "@omar391/mcp-kit": "workspace:*",
         "@types/uuid": "^10.0.0",

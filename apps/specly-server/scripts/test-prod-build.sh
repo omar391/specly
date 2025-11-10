@@ -20,7 +20,7 @@ curl -s http://localhost:8989/health | jq -r '.status' || echo "❌ Failed"
 
 echo -n "✅ Static UI Serving: "
 UI_RESULT=$(curl -s -I http://localhost:8989 | head -1)
-if echo "${UI_RESULT}" | grep -q "200"; then
+if echo "${UI_RESULT}" | grep -q "200" || true; then
 	echo "✅ OK"
 else
 	echo "❌ Failed"

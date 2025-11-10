@@ -25,10 +25,11 @@ describe('CLI main() entrypoint behavior', () => {
 
   beforeEach(() => {
     argvBackup = [...process.argv];
-    // process.exit returns never; implement by throwing to satisfy the signature
-    exitSpy = (vi as any)
-      .spyOn(process, 'exit')
-      .mockImplementation(((() => undefined) as unknown) as never);
+    // Mock process.exit to prevent actual process termination
+    // process.exit returns never, so we throw to simulate the behavior without exiting
+    exitSpy = vi.spyOn(process, 'exit').mockImplementation((code?: number) => {
+      throw new Error(`process.exit called with code ${code}`);
+    });
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
     errSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
     // Ensure no lingering unhandledRejection listeners from previous imports
@@ -47,11 +48,8 @@ describe('CLI main() entrypoint behavior', () => {
     await withEnv({ NODE_ENV: 'development', VITEST: undefined }, async () => {
       process.argv = ['node', 'cli'];
       vi.resetModules();
-      try {
-        await import('../cli.js');
-      } catch (_) {
-        // process.exit is mocked to throw; swallow to allow assertion
-      }
+      const { main } = await import('../cli.js');
+      await expect(main()).rejects.toThrow('process.exit called with code 1');
       expect(exitSpy).toHaveBeenCalledWith(1);
       // usage lines are printed to stderr
       expect(errSpy).toHaveBeenCalled();
@@ -62,11 +60,8 @@ describe('CLI main() entrypoint behavior', () => {
     await withEnv({ NODE_ENV: 'development', VITEST: undefined }, async () => {
       process.argv = ['node', 'cli', 'specly_status', '{invalid-json'];
       vi.resetModules();
-      try {
-        await import('../cli.js');
-      } catch (_) {
-        // Swallow thrown error from mocked process.exit
-      }
+      const { main } = await import('../cli.js');
+      await expect(main()).rejects.toThrow('Expected property name or \'}\' in JSON');
       expect(exitSpy).toHaveBeenCalledWith(1);
       // error should be printed
       expect(errSpy).toHaveBeenCalled();
@@ -79,7 +74,9 @@ describe('CLI main() entrypoint behavior', () => {
       const fakeWs = '/tmp/specly-cli-main-test';
       process.argv = ['node', 'cli', 'specly_init', JSON.stringify({ workspace_path: fakeWs, project_requirements: 'test' })];
       vi.resetModules();
-      await import('../cli.js');
+      const { main } = await import('../cli.js');
+      // Success should not throw (no process.exit call)
+      await expect(main()).resolves.toBeUndefined();
       // success path should not call process.exit
       expect(exitSpy).not.toHaveBeenCalled();
       // some output expected

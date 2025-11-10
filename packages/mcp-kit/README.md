@@ -1,15 +1,15 @@
 # @omar391/mcp-kit
 
-**Framework-agnostic MCP (Model Context Protocol) toolkit** for building MCP servers across different runtimes.
+**Universal MCP (Model Context Protocol) toolkit** for building MCP servers that work across all JavaScript runtimes.
 
 ## Features
 
-- 🚀 **Multi-runtime support**: Node.js (Express), Edge/Serverless (fetch-based)
-- 🔄 **Multi-instance coordination**: Lock-based instance management with proxy support
-- 🧭 **Server bootstrap seam**: `startMcpServer` (express/edge) and `startMcpExpressServer` wire MCP handlers with coordination helpers
-- 🧰 **Extensible CLI parsing**: Shared argument parser with custom flag hooks
-- 🛠️ **MCP client utilities**: Connect to and call MCP servers programmatically
-- 📦 **Tree-shakeable**: Import only what you need via subpath exports
+- 🌍 **Universal Runtime Support**: Single codebase works in Node.js, Bun, Cloudflare Workers, Vercel Edge, Netlify Edge, and other JavaScript environments
+- ⚡ **Hono Framework**: Ultra-fast, lightweight HTTP framework with zero cold starts
+- 🔄 **Cross-Runtime Compatibility**: Automatic runtime detection and conditional feature loading
+- 🧰 **Type-Safe Tool Handlers**: Strongly typed MCP tool definitions with validation
+- 📦 **Multi-Target Builds**: Separate optimized builds for different runtime environments
+- 🛠️ **Framework Agnostic**: No external dependencies in universal builds
 
 ## Installation
 
@@ -19,278 +19,286 @@ npm install @omar391/mcp-kit
 pnpm add @omar391/mcp-kit
 ```
 
-## Usage
+## Quick Start
 
-### MCP Client
+### Universal MCP Server
 
-Connect to an existing MCP server:
-
-```typescript
-import { createMCPClient } from '@omar391/mcp-kit/client';
-
-const { client, close } = await createMCPClient({ port: 8989 });
-const tools = await client.listTools();
-const result = await client.callTool({ name: 'my-tool', arguments: { foo: 'bar' } });
-await close();
-```
-
-### Express Server Adapter
-
-Attach MCP endpoints to an Express app:
+Create an MCP server that works everywhere:
 
 ```typescript
-import express from 'express';
-import { attachMcpExpress } from '@omar391/mcp-kit/server/express';
+import { createHonoMcpServer } from '@omar391/mcp-kit/server/core/hono-mcp';
+import { createToolHandlers } from '@omar391/mcp-kit/server/handlers';
 
-const app = express();
-
-attachMcpExpress(app, 
-  { dev: true, serverName: 'my-mcp', serverVersion: '1.0.0' },
+const toolHandlers = createToolHandlers([
   {
-    listTools: async () => ({ tools: [/* ... */] }),
-    handleToolCall: async (name, args) => ({ content: [/* ... */] })
-  }
-);
-
-app.listen(8989);
-```
-
-### Edge/Serverless Handler
-
-Use in Cloudflare Workers, Vercel Edge, etc.:
-
-```typescript
-import { createMcpEdgeHandler } from '@omar391/mcp-kit/server/edge';
-
-const handler = createMcpEdgeHandler(
-  { serverName: 'my-mcp', serverVersion: '1.0.0' },
-  {
-    listTools: async () => ({ tools: [/* ... */] }),
-    handleToolCall: async (name, args) => ({ content: [/* ... */] })
-  }
-);
-
-// Cloudflare Worker
-export default { fetch: handler };
-
-// Vercel Edge
-export const config = { runtime: 'edge' };
-export default handler;
-```
-
-### Multi-Instance Management
-
-Coordinate multiple Node processes with lock-based instance management:
-
-```typescript
-import { BaseInstanceManager, InstanceRole } from '@omar391/mcp-kit/server/express/node-instance';
-
-const manager = new BaseInstanceManager({ port: 8989, version: '1.0.0' });
-
-const isMain = await manager.tryBecomeMain();
-if (isMain) {
-  // Start your server
-} else {
-  // Start as proxy or check version mismatch
-  const mainVersion = await manager.fetchMainVersion();
-  if (mainVersion !== manager.version) {
-    await manager.requestMainTransition();
-    // Take over as new main
-  } else {
-    await manager.startProxy();
-  }
-}
-
-### CLI Parsing Helpers
-
-Add project-specific flags while keeping the core CLI contract consistent:
-
-```typescript
-import { parseCliArgs, displayHelp, type BaseCliOptions } from '@omar391/mcp-kit/utils/cli-parser';
-
-interface SpeclyCliOptions extends BaseCliOptions {
-  forceSeed?: boolean;
-}
-
-const options = parseCliArgs<SpeclyCliOptions>(process.argv.slice(2), {
-  appName: 'Specly Server',
-  defaultPort: 3100,
-  customFlagHandlers: {
-    '--force-seed': ({ options }) => {
-      options.forceSeed = true;
+    name: 'greet',
+    description: 'Greet someone by name',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string' }
+      },
+      required: ['name']
     },
-  },
+    handler: async ({ name }) => ({
+      content: [{ type: 'text', text: `Hello, ${name}!` }]
+    })
+  }
+]);
+
+const app = createHonoMcpServer({
+  serverInfo: { name: 'my-mcp-server', version: '1.0.0' },
+  toolHandlers
 });
 
-if (options.help) {
-  displayHelp({ appName: 'Specly Server' });
-  process.exit(0);
-}
-
-// Use extended options to toggle seed/background jobs
-if (options.forceSeed) {
-  await runSeedRoutine();
-}
+// Deploy anywhere:
+// - Node.js: app.listen(3000)
+// - Cloudflare Workers: export default { fetch: app.fetch }
+// - Vercel Edge: export default app
 ```
 
-Handlers receive the full argument list and can optionally return the number of additional arguments consumed. A `customOptionsParser` hook is also available for advanced validation or derived defaults.
+### Runtime-Specific Features
 
-### MCP Server Bootstrap API
-
-Spin up an MCP server by selecting `'express'` or `'edge'` at the call site while keeping coordination hooks and lifecycle callbacks:
+Access Node.js-specific features when available:
 
 ```typescript
-import { startMcpServer, InstanceRole } from '@omar391/mcp-kit/server';
-import { toolHandlers } from './tools.js';
+import { detectRuntime, isNodeLike } from '@omar391/mcp-kit/server/core/runtime';
 
-const result = await startMcpServer({
-  kind: 'express',
-  toolHandlers,
-  serverName: 'specly',
-  serverVersion: '2.0.0',
-  coordinateInstance: {
-    desiredVersion: '2.0.0',
-    waitForPortTimeoutMs: 10_000,
-  },
-  onCoordinateDecision: (decision) => {
-    if (decision.status === 'main' && decision.reason === 'version-transition') {
-      console.log(`Promoted to main (was ${decision.previousVersion ?? 'unknown'})`);
-    }
-  },
-  onBeforeStart: async ({ coordination }) => {
-    if (coordination?.reason === 'initial') {
-      await ensureSeedData();
-    }
-  },
-});
+if (isNodeLike()) {
+  // Node.js/Bun specific features available
+  const { startMcpExpressServer } = await import('@omar391/mcp-kit/server/local/express-bridge');
 
-if (result.transport === 'edge') {
-  // Edge handler returned (see example below)
-} else if (result.role === InstanceRole.PROXY) {
-  console.log('Proxy mode, forwarding traffic');
+  const result = await startMcpExpressServer({
+    toolHandlers,
+    serverName: 'my-server',
+    serverVersion: '1.0.0',
+    port: 3000
+  });
+} else {
+  // Universal deployment
+  export default { fetch: app.fetch };
 }
-```
-
-Pass `kind: 'edge'` to receive a fetch-compatible handler:
-
-```typescript
-const { handler } = await startMcpServer({
-  kind: 'edge',
-  toolHandlers,
-  edge: { serverName: 'edge-specly', serverVersion: '1.0.0' },
-});
-
-export default { fetch: handler };
-```
-
-If you prefer to call the Express bootstrap directly, use `startMcpExpressServer(options)` with the same option shape shown above (minus `kind`).
-
-### Test Utilities
-
-Inject and manage test-only dependencies without leaking state into production code:
-
-```typescript
-import { createTestInstanceAccessors } from '@omar391/mcp-kit/test-utils/create-test-instance-accessors';
-
-interface Databases {
-  drizzleManager: object;
-  dbService: object;
-}
-
-const instances = createTestInstanceAccessors<Databases>();
-
-instances.setInstances({ drizzleManager, dbService });
-const state = instances.getInstances();
-expect(state.isInitialized).toBe(true);
-
-instances.resetInstances();
-```
-
-The helper wraps `createSharedTestInstanceHelpers` and provides consistent `setInstances`, `resetInstances`, `getInstances`, and `hasInstances` utilities that application packages can re-export under project-specific names.
 ```
 
 ## Architecture
 
-```
-@omar391/mcp-kit/
-├── client              # MCP client utilities
-├── server/
-│   ├── express/        # Express.js adapter (Node.js)
-│   │   ├── node-instance/  # Multi-instance coordination
-│   │   ├── port-manager.ts # Port management utilities
-│   │   ├── process-manager.ts # Process signal handling
-│   │   ├── proxy/       # HTTP proxy with metadata
-│   │   ├── server.ts    # Express server wrapper
-│   │   ├── transport.ts # Server orchestration
-│   │   └── index.ts     # Express exports
-│   ├── edge/           # Fetch-based handler (Edge/Serverless)
-│   ├── stdio.ts        # Stdio transport
-│   ├── handlers.ts     # Tool handler utilities
-│   └── index.ts        # Unified server bootstrap
-├── utils/              # Generic utilities
-│   ├── cli-parser.ts   # CLI argument parsing
-│   └── cli-mcp-client.ts # MCP client CLI
-└── test-utils/         # Testing helpers
-```
+The new universal architecture is built around Hono and provides:
+
+### Universal Core (`server/core/`)
+- **`hono-mcp.ts`**: Universal MCP server implementation using Hono
+- **`handlers.ts`**: Type-safe tool handler creation and validation
+- **`middleware.ts`**: MCP protocol middleware and error handling
+- **`runtime.ts`**: Runtime detection and environment-specific utilities
+- **`types.ts`**: Shared TypeScript types and interfaces
+
+### Local Features (`server/local/`)
+- **`express-bridge.ts`**: Express.js integration for Node.js environments
+- **`node-instance/`**: Multi-instance coordination and process management
+- **`port-manager.ts`**: Port allocation and conflict resolution
+- **`process-manager.ts`**: Process lifecycle and signal handling
+
+### Client & Utilities
+- **`client.ts`**: MCP client for connecting to MCP servers
+- **`utils/cli-parser.ts`**: Command-line argument parsing utilities
+
+## Runtime Compatibility
+
+| Runtime | Universal Core | Local Features | Notes |
+|---------|----------------|----------------|-------|
+| Node.js | ✅ | ✅ | Full feature support |
+| Bun | ✅ | ✅ | Full feature support |
+| Cloudflare Workers | ✅ | ❌ | Universal only |
+| Vercel Edge | ✅ | ❌ | Universal only |
+| Netlify Edge | ✅ | ❌ | Universal only |
+| Deno | ✅ | ❌ | Universal only |
+| Browser | ✅ | ❌ | Universal only |
 
 ## API Reference
 
-### Client
+### Universal Core
 
-- `createMCPClient(options)` - Create and connect MCP client
-- `executeMCPToolCall(options)` - One-shot tool execution
+#### `createHonoMcpServer(options)`
 
-### Server Adapters
+Creates a universal MCP server using Hono.
 
-#### Express
-- `attachMcpExpress(app, opts, handlers)` - Attach MCP to Express app
-- Handles POST/GET/DELETE `/mcp` with session management
+```typescript
+interface HonoMcpOptions {
+  serverInfo: { name: string; version: string };
+  toolHandlers: MCPToolHandlers;
+}
 
-#### Edge
-- `createMcpEdgeHandler(opts, handlers)` - Create fetch-style handler
-- JSON-RPC 2.0 compatible
-- Stateless, serverless-friendly
+const app = createHonoMcpServer(options);
+```
 
-### Node Instance
+#### `createToolHandlers(tools)`
 
-- `BaseInstanceManager` - Multi-instance coordinator
-  - `tryBecomeMain()` - Atomic lock acquisition
-  - `fetchMainVersion()` - Check running instance version
-  - `requestMainTransition()` - Graceful takeover
-  - `startProxy()` - HTTP proxy to main instance
+Creates type-safe MCP tool handlers.
+
+```typescript
+const handlers = createToolHandlers([
+  {
+    name: 'my-tool',
+    description: 'Tool description',
+    inputSchema: { /* JSON Schema */ },
+    handler: async (args) => ({ content: [{ type: 'text', text: 'result' }] })
+  }
+]);
+```
+
+### Runtime Detection
+
+#### `detectRuntime()`
+
+Returns detailed runtime information.
+
+```typescript
+const runtime = detectRuntime();
+// { name: 'node', version: '18.17.0', isNodeLike: true, ... }
+```
+
+#### `isNodeLike()`
+
+Returns true for Node.js and Bun environments.
+
+### Local Features (Node.js/Bun only)
+
+#### `startMcpExpressServer(options)`
+
+Starts an Express.js MCP server with multi-instance coordination.
+
+```typescript
+const result = await startMcpExpressServer({
+  toolHandlers,
+  serverName: 'my-server',
+  serverVersion: '1.0.0',
+  port: 3000
+});
+```
 
 ## Breaking Changes
 
 ### v0.1.0 → v1.0.0
 
-**Module Restructuring**: Express-specific modules have been moved to scoped paths for better separation of concerns.
+**🚨 MAJOR BREAKING CHANGE**: Complete architecture rewrite with zero backward compatibility.
 
-**Migration Guide:**
+The previous Express/Edge specific APIs have been replaced with a universal Hono-based core. There is **no migration path** - existing code must be rewritten.
+
+#### What Changed
+
+- **Removed**: All Express and Edge specific modules
+- **Removed**: Multi-instance coordination from core
+- **Added**: Universal Hono-based MCP server
+- **Added**: Runtime detection and conditional features
+- **Added**: Cross-runtime compatibility
+
+#### Migration Required
+
+**There is no automated migration.** You must rewrite your MCP server implementation:
 
 ```typescript
-// Before
-import { BaseInstanceManager } from '@omar391/mcp-kit/node-instance';
-import { port utilities } from '@omar391/mcp-kit/utils/port-manager';
+// OLD (v0.1.0) - NO LONGER WORKS
+import { startMcpServer } from '@omar391/mcp-kit/server';
+const result = await startMcpServer({
+  kind: 'express',
+  toolHandlers,
+  // ... other options
+});
 
-// After
-import { BaseInstanceManager } from '@omar391/mcp-kit/server/express/node-instance';
-import { port utilities } from '@omar391/mcp-kit/server/express/port-manager';
+// NEW (v1.0.0) - REQUIRED
+import { createHonoMcpServer } from '@omar391/mcp-kit/server/core/hono-mcp';
+import { createToolHandlers } from '@omar391/mcp-kit/server/handlers';
+
+const toolHandlers = createToolHandlers([/* your tools */]);
+const app = createHonoMcpServer({
+  serverInfo: { name: 'my-server', version: '1.0.0' },
+  toolHandlers
+});
+
+// For Node.js deployment
+if (typeof process !== 'undefined') {
+  const { startMcpExpressServer } = await import('@omar391/mcp-kit/server/local/express-bridge');
+  await startMcpExpressServer({ toolHandlers, port: 3000 });
+} else {
+  // Universal deployment
+  export default { fetch: app.fetch };
+}
 ```
 
-**New API Customization**: The Express server now supports omitting API endpoints for pure MCP servers:
+#### Key Differences
+
+1. **Tool Handlers**: Now created with `createToolHandlers()` instead of plain objects
+2. **Server Creation**: `createHonoMcpServer()` instead of `startMcpServer()`
+3. **Runtime Detection**: Check runtime before using Node.js-specific features
+4. **Deployment**: Single universal build works everywhere
+
+### Recommended Upgrade Path
+
+1. **Audit**: Identify all usage of old APIs
+2. **Rewrite**: Implement new universal server pattern
+3. **Test**: Verify functionality across target runtimes
+4. **Deploy**: Use appropriate build target for your environment
+
+## Deployment Examples
+
+### Node.js / Bun
 
 ```typescript
-startMcpExpressServer({
-  // ... other options
-  expressOptions: {
-    endpoints: {
-      apiBase: null, // Omit API endpoint from health/root responses
+import { createHonoMcpServer } from '@omar391/mcp-kit/server/core/hono-mcp';
+import { startMcpExpressServer } from '@omar391/mcp-kit/server/local/express-bridge';
+
+const app = createHonoMcpServer({ /* options */ });
+
+const result = await startMcpExpressServer({
+  toolHandlers: app.toolHandlers,
+  port: 3000
+});
+
+console.log(`Server running on port ${result.port}`);
+```
+
+### Cloudflare Workers
+
+```typescript
+import { createHonoMcpServer } from '@omar391/mcp-kit/server/core/hono-mcp';
+
+const app = createHonoMcpServer({ /* options */ });
+
+export default {
+  fetch: app.fetch
+};
+```
+
+### Vercel Edge Functions
+
+```typescript
+import { createHonoMcpServer } from '@omar391/mcp-kit/server/core/hono-mcp';
+
+const app = createHonoMcpServer({ /* options */ });
+
+export const config = { runtime: 'edge' };
+export default app;
+```
+
+## Build Targets
+
+The package provides multiple build targets for optimal deployment:
+
+- **`universal`**: Works everywhere, no Node.js APIs (default)
+- **`node`**: Includes Node.js-specific features and APIs
+- **`browser`**: Minimal build for browser environments
+
+Use conditional exports to automatically get the right build:
+
+```json
+{
+  "imports": {
+    "@omar391/mcp-kit": {
+      "node": "@omar391/mcp-kit/dist/node/index.js",
+      "default": "@omar391/mcp-kit/dist/index.js"
     }
   }
-});
+}
 ```
-
-**Enhanced Proxy Metadata**: Proxy instances now include metadata headers for better observability.
 
 ## License
 
@@ -299,4 +307,5 @@ MIT
 ## Related
 
 - [MCP Specification](https://modelcontextprotocol.io)
+- [Hono Framework](https://hono.dev)
 - [@modelcontextprotocol/sdk](https://github.com/modelcontextprotocol/sdk)

@@ -6,22 +6,18 @@
  * Unified server that combines MCP server + UI + REST API
  */
 
-import { ToolNames } from './constants/tool-names.js';
-// stdio server is handled via mcp-kit utilities now
+import { startMcpServer } from '@omar391/mcp-kit/server';
+import { parseCliArgs, type CliOptions } from './utils/cli-parser.js';
+import { MCPToolHandlers } from '@omar391/mcp-kit/server/core/types';
+import { createToolHandlers } from '@omar391/mcp-kit/server/handlers';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 
+import { ToolNames } from './constants/tool-names.js';
 import { initializeGlobalDatabaseService, type GlobalDatabaseService } from './database/global-queries.js';
 import { DatabaseService } from './services/database-service.js';
 import { SeedManager } from './services/seed-manager.js';
 import { PromptOrchestrator } from './services/prompt-orchestrator.js';
-import { parseCliArgs, displayHelp, type CliOptions } from './utils/cli-parser.js';
-import { ensurePortAvailable as ensurePortFree } from '@omar391/mcp-kit/server/express/port-manager';
-
-import type { MCPToolHandlers } from '@omar391/mcp-kit/server/express';
-import { startMcpServer } from '@omar391/mcp-kit/server';
-
-import { zodToJsonSchema } from 'zod-to-json-schema';
-import { createToolHandlers } from '@omar391/mcp-kit/server/handlers';
-import { startStdioServer } from '@omar391/mcp-kit/server/stdio';
+import { createApiRouter, SSEEventManager } from './api/router.js';
 // Tools
 import { InitToolNew, initToolSchema } from './tools/init.js';
 import { StartTool, startToolSchema } from './tools/start.js';
@@ -35,10 +31,8 @@ import { RuleUpdateTool, ruleUpdateToolSchema } from './tools/rule-update.js';
 import { RemoteInterfaceTool, remoteInterfaceToolSchema } from './tools/remote-interface.js';
 import { UpdateResourcesTool, updateResourcesToolSchema } from './tools/update-resources.js';
 import { UpdateStepsTool, updateStepsToolSchema } from './tools/update-steps.js';
-import { SpeclyInstanceManager, InstanceRole } from './server/instance-manager.js';
-import { SpeclyToolResult } from './types/index.js';
-import { startStdioProxy } from '@omar391/mcp-kit/server/express';
-import { configureSpeclyApp, setupSpeclyApi } from './server/specly-express-hooks.js';
+import { SpeclyInstanceManager } from './server/instance-manager.js';
+import { InstanceManager } from '@omar391/mcp-kit/server/local/node-instance';
 
 // Legacy multi-step types removed; all tools now return SpeclyToolResult.
 
@@ -62,6 +56,7 @@ let updateStepsTool: UpdateStepsTool;
 
 let globalDbService: GlobalDatabaseService;
 let databaseService: DatabaseService;
+let sseManager: SSEEventManager;
 
 let serverInitialized = false;
 
@@ -74,6 +69,8 @@ async function initializeServer() {
     // Create DatabaseService for API endpoints
     databaseService = new DatabaseService(globalDrizzleManager);
 
+    // Initialize SSE manager
+    sseManager = new SSEEventManager();
 
     // Initialize services with pure Drizzle operations
     seedManager = new SeedManager(globalDrizzleManager);
@@ -144,13 +141,45 @@ function createMCPToolHandlers(): MCPToolHandlers {
   return { listTools, handleToolCall: handlers.handleToolCall } as MCPToolHandlers;
 }
 
-// Proxy: forward MCP stdio to main via generic mcp-kit utility
-// (No wrapper function needed anymore)
+// Configure Specly-specific Hono app settings
+async function configureSpeclyApp(app: any, options: { dev: boolean }) {
+  // Add development-specific middleware
+  if (options.dev) {
+    console.log('  CORS: Enabled for localhost development');
+  }
+}
 
-async function startStdioMode(cliOptions: CliOptions) {
-  await ensureServerInitialized();
-  const toolHandlers = createMCPToolHandlers();
-  await startStdioServer({ serverName: 'specly', serverVersion: '0.1.0', handlers: toolHandlers, debug: true });
+// Setup Specly API routes in Hono app
+async function setupSpeclyApi(app: any, databaseService: DatabaseService) {
+  const apiRouter = await createApiRouter(databaseService);
+
+  // TODO: Integrate Express apiRouter with Hono
+  // Currently adding basic routes directly since Express router can't be mounted in Hono
+  // Need to either migrate API to Hono or create Express-to-Hono adapter
+
+  app.get('/api/health', (c: any) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
+  app.get('/api/workspaces', async (c: any) => {
+    try {
+      // Basic implementation - would need full migration
+      return c.json({ workspaces: [], message: 'API migration in progress' });
+    } catch (error) {
+      return c.json({ error: 'Failed to fetch workspaces' }, 500);
+    }
+  });
+
+  // Add SSE endpoint
+  app.get('/api/events', (c: any) => {
+    return new Response(null, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Cache-Control',
+      },
+    });
+  });
 }
 
 async function ensureSpeclySeed(force: boolean) {
@@ -171,148 +200,85 @@ async function ensureSpeclySeed(force: boolean) {
 }
 
 export async function main() {
-  let cliOptions: CliOptions | undefined;
-  try {
-    // Parse CLI arguments
-    cliOptions = parseCliArgs();
-
-    // DIAGNOSTIC: Log parsed CLI options to stderr (not stdout to avoid MCP protocol pollution)
-    if (cliOptions.mode !== 'stdio') {
-      console.error(`[DEBUG] Parsed CLI options:`, JSON.stringify(cliOptions, null, 2));
-      console.error(`[DEBUG] Process argv:`, process.argv);
-    }
-
-    if (cliOptions.help) {
-      displayHelp();
-      process.exit(0);
-    }
-
-    // DIAGNOSTIC: Log mode detection
-    if (cliOptions.mode !== 'stdio') {
-      console.error(`[DEBUG] Starting in mode: ${cliOptions.mode}`);
-    }
-
-    const port = cliOptions.port ?? 8989;
-    const dev = cliOptions.dev || process.env.NODE_ENV !== 'production';
-    const instanceManager = new SpeclyInstanceManager(undefined, port);
-
-    const serverResult = await startMcpServer({
-      kind: 'express',
-      port,
-      dev,
-      serverName: 'specly',
-      serverVersion: SpeclyInstanceManager.VERSION,
-      instanceManager,
-      autoProxy: cliOptions.mode !== 'stdio',
-      expressOptions: {
-        port,
-        dev,
-        info: { name: 'specly', version: SpeclyInstanceManager.VERSION, uiHintUrl: 'http://localhost:5173' },
-        endpoints: { apiBase: '/api', mcpBase: '/mcp', healthPath: '/health' },
-        cors: { allowAnyLocalhost: true, credentials: true },
-      },
-      coordinateInstance: {
-        desiredVersion: SpeclyInstanceManager.VERSION,
-        waitForPortTimeoutMs: 10000,
-        removeStaleLock: true,
-      },
-      toolHandlers: async () => {
-        await ensureServerInitialized();
-        return createMCPToolHandlers();
-      },
-      configureApp: async (app) => {
-        configureSpeclyApp(app, { dev });
-      },
-      setupApi: async (server) => {
-        await ensureServerInitialized();
-        await setupSpeclyApi(server, databaseService);
-      },
-      onBeforeStart: async () => {
-        await ensureServerInitialized();
-        const killExisting = cliOptions!.killExisting;
-        const portFree = await ensurePortFree(port, killExisting);
-        if (!portFree) {
-          if (!killExisting) {
-            throw new Error(`Port ${port} is already in use and --no-kill was provided (start aborted).`);
-          }
-          throw new Error(`Unable to free port ${port} for Specly server`);
-        }
-        await ensureSpeclySeed(!!cliOptions!.forceSeed);
-        instanceManager.startBackgroundJobs(globalDbService);
-      },
-      onAfterStart: async () => {
-        console.log(`Specly backend server running on http://localhost:${port}`);
-        console.log(`  API: http://localhost:${port}/api`);
-        console.log(`  MCP: http://localhost:${port}/mcp`);
-        console.log(`  Health: http://localhost:${port}/health`);
-        if (dev) {
-          console.log(`  CORS: Enabled for localhost development`);
-          console.log(`  Note: UI should run separately on http://localhost:5173`);
+  await startMcpServer<CliOptions>({
+    serverName: 'specly',
+    serverVersion: SpeclyInstanceManager.VERSION,
+    toolHandlers: createMCPToolHandlers(),
+    defaultPort: 8989,
+    createInstanceManager: (options) => {
+      if (options.local) {
+        return new SpeclyInstanceManager(undefined, options.port);
+      } else {
+        return new InstanceManager({
+          lockPath: undefined,
+          port: options.port,
+          getVersion: () => SpeclyInstanceManager.VERSION
+        });
+      }
+    },
+    onInitialize: async (options) => {
+      await ensureServerInitialized();
+      await ensureSpeclySeed(!!options.forceSeed);
+    },
+    configureApp: async (app, options) => {
+      await configureSpeclyApp(app, { dev: options.local });
+    },
+    setupRoutes: async (app, options) => {
+      await setupSpeclyApi(app, databaseService);
+    },
+    onAfterStart: async (app, options) => {
+      console.log(`Specly backend server running on http://localhost:${options.port}`);
+    },
+    localMode: {
+      onLocalStart: async (instanceManager, options) => {
+        if (instanceManager instanceof SpeclyInstanceManager) {
+          instanceManager.startBackgroundJobs(globalDbService);
         }
       },
-      onProxyStart: async (context) => {
-        const mainVersion = SpeclyInstanceManager.VERSION;
-        if (cliOptions!.mode === 'stdio') {
-          console.error(`[PROXY MODE] Main instance v${mainVersion} running on port ${instanceManager.port}. Starting stdio proxy.`);
-          await startStdioProxy({
-            port: instanceManager.port,
-            serverName: 'specly',
-            serverVersion: SpeclyInstanceManager.VERSION,
-            clientName: 'specly-proxy',
-            debug: true,
+      setupLocalRoutes: async (app, instanceManager, options) => {
+        if (instanceManager instanceof SpeclyInstanceManager) {
+          app.post('/shutdown', async (c: any) => {
+            console.log('Shutdown requested via API');
+            instanceManager.stopBackgroundJobs();
+            // Graceful shutdown
+            setTimeout(() => {
+              process.exit(0);
+            }, 100);
+            return c.json({ status: 'shutting_down' });
           });
-        } else {
-          const proxyPort = context.instanceManager.proxyPort;
-          console.log(`[PROXY MODE] Main instance v${mainVersion} running on port ${instanceManager.port}. Proxying on port ${proxyPort}.`);
+
+          app.post('/transition', async (c: any) => {
+            console.log('Version transition requested via API');
+            instanceManager.stopBackgroundJobs();
+            // Start new instance
+            setTimeout(async () => {
+              const { spawn } = await import('child_process');
+              spawn(process.argv[0], process.argv.slice(1), {
+                detached: true,
+                stdio: 'inherit',
+              }).unref();
+            }, 100);
+            return c.json({ status: 'transitioning' });
+          });
         }
       },
-      gracefulShutdown: async ({ expressServer }) => {
-        instanceManager.stopBackgroundJobs();
-        await expressServer.stop();
-      },
-      controlEndpoints: {
-        onShutdown: async () => {
-          instanceManager.stopBackgroundJobs();
-        },
-        onTransition: async () => {
-          instanceManager.stopBackgroundJobs();
-          setTimeout(async () => {
-            const { spawn } = await import('child_process');
-            spawn(process.argv[0], process.argv.slice(1), {
-              detached: true,
-              stdio: 'inherit',
-            }).unref();
-          }, 100);
+    },
+    cliConfig: {
+      customFlagHandlers: {
+        '--force-seed': () => {
+          // This will be handled by the custom options parser
         },
       },
-    });
-
-    if (serverResult.role === InstanceRole.PROXY) {
-      return;
-    }
-
-    const coordination = serverResult.coordination;
-    if (coordination?.reason === 'version-transition') {
-      const previous = coordination.previousVersion ?? 'unknown';
-      console.log(`[VERSION CHANGE] Current v${SpeclyInstanceManager.VERSION}, main is v${previous}. Taking over...`);
-      console.log(`[VERSION CHANGE] Successfully became main instance v${SpeclyInstanceManager.VERSION}`);
-    }
-
-    console.log(`[MAIN INSTANCE] Starting v${SpeclyInstanceManager.VERSION}`);
-    if (cliOptions.mode === 'stdio') {
-      await startStdioMode(cliOptions);
-    }
-
-  } catch (error) {
-    // Only log error if cliOptions is defined and not stdio mode
-    if (cliOptions && cliOptions.mode !== 'stdio') {
-      console.error('Error starting server:', error);
-    }
-    process.exit(1);
-  }
+      customOptionsParser: (args, options) => {
+        // Parse Specly-specific options
+        const forceSeed = args.includes('--force-seed') || process.env.SPECLY_FORCE_SEED === '1';
+        return { ...options, forceSeed };
+      },
+    },
+  });
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === `file://${process.argv[1]}` || process.argv[1].endsWith('dist/index.js')) {
   main().catch((err) => {
     // Only log error if not in stdio mode
     let cliOptions: CliOptions;
@@ -322,7 +288,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       cliOptions = {
         port: 8989,
         mode: 'http',
-        dev: false,
+        local: false,
         help: false,
         killExisting: true,
         forceSeed: false,

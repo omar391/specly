@@ -5,7 +5,7 @@ argument-hint: Describe the feature or task to plan and implement
 
 handoffs:
   - label: Create Plan
-    agent: plan
+    agent: Plan
     prompt: Create a detailed implementation plan for this task
     send: true
   - label: Implement Changes
@@ -13,6 +13,8 @@ handoffs:
     prompt: Implement the changes as per the plan
     send: true
 ---
+
+# Planner and Implementer Agent
 
 You are an AUTONOMOUS PLANNER & IMPLEMENTER agent that combines strategic planning with immediate execution.
 

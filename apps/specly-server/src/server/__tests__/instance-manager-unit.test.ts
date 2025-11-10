@@ -6,7 +6,7 @@ import http from "http";
 import crypto from "crypto";
 
 import { SpeclyInstanceManager, InstanceRole } from "../instance-manager.js";
-import { InstanceManager } from "@omar391/mcp-kit/server/express";
+import { InstanceManager } from "@omar391/mcp-kit/server/local/node-instance";
 import { GlobalDatabaseService } from "../../database/global-queries.js";
 import { BackgroundJobsService } from "../../services/background-jobs-service.js";
 import { DrizzleDatabaseManager, DatabaseType } from "../../database/drizzle-connection.js";

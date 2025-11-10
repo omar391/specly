@@ -9,7 +9,7 @@
         "forceConsistentCasingInFileNames": true,
         "baseUrl": ".",
         "rootDir": "./src",
-        "outDir": "./dist",
+        "outDir": "./dist/js",
         "composite": true,
         "declaration": true,
         "declarationMap": true,
@@ -23,6 +23,8 @@
     "exclude": [
         "node_modules",
         "dist",
-        "src/**/__tests__/**"
+        "src/**/__tests__/**",
+        "src/examples/**",
+        "src/server/local/express-bridge.ts"
     ]
 }

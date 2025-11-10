@@ -1,8 +1,8 @@
 import type { Application } from 'express';
 import type { Server as HttpServer } from 'http';
-import { createExpressServer, type ExpressServerOptions, type IExpressServer } from './server.js';
-import type { MCPToolHandlers } from './mcp-adapter.js';
-import { ProxyManager } from './proxy.js';
+import { createExpressServer, type ExpressServerOptions, type IExpressServer } from '../express/server.js';
+import type { MCPToolHandlers } from '../express/mcp-adapter.js';
+import { ProxyManager } from './proxy/index.js';
 import {
     InstanceManager,
     InstanceRole,
@@ -11,7 +11,7 @@ import {
     type CoordinateInstanceResult,
     type CoordinateInstanceMainResult,
     type IInstanceManager,
-} from './instance-manager.js';
+} from './node-instance/index.js';
 
 export interface StartNodeServerMainContext<M extends IInstanceManager = IInstanceManager> {
     role: InstanceRole.MAIN;
