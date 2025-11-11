@@ -86,13 +86,13 @@ const app = createHonoMcpServer({
 });
 
 // For Node.js deployment
-import { startMcpExpressServer } from '@omar391/mcp-kit/server/local/express-bridge';
+import { startMcpServer } from '@omar391/mcp-kit/server';
 
-const result = await startMcpExpressServer({
-  toolHandlers,
+const result = await startMcpServer({
   serverName: 'my-server',
   serverVersion: '1.0.0',
-  port: 3000
+  toolHandlers,
+  defaultPort: 3000
 });
 ```
 
@@ -133,7 +133,7 @@ import { attachMcpExpress } from '@omar391/mcp-kit/server/express';
 ```typescript
 import { createHonoMcpServer } from '@omar391/mcp-kit/server/core/hono-mcp';
 import { createToolHandlers } from '@omar391/mcp-kit/server/handlers';
-import { startMcpExpressServer } from '@omar391/mcp-kit/server/local/express-bridge';
+import { startMcpServer } from '@omar391/mcp-kit/server';
 ```
 
 ### Step 4: Runtime Detection
@@ -145,7 +145,7 @@ import { isNodeLike } from '@omar391/mcp-kit/server/core/runtime';
 
 if (isNodeLike()) {
   // Use Node.js features
-  const { startMcpExpressServer } = await import('@omar391/mcp-kit/server/local/express-bridge');
+  const { startMcpServer } = await import('@omar391/mcp-kit/server');
   // ... Node.js specific code
 } else {
   // Universal deployment
@@ -158,15 +158,15 @@ if (isNodeLike()) {
 ### Node.js/Bun
 ```typescript
 import { createHonoMcpServer } from '@omar391/mcp-kit/server/core/hono-mcp';
-import { startMcpExpressServer } from '@omar391/mcp-kit/server/local/express-bridge';
+import { startMcpServer } from '@omar391/mcp-kit/server';
 
 const app = createHonoMcpServer({ serverInfo: { name: 'my-server', version: '1.0.0' }, toolHandlers });
 
-const result = await startMcpExpressServer({
-  toolHandlers,
+const result = await startMcpServer({
   serverName: 'my-server',
   serverVersion: '1.0.0',
-  port: 3000
+  toolHandlers,
+  defaultPort: 3000
 });
 ```
 

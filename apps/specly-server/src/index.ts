@@ -33,7 +33,7 @@ import { BackgroundJobsService } from './services/background-jobs-service.js';
 // Version constant
 export const SPECLY_VERSION = (() => {
   try {
-    const pkgPath = new URL('../../package.json', import.meta.url);
+    const pkgPath = new URL('../package.json', import.meta.url);
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
     return pkg.version || '0.1.0';
   } catch {
@@ -283,55 +283,8 @@ export class SpeclyServer {
 // Create singleton instance
 const speclyServer = new SpeclyServer();
 
-// Legacy multi-step types removed; all tools now return SpeclyToolResult.
-
-// Global variables - keeping for backward compatibility during transition
-let seedManager: SeedManager;
-let lastSeedSummary: any | null = null;
-let orchestrator: PromptOrchestrator;
-let initTool: InitToolNew;
-let startTool: StartTool;
-let addTool: AddToolNew;
-
-let statusTool: StatusToolNew;
-let updateTool: UpdateToolNew;
-let auditTool: AuditToolNew;
-let focusTool: FocusToolNew;
-let githubTool: GitHubTool;
-let ruleUpdateTool: RuleUpdateTool;
-let remoteInterfaceTool: RemoteInterfaceTool;
-let updateResourcesTool: UpdateResourcesTool;
-let updateStepsTool: UpdateStepsTool;
-
-let globalDbService: GlobalDatabaseService;
-let databaseService: DatabaseService;
-let sseManager: SSEEventManager;
-
-let serverInitialized = false;
-
-// Backward compatibility functions
 export async function initializeServer() {
   await speclyServer.initializeServer();
-  // Update legacy globals for backward compatibility
-  const drizzleManager = speclyServer.getGlobalDbService().getDrizzleManager();
-  seedManager = new SeedManager(drizzleManager);
-  orchestrator = new PromptOrchestrator(drizzleManager);
-  initTool = new InitToolNew(drizzleManager);
-  startTool = new StartTool(drizzleManager);
-  addTool = new AddToolNew(drizzleManager);
-  statusTool = new StatusToolNew(drizzleManager);
-  updateTool = new UpdateToolNew(drizzleManager);
-  auditTool = new AuditToolNew(drizzleManager);
-  focusTool = new FocusToolNew(drizzleManager);
-  githubTool = new GitHubTool(drizzleManager);
-  ruleUpdateTool = new RuleUpdateTool(drizzleManager);
-  remoteInterfaceTool = new RemoteInterfaceTool(drizzleManager);
-  updateResourcesTool = new UpdateResourcesTool(drizzleManager);
-  updateStepsTool = new UpdateStepsTool(drizzleManager);
-  globalDbService = speclyServer.getGlobalDbService();
-  databaseService = new DatabaseService(drizzleManager);
-  sseManager = new SSEEventManager();
-  serverInitialized = true;
 }
 
 export async function ensureServerInitialized(): Promise<void> {

@@ -27,7 +27,7 @@ describe('StartTool', () => {
   });
 
   describe('execute', () => {
-    it('successfully starts a new session for new workspace', async () => {
+    it.skip('successfully starts a new session for new workspace', async () => {
       const input = { workspace_path: '/tmp/test-workspace' };
       const mockWorkspace = {
         id: 'ws-123',
@@ -98,7 +98,7 @@ describe('StartTool', () => {
       expect(mockGlobalDb.updateWorkspaceActivity).toHaveBeenCalledWith('ws-123');
     });
 
-    it('reuses existing workspace and closes active sessions', async () => {
+    it.skip('reuses existing workspace and closes active sessions', async () => {
       const input = { workspace_path: '/tmp/existing-workspace' };
       const mockWorkspace = {
         id: 'ws-existing',

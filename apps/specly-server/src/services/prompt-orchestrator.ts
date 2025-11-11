@@ -1,7 +1,6 @@
 import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
 import { ToolNames } from '../constants/tool-names.js';
 
-// Minimal prompt orchestration result (legacy multi-step removed)
 export interface PromptOrchestrationResult {
   prompt_text: string;
   next_tool?: string;

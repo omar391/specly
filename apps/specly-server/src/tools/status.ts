@@ -99,7 +99,7 @@ export class StatusToolNew extends BaseTool {
   static async getToolDefinitionDynamic(drizzleDb: DrizzleDatabaseManager): Promise<ToolDefinition> {
     return {
       name: ToolNames.STATUS,
-      description: 'Generate a simple project status summary (legacy multi-step removed).',
+      description: 'Generate a simple project status summary.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -119,7 +119,7 @@ export class StatusToolNew extends BaseTool {
   static getToolDefinition(): ToolDefinition {
     return {
       name: ToolNames.STATUS,
-      description: 'Generate a simple project status summary (legacy multi-step removed).',
+      description: 'Generate a simple project status summary.',
       inputSchema: {
         type: 'object',
         properties: {

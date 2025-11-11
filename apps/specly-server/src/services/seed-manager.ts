@@ -23,7 +23,6 @@ export class SeedManager {
    */
   async initializeGlobalData(): Promise<void> {
     try {
-      // Clear only mappings we still support; legacy tool flow constructs removed.
       await this.drizzleDb.delete(mcpServerMappings);
       await this.drizzleDb.insert(mcpServerMappings).values(MCP_SERVER_MAPPINGS_SEED as NewMcpServerMapping[]);
       if (!isStdioMode()) {

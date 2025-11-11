@@ -121,16 +121,9 @@ export class NextStepTemplateGenerator {
 
     // Private helper methods
 
-    // Temporary lightweight interface definitions retained locally after multi-step removal
-    // to avoid importing deleted legacy types.
     private async getToolFlow(toolName: string, workspaceId?: string): Promise<{ flow_steps: Array<{ system_tool_fn: string; step_order: number; next_tool?: string; feedback_step?: boolean }> } | null> {
         try {
-            // Get tool flow from embedded seed data or database
-            // For now, use a simplified approach that works with the current system
-
-            // TODO: Placeholder implementation - future versions will query new SpecEngine routing metadata.
-            
-            // Return null for now - this will be implemented when we have proper database integration
+            // Placeholder - future versions will query SpecEngine routing metadata
             return null;
         } catch (error) {
             console.error(`Error fetching tool flow for ${toolName}:`, error);

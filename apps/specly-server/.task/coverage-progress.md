@@ -17,6 +17,22 @@
   - Tool definition generation
 - **Mocking Strategy**: Module-level mocks with mockImplementation to allow real class instantiation while isolating dependencies
 
+### ensure-specs.ts
+- **Before**: 83.3%
+- **After**: 100% (Stmt: 100%, Branch: 100%, Func: 100%)
+- **Tests Added**: 8 comprehensive tests
+- **Coverage**: Complete execution path coverage for ensureSpecs function
+- **Key Features Tested**:
+  - Database manager initialization when not initialized
+  - Skipping initialization when already initialized
+  - Single spec insertion with all field defaults
+  - Multiple specs insertion
+  - Default value application (autonomous intent, false sideEffect, etc.)
+  - Duplicate insertion error handling (ignores UNIQUE constraint failures)
+  - Empty spec list handling
+  - Mixed success/failure insertions
+- **Mocking Strategy**: Concrete database mocks with Drizzle-style insert/values chain, module-level database connection mocking
+
 ### workspace-rules-repository.ts
 - **Before**: ~85%
 - **After**: 100%
@@ -47,8 +63,8 @@
 
 ## Summary
 - Total test files: 93
-- Total tests: 1601
-- Files below 95%: 12 (estimated)
-- Current focus: update-steps.ts (completed)
-- Next: Need to identify next lowest coverage file</content>
+- Total tests: 1609 (added 8 for ensure-specs.ts)
+- Files below 95%: ~11 (estimated)
+- Current focus: ensure-specs.ts (completed)
+- Next: src/index.ts (64.18% coverage)</content>
 <parameter name="filePath">/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/apps/specly-server/.task/coverage-progress.md

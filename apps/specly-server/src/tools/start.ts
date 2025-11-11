@@ -4,6 +4,7 @@ import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
 import type { SpeclyToolResult } from '../types/index.js';
 import { PromptOrchestrator } from '../services/prompt-orchestrator.js';
 import { GlobalDatabaseService } from '../database/global-queries.js';
+import { WorkspaceRulesRepository } from '../repositories/workspace-rules-repository.js';
 import type { NewWorkspace, NewSession } from '../database/schema/global-schema.js';
 
 // Input schema for specly_start tool
@@ -23,10 +24,12 @@ export type StartToolInput = z.infer<typeof startToolSchema>;
 export class StartTool {
   private orchestrator: PromptOrchestrator;
   private globalDb: GlobalDatabaseService;
+  private rulesRepo: WorkspaceRulesRepository;
 
   constructor(private drizzleDb: DrizzleDatabaseManager) {
     this.orchestrator = new PromptOrchestrator(drizzleDb);
     this.globalDb = new GlobalDatabaseService(drizzleDb);
+    this.rulesRepo = new WorkspaceRulesRepository(this.globalDb);
   }
 
   /**
@@ -38,14 +41,16 @@ export class StartTool {
 
       // Create or get workspace
       const workspace = await this.ensureWorkspace(workspace_path);
-      
+
+      // Fetch workspace rules
+      const workspaceRules = await this.rulesRepo.list(workspace.id);
+
+      // Standard global rules (placeholder for now)
+      const standardGlobalRules: Array<{ relation: string; rule: string; confidence: number }> = [];
+
       // Create new session
       const session = await this.createSession(workspace.id);
-      
-  // Rules subsystem removed (legacy feedback steps). Placeholder values.
-  const workspaceRules = null;
-  const standardGlobalRules = null;
-      
+
       // Generate orchestrated prompt with comprehensive context
       const orchestrationResult = await this.orchestrator.orchestratePrompt(
         'specly_start',
@@ -92,7 +97,7 @@ export class StartTool {
       // Create new workspace
       const workspaceId = uuidv4();
       const workspaceName = workspacePath.split('/').pop() || 'Unknown Project';
-      
+
       const newWorkspace: NewWorkspace = {
         id: workspaceId,
         path: workspacePath,

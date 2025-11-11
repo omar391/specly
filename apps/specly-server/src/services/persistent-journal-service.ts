@@ -51,7 +51,6 @@ export class PersistentJournalService implements ActionJournalAdapter {
             const db = mgr.getDb();
             const [row] = await db.select().from(specs).where(eq(specs.hash, specHash)).limit(1);
             if (!row) {
-                // Auto-create conditional on env flag (default ON for backward compatibility)
                 const allowAuto = process.env.SPECLY_JOURNAL_AUTOCREATE_SPEC !== 'false';
                 if (allowAuto) {
                     try {

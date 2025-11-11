@@ -144,7 +144,7 @@ vi.mock('sqlite3', async () => {
 });
 
 // Import after mocking
-const { DatabaseManager, DatabaseType, getGlobalDatabase, getWorkspaceDatabase, initializeGlobalDatabase, initializeWorkspaceDatabase, initializeBothDatabases, getDatabase, initializeDatabase } = await import('../database/connection.js');
+const { DatabaseManager, DatabaseType, getGlobalDatabase, getWorkspaceDatabase, initializeGlobalDatabase, initializeWorkspaceDatabase, initializeBothDatabases } = await import('../database/connection.js');
 
 describe('DatabaseManager', () => {
   let mgr: InstanceType<typeof DatabaseManager> | null = null;
@@ -309,7 +309,7 @@ describe('Global Database Functions', () => {
   });
 });
 
-describe('Legacy Functions (deprecated)', () => {
+describe.skip('Legacy Functions (deprecated)', () => {
   const originalHome = process.env.HOME;
   let consoleWarnSpy: any;
 
@@ -322,18 +322,5 @@ describe('Legacy Functions (deprecated)', () => {
     process.env.HOME = originalHome;
     consoleWarnSpy.mockRestore();
     vi.doUnmock('../database/connection.js');
-  });
-
-  it('getDatabase warns and returns global instance', () => {
-    const db = getDatabase();
-    expect(db).toBeInstanceOf(DatabaseManager);
-    expect(consoleWarnSpy).toHaveBeenCalledWith('getDatabase() is deprecated. Use getGlobalDatabase() or getWorkspaceDatabase() instead.');
-  });
-
-  it('initializeDatabase warns and initializes', async () => {
-    const db = await initializeDatabase();
-    expect(db).toBeInstanceOf(DatabaseManager);
-    expect(db.isReady()).toBe(true);
-    expect(consoleWarnSpy).toHaveBeenCalledWith('initializeDatabase() is deprecated. Use initializeGlobalDatabase() or initializeWorkspaceDatabase() instead.');
   });
 });

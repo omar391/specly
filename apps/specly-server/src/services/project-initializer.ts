@@ -6,8 +6,6 @@ import { workspaces, sessions, workspaceRulesNew, type Workspace, type NewWorksp
 import { tasks } from '../database/schema/workspace-schema.js';
 import { eq, sql } from 'drizzle-orm';
 
-// Remove legacy DB Task representation; initializer will not create legacy-shaped tasks
-
 export interface ProjectInitializationInput {
   workspace_path: string;
   project_requirements: string;

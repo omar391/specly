@@ -3,8 +3,12 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as http from 'http';
-import type { Server as HttpServer } from 'http';
+import type { ServerType } from '@hono/node-server';
 import { ProxyManager } from '../proxy/index.js';
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { createMCPClient } from '../../../client.js';
 
 export { ProxyManager };
 
@@ -202,7 +206,7 @@ export class InstanceManager implements IInstanceManager {
         return false;
     }
 
-    async startProxy(config?: { port?: number }): Promise<HttpServer> {
+    async startProxy(config?: { port?: number }): Promise<ServerType> {
         if (!this.proxyManager) {
             this.proxyManager = new ProxyManager();
         }
@@ -213,11 +217,6 @@ export class InstanceManager implements IInstanceManager {
         return server;
     }
 }
-
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { createMCPClient } from '../../../client.js';
 
 export interface StdioProxyConfig {
     port: number;

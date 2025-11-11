@@ -250,26 +250,3 @@ export async function initializeBothDatabases(workspacePath: string): Promise<{
   
   return { global, workspace };
 }
-
-// Legacy methods for backward compatibility
-/**
- * @deprecated Use getGlobalDatabase() or getWorkspaceDatabase() instead
- */
-export function getDatabase(dbPath?: string): DatabaseManager {
-  console.warn('getDatabase() is deprecated. Use getGlobalDatabase() or getWorkspaceDatabase() instead.');
-  if (!globalDbInstance) {
-    const defaultPath = dbPath || join(process.env.HOME || '/tmp', '.specly', 'specly.db');
-    globalDbInstance = new DatabaseManager(defaultPath, DatabaseType.GLOBAL);
-  }
-  return globalDbInstance;
-}
-
-/**
- * @deprecated Use initializeGlobalDatabase() or initializeWorkspaceDatabase() instead
- */
-export async function initializeDatabase(dbPath?: string): Promise<DatabaseManager> {
-  console.warn('initializeDatabase() is deprecated. Use initializeGlobalDatabase() or initializeWorkspaceDatabase() instead.');
-  const db = getDatabase(dbPath);
-  await db.initialize();
-  return db;
-}
