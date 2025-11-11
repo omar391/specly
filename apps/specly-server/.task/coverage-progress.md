@@ -2,16 +2,16 @@
 
 ## Completed Files
 
-### update-resources.ts
-- **Before**: 3.7%
+### update-steps.ts
+- **Before**: 11.36%
 - **After**: 100% (Stmt: 100%, Branch: 100%, Func: 100%)
 - **Tests Added**: 17 comprehensive tests
 - **Coverage**: Complete execution path coverage including constructor, success cases, error handling, and schema validation
 - **Key Features Tested**:
   - Constructor with dependency injection (PromptOrchestrator, GlobalDatabaseService)
-  - Successful execution with valid inputs for both project.md and design.md
+  - Successful execution with valid inputs for various step names
   - Workspace lookup and validation
-  - Prompt orchestration with correct parameters
+  - Prompt orchestration with correct parameters and update instructions
   - Error handling for workspace not found, database errors, orchestration failures
   - Schema validation for input parameters
   - Tool definition generation
@@ -46,9 +46,9 @@
 - Many other files have existing test coverage
 
 ## Summary
-- Total test files: 92
-- Total tests: 1584
-- Files below 95%: 13 (estimated)
-- Current focus: update-resources.ts (completed)
-- Next: update-steps.ts (11.36% coverage)</content>
+- Total test files: 93
+- Total tests: 1601
+- Files below 95%: 12 (estimated)
+- Current focus: update-steps.ts (completed)
+- Next: Need to identify next lowest coverage file</content>
 <parameter name="filePath">/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/apps/specly-server/.task/coverage-progress.md
