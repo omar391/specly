@@ -35,6 +35,7 @@
         "better-sqlite3": "^12.2.0",
         "drizzle-orm": "^0.44.2",
         "express": "^5.1.0",
+        "hono": "^4.10.4",
         "http-proxy": "^1.18.1",
         "sqlite3": "^5.1.7",
         "uuid": "^11.1.0",
@@ -53,6 +54,7 @@
         "@vitest/ui": "^3.2.4",
         "drizzle-kit": "^0.31.4",
         "supertest": "^7.1.1",
+        "test-utils": "link:@hono/hono/test-utils",
         "tsx": "^4.20.3",
         "typescript": "^5.3.3",
         "vitest": "^3.2.4"

@@ -1,12 +1,12 @@
-import { Request, Response } from 'express';
+import type { Context } from 'hono';
 import { GlobalDatabaseService, getGlobalDatabaseService } from '../database/global-queries.js';
 import { DatabaseService } from '../services/database-service.js';
 import { ProfileRepository } from '../repositories/profile-repository.js';
 import { workspaces } from '../database/schema/global-schema.js';
 
 // Local helper mirrors specs-tools resolve logic to support test-time DB injection
-function resolveDbService(req: Request, fallback: GlobalDatabaseService): GlobalDatabaseService {
-  const injected = (req.app?.locals as any)?.dbService;
+function resolveDbService(c: Context, fallback: GlobalDatabaseService): GlobalDatabaseService {
+  const injected = (c.env as any)?.dbService;
   if (injected instanceof GlobalDatabaseService) return injected;
   if (injected instanceof DatabaseService) return injected.getGlobal();
   if (injected && typeof injected.getGlobal === 'function') return injected.getGlobal();
@@ -15,56 +15,64 @@ function resolveDbService(req: Request, fallback: GlobalDatabaseService): Global
 }
 
 export class ProfilesController {
-  constructor(private defaultDb: GlobalDatabaseService = getGlobalDatabaseService()) {}
+  private defaultDb!: GlobalDatabaseService;
+
+  constructor(defaultDb?: GlobalDatabaseService) {
+    if (!defaultDb) {
+      this.defaultDb = getGlobalDatabaseService();
+    } else {
+      this.defaultDb = defaultDb;
+    }
+  }
 
   /** POST /api/profiles */
-  async createProfile(req: Request, res: Response) {
-    const { name, description, parent_profile_id } = req.body || {};
+  async createProfile(c: Context) {
+    const { name, description, parent_profile_id } = await c.req.json();
     if (!name || typeof name !== 'string' || !name.trim()) {
-      return res.status(400).json({ error: 'name required' });
+      return c.json({ error: 'name required' }, 400);
     }
-    const db = resolveDbService(req, this.defaultDb);
+    const db = resolveDbService(c, this.defaultDb);
     await db.initialize();
     const repo = new ProfileRepository(db);
     try {
       const result = await repo.createProfile({ name, description, parentProfileId: parent_profile_id ?? null });
       if (!result.created) {
-        return res.status(409).json({ error: 'profile exists', name });
+        return c.json({ error: 'profile exists', name }, 409);
       }
-      return res.status(201).json({ id: result.profile.id, name: result.profile.name, created: true });
+      return c.json({ id: result.profile.id, name: result.profile.name, created: true }, 201);
     } catch (e: any) {
-      return res.status(422).json({ error: e?.message || 'validation failed' });
+      return c.json({ error: e?.message || 'validation failed' }, 422);
     }
   }
 
   /** POST /api/profiles/:profile/versions */
-  async createProfileVersion(req: Request, res: Response) {
-    const profileName = req.params.profile;
-    const { parent_profile_version_id } = req.body || {};
-    if (!profileName) return res.status(400).json({ error: 'profile param required' });
-    const db = resolveDbService(req, this.defaultDb);
+  async createProfileVersion(c: Context) {
+    const profileName = c.req.param('profile');
+    const { parent_profile_version_id } = await c.req.json();
+    if (!profileName) return c.json({ error: 'profile param required' }, 400);
+    const db = resolveDbService(c, this.defaultDb);
     await db.initialize();
     const repo = new ProfileRepository(db);
     const profile = await repo.getProfileByName(profileName);
-    if (!profile) return res.status(404).json({ error: 'profile not found', profile: profileName });
+    if (!profile) return c.json({ error: 'profile not found', profile: profileName }, 404);
     try {
       const created = await repo.createProfileVersion({ profileId: profile.id, parentProfileVersionId: parent_profile_version_id ?? null });
-      return res.status(201).json({ id: created.id, version: created.version, created: true });
+      return c.json({ id: created.id, version: created.version, created: true }, 201);
     } catch (e: any) {
       const msg = String(e?.message || 'validation failed');
       if (/not found|different profile|Cycle detected|exceeded max depth/i.test(msg)) {
-        return res.status(422).json({ error: msg });
+        return c.json({ error: msg }, 422);
       }
-      return res.status(500).json({ error: 'failed to create profile version' });
+      return c.json({ error: 'failed to create profile version' }, 500);
     }
   }
 
   /** POST /api/workspaces/:workspaceId/profile/upgrade */
-  async upgradeWorkspaceProfile(req: Request, res: Response) {
-    const { workspaceId } = req.params as { workspaceId: string };
-    const { profile, version } = req.body || {};
-    if (!workspaceId) return res.status(400).json({ error: 'workspaceId required' });
-    const db = resolveDbService(req, this.defaultDb);
+  async upgradeWorkspaceProfile(c: Context) {
+    const { workspaceId } = c.req.param();
+    const { profile, version } = await c.req.json();
+    if (!workspaceId) return c.json({ error: 'workspaceId required' }, 400);
+    const db = resolveDbService(c, this.defaultDb);
     await db.initialize();
     const drizzle = db.getDrizzleManager().getDb();
     // Ensure workspace exists
@@ -76,106 +84,106 @@ export class ProfilesController {
     } else {
       wsExists = !!(await db.getWorkspace(workspaceId));
     }
-    if (!wsExists) return res.status(404).json({ error: 'workspace not found', workspaceId });
+    if (!wsExists) return c.json({ error: 'workspace not found', workspaceId }, 404);
 
     const repo = new ProfileRepository(db);
     if (!profile || typeof profile !== 'string') {
-      return res.status(400).json({ error: 'profile name required in body' });
+      return c.json({ error: 'profile name required in body' }, 400);
     }
     const p = await repo.getProfileByName(profile);
-    if (!p) return res.status(404).json({ error: 'profile not found', profile });
+    if (!p) return c.json({ error: 'profile not found', profile }, 404);
     const versions = await repo.listProfileVersions(p.id);
-    if (!versions.length) return res.status(409).json({ error: 'no profile versions to bind', profile });
+    if (!versions.length) return c.json({ error: 'no profile versions to bind', profile }, 409);
     let target = versions[0]; // listProfileVersions returns desc order
     if (typeof version === 'number') {
       const found = versions.find(v => v.version === version);
-      if (!found) return res.status(404).json({ error: 'profile version not found', profile, version });
+      if (!found) return c.json({ error: 'profile version not found', profile, version }, 404);
       target = found as any;
     }
     const binding = await repo.bindWorkspaceProfile(workspaceId, (target as any).id);
-    return res.status(200).json({ workspace_id: binding.workspaceId, profile_version_id: binding.profileVersionId, pinned_at: binding.pinnedAt });
+    return c.json({ workspace_id: binding.workspaceId, profile_version_id: binding.profileVersionId, pinned_at: binding.pinnedAt }, 200);
   }
 
   /** GET /api/workspaces/:workspaceId/profile */
-  async getWorkspaceProfile(req: Request, res: Response) {
-    const { workspaceId } = req.params as { workspaceId: string };
-    const db = resolveDbService(req, this.defaultDb);
+  async getWorkspaceProfile(c: Context) {
+    const { workspaceId } = c.req.param();
+    const db = resolveDbService(c, this.defaultDb);
     await db.initialize();
     const repo = new ProfileRepository(db);
     // Prefer enriched details for UI
     const binding = await repo.getWorkspaceBindingDetails(workspaceId);
-    if (!binding) return res.status(404).json({ error: 'workspace profile not bound', workspaceId });
-    return res.status(200).json({
+    if (!binding) return c.json({ error: 'workspace profile not bound', workspaceId }, 404);
+    return c.json({
       workspace_id: binding.workspaceId,
       profile_version_id: binding.profileVersionId,
       pinned_at: binding.pinnedAt,
       profile_name: (binding as any).profileName,
       version: (binding as any).profileVersion,
-    });
+    }, 200);
   }
 
   /** POST /api/profiles/:profile/versions/:version/attachments */
-  async attachTools(req: Request, res: Response) {
-    const profileName = req.params.profile;
-    const versionNum = Number(req.params.version);
-    const { attachments } = req.body || {};
-    if (!profileName || Number.isNaN(versionNum)) return res.status(400).json({ error: 'profile and numeric version required' });
-    if (!Array.isArray(attachments) || attachments.length === 0) return res.status(400).json({ error: 'attachments[] required' });
-    const db = resolveDbService(req, this.defaultDb);
+  async attachTools(c: Context) {
+    const profileName = c.req.param('profile');
+    const versionNum = Number(c.req.param('version'));
+    const { attachments } = await c.req.json();
+    if (!profileName || Number.isNaN(versionNum)) return c.json({ error: 'profile and numeric version required' }, 400);
+    if (!Array.isArray(attachments) || attachments.length === 0) return c.json({ error: 'attachments[] required' }, 400);
+    const db = resolveDbService(c, this.defaultDb);
     await db.initialize();
     const repo = new ProfileRepository(db);
     const profile = await repo.getProfileByName(profileName);
-    if (!profile) return res.status(404).json({ error: 'profile not found', profile: profileName });
+    if (!profile) return c.json({ error: 'profile not found', profile: profileName }, 404);
     const pv = await repo.getProfileVersionByNumber(profile.id, versionNum);
-    if (!pv) return res.status(404).json({ error: 'profile version not found', profile: profileName, version: versionNum });
+    if (!pv) return c.json({ error: 'profile version not found', profile: profileName, version: versionNum }, 404);
     const results: Array<{ tool: string; created: boolean } > = [];
     for (const item of attachments) {
       const { tool_name, tool_version_hash, command_alias } = item || {};
       if (!tool_name || !tool_version_hash) {
-        return res.status(400).json({ error: 'tool_name and tool_version_hash required for each attachment' });
+        return c.json({ error: 'tool_name and tool_version_hash required for each attachment' }, 400);
       }
       try {
         const r = await repo.attachToolToProfileVersion({ profileVersionId: pv.id, toolName: tool_name, toolVersionHash: tool_version_hash, commandAlias: command_alias ?? null });
         results.push({ tool: tool_name, created: r.created });
       } catch (e: any) {
-        return res.status(422).json({ error: e?.message || 'attach failed', tool_name });
+        return c.json({ error: e?.message || 'attach failed', tool_name }, 422);
       }
     }
     const list = await repo.listProfileVersionAttachments(pv.id);
-    return res.status(201).json({ profile: profileName, version: versionNum, attached: results, attachments: list });
+    return c.json({ profile: profileName, version: versionNum, attached: results, attachments: list }, 201);
   }
 
   /** GET /api/profiles/:profile/versions/:version/attachments */
-  async getAttachments(req: Request, res: Response) {
-    const profileName = req.params.profile;
-    const versionNum = Number(req.params.version);
-    if (!profileName || Number.isNaN(versionNum)) return res.status(400).json({ error: 'profile and numeric version required' });
-    const db = resolveDbService(req, this.defaultDb);
+  async getAttachments(c: Context) {
+    const profileName = c.req.param('profile');
+    const versionNum = Number(c.req.param('version'));
+    if (!profileName || Number.isNaN(versionNum)) return c.json({ error: 'profile and numeric version required' }, 400);
+    const db = resolveDbService(c, this.defaultDb);
     await db.initialize();
     const repo = new ProfileRepository(db);
     const profile = await repo.getProfileByName(profileName);
-    if (!profile) return res.status(404).json({ error: 'profile not found', profile: profileName });
+    if (!profile) return c.json({ error: 'profile not found', profile: profileName }, 404);
     const pv = await repo.getProfileVersionByNumber(profile.id, versionNum);
-    if (!pv) return res.status(404).json({ error: 'profile version not found', profile: profileName, version: versionNum });
+    if (!pv) return c.json({ error: 'profile version not found', profile: profileName, version: versionNum }, 404);
     const list = await repo.listProfileVersionAttachments(pv.id);
-    return res.status(200).json({ profile: profileName, version: versionNum, attachments: list });
+    return c.json({ profile: profileName, version: versionNum, attachments: list }, 200);
   }
 
     /** POST /api/profiles/:profile/versions/:version/publish */
-    async publishProfileVersion(req: Request, res: Response) {
-        const profileName = req.params.profile;
-        const versionNum = Number(req.params.version);
+  async publishProfileVersion(c: Context) {
+    const profileName = c.req.param('profile');
+    const versionNum = Number(c.req.param('version'));
         if (!profileName || Number.isNaN(versionNum)) {
-            return res.status(400).json({ error: 'profile and numeric version required' });
+          return c.json({ error: 'profile and numeric version required' }, 400);
         }
-        const db = resolveDbService(req, this.defaultDb);
+    const db = resolveDbService(c, this.defaultDb);
         await db.initialize();
         const repo = new ProfileRepository(db);
         const profile = await repo.getProfileByName(profileName);
-        if (!profile) return res.status(404).json({ error: 'profile not found', profile: profileName });
+    if (!profile) return c.json({ error: 'profile not found', profile: profileName }, 404);
         const pv = await repo.getProfileVersionByNumber(profile.id, versionNum);
-        if (!pv) return res.status(404).json({ error: 'profile version not found', profile: profileName, version: versionNum });
+    if (!pv) return c.json({ error: 'profile version not found', profile: profileName, version: versionNum }, 404);
         // Current model has no additional publish state; treat as validation-only "publish".
-        return res.status(200).json({ profile: profileName, version: versionNum, published: true });
+    return c.json({ profile: profileName, version: versionNum, published: true }, 200);
     }
 }

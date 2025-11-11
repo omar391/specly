@@ -2,18 +2,20 @@
 
 ## Completed Files
 
-### index.ts
-- **Before**: 45.1%
-- **After**: 46.0% (Stmt: 49.5%, Branch: 68.4%, Func: 20.0%)
-- **Tests Added**: 12 comprehensive tests
-- **Coverage**: Basic functionality, version constant, server instantiation, method existence, error handling
+### update-resources.ts
+- **Before**: 3.7%
+- **After**: 100% (Stmt: 100%, Branch: 100%, Func: 100%)
+- **Tests Added**: 17 comprehensive tests
+- **Coverage**: Complete execution path coverage including constructor, success cases, error handling, and schema validation
 - **Key Features Tested**:
-  - SPECLY_VERSION constant (IIFE)
-  - SpeclyServer class instantiation
-  - Method existence checks (initializeServer, createMCPToolHandlers, etc.)
-  - Error handling for uninitialized server access
-  - Backward compatibility functions
-- **Exceptions**: Complex initialization paths and background job management not yet covered
+  - Constructor with dependency injection (PromptOrchestrator, GlobalDatabaseService)
+  - Successful execution with valid inputs for both project.md and design.md
+  - Workspace lookup and validation
+  - Prompt orchestration with correct parameters
+  - Error handling for workspace not found, database errors, orchestration failures
+  - Schema validation for input parameters
+  - Tool definition generation
+- **Mocking Strategy**: Module-level mocks with mockImplementation to allow real class instantiation while isolating dependencies
 
 ### workspace-rules-repository.ts
 - **Before**: ~85%
@@ -44,9 +46,9 @@
 - Many other files have existing test coverage
 
 ## Summary
-- Total test files: 90
-- Total tests: 1571
-- Files below 95%: 14 (estimated)
-- Current focus: workspace-rules-repository.ts (completed)
-- Next: Need to identify files with <95% coverage using coverage analysis</content>
+- Total test files: 92
+- Total tests: 1584
+- Files below 95%: 13 (estimated)
+- Current focus: update-resources.ts (completed)
+- Next: update-steps.ts (11.36% coverage)</content>
 <parameter name="filePath">/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/apps/specly-server/.task/coverage-progress.md

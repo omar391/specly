@@ -74,7 +74,7 @@ export class DrizzleDatabaseManager {
       }
 
       // For pure TypeScript approach, use programmatic migrations instead of file-based migrations
-      const { isStdioMode } = await import('../utils/cli-parser.js');
+      const { isStdioMode } = await import('@omar391/mcp-kit/utils/cli-parser');
       if (!isStdioMode()) {
         console.log('Running programmatic database migrations...');
       }

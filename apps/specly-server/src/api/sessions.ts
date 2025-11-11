@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import type { Context } from 'hono';
 import { DatabaseService } from '../services/database-service.js';
 import { createSuccessResponse, BadRequestError } from './middleware.js';
 import type { SessionsResponse, SessionSummary } from './types.js';
@@ -11,8 +11,8 @@ import type { SessionsResponse, SessionSummary } from './types.js';
 export class SessionsController {
     constructor(private databaseService: DatabaseService) { }
 
-    async getSessions(req: Request, res: Response): Promise<void> {
-        const { workspace_id, task_id } = (req.query || {}) as { workspace_id?: string; task_id?: string };
+    async getSessions(c: Context) {
+        const { workspace_id, task_id } = c.req.query();
 
         // Validate trivial shape
         if (task_id && typeof task_id !== 'string') {
@@ -35,6 +35,6 @@ export class SessionsController {
         }));
 
         const response: SessionsResponse = { sessions: payload };
-        res.json(createSuccessResponse(response));
+        return c.json(createSuccessResponse(response));
     }
 }

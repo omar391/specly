@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import type { Context } from 'hono';
 import { SpecEngine, ToolGraph, SerializedPausedState, SpecEngineErrorCode } from '../services/spec-engine.js';
 import { PausedStateStore, InMemoryPausedStateStore } from '../services/paused-state-store.js';
 import { z } from 'zod';
@@ -15,15 +15,15 @@ export class ToolsExecuteController {
     private db: DatabaseService | null = null
   ) { }
 
-  async execute(req: Request, res: Response) {
+  async execute(c: Context) {
     // Reject deprecated query param early if present
-    if (req.query.mode) {
-      return res.status(400).json({ error: { message: 'mode query param deprecated; omit it (auto-detect run vs resume)' } });
+    if (c.req.query('mode')) {
+      return c.json({ error: { message: 'mode query param deprecated; omit it (auto-detect run vs resume)' } }, 400);
     }
     try {
-      const parseResult = unifiedRequestSchema.safeParse(req.body);
+      const parseResult = unifiedRequestSchema.safeParse(await c.req.json());
       if (!parseResult.success) {
-        return res.status(400).json({ error: { message: 'Invalid request', details: parseResult.error.flatten() } });
+        return c.json({ error: { message: 'Invalid request', details: parseResult.error.flatten() } }, 400);
       }
       const data = parseResult.data;
 
@@ -35,12 +35,12 @@ export class ToolsExecuteController {
           const globalDb = this.db ? this.db.getGlobal() : getGlobalDatabaseService();
           const toolVersion = await globalDb.getToolVersion(data.tool_version_id);
           if (!toolVersion) {
-            return res.status(404).json({ error: { message: 'tool_version_id not found' } });
+            return c.json({ error: { message: 'tool_version_id not found' } }, 404);
           }
           const manifest: any = toolVersion.graphManifest;
           // manifest shape expected: { ordered_specs: string[], entry_spec: string, edges: {from,to,priority?}[] }
           if (!manifest || !manifest.ordered_specs || !manifest.entry_spec || !Array.isArray(manifest.edges)) {
-            return res.status(500).json({ error: { message: 'Stored tool version manifest invalid' } });
+            return c.json({ error: { message: 'Stored tool version manifest invalid' } }, 500);
           }
           // Fetch spec intents for nodes (fallback to autonomous if missing) – specs may not all exist if seed incomplete
           const specMap = await globalDb.getSpecsByHashes(manifest.ordered_specs);
@@ -55,7 +55,7 @@ export class ToolsExecuteController {
             edges: manifest.edges.map((e: any) => ({ from: e.from, to: e.to, priority: e.priority }))
           };
         } catch (err: any) {
-          return res.status(500).json({ error: { message: err?.message || 'Failed to resolve tool_version_id' } });
+          return c.json({ error: { message: err?.message || 'Failed to resolve tool_version_id' } }, 500);
         }
       }
 
@@ -65,19 +65,19 @@ export class ToolsExecuteController {
       // Resume path
       if (data.resumeToken) {
         const paused = await this.pausedStore.get(data.resumeToken);
-        if (!paused) return res.status(404).json({ error: { message: 'resumeToken not found' } });
+        if (!paused) return c.json({ error: { message: 'resumeToken not found' } }, 404);
         const graph = (data.graph || resolvedGraph) as unknown as ToolGraph;
-        if (!graph) return res.status(400).json({ error: { message: 'graph or tool_version_id required for resume' } });
+        if (!graph) return c.json({ error: { message: 'graph or tool_version_id required for resume' } }, 400);
         const ctx = await engine.resume(graph, paused, { specHash: data.human_input!.specHash, humanOutput: data.human_input!.output }, sessionCtx);
         if (ctx.status !== 'awaiting_input') {
           await this.pausedStore.delete(data.resumeToken);
         }
-        return res.status(mapHttpStatus(ctx.errorCode)).json(serializeContext(ctx));
+        return c.json(serializeContext(ctx), mapHttpStatus(ctx.errorCode) as any);
       }
 
       // Run path
       const graph = (data.graph || resolvedGraph) as unknown as ToolGraph;
-      if (!graph) return res.status(400).json({ error: { message: 'graph or tool_version_id required' } });
+      if (!graph) return c.json({ error: { message: 'graph or tool_version_id required' } }, 400);
       const ctx = await engine.run(graph, sessionCtx);
       if (ctx.status === 'awaiting_input' && ctx.resumeToken) {
         const paused: SerializedPausedState = {
@@ -91,9 +91,9 @@ export class ToolsExecuteController {
         };
         await this.pausedStore.save(ctx.resumeToken, paused);
       }
-      return res.status(mapHttpStatus(ctx.errorCode)).json(serializeContext(ctx));
+      return c.json(serializeContext(ctx), mapHttpStatus(ctx.errorCode) as any);
     } catch (e: any) {
-      return res.status(500).json({ error: { message: e?.message || 'Internal error' } });
+      return c.json({ error: { message: e?.message || 'Internal error' } }, 500);
     }
   }
 }

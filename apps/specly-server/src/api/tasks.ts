@@ -5,10 +5,10 @@
  * PUT /api/workspaces/{id}/tasks/{taskId} - Update task
  */
 
-import { Request, Response } from 'express';
+import type { Context } from 'hono';
 import { DatabaseService } from '../services/database-service.js';
 import { TasksResponse, Task, CreateTaskRequest, UpdateTaskRequest, TasksQueryParams } from './types.js';
-import { createSuccessResponse, createErrorResponse, NotFoundError, ValidationError } from './middleware.js';
+import { createSuccessResponse, createErrorResponse, NotFoundError, ValidationError, BadRequestError } from './middleware.js';
 import { WorkspacesController } from './workspaces.js';
 import { assertValidStatus, canTransition } from '../utils/task-status.js';
 
@@ -47,10 +47,10 @@ export class TasksController {
    * GET /api/workspaces/{workspaceId}/tasks
    * Get all tasks for a workspace with optional filtering
    */
-  async getTasks(req: Request, res: Response): Promise<void> {
+  async getTasks(c: Context) {
     try {
-      const { workspaceId } = req.params;
-      const query: TasksQueryParams = req.query;
+      const { workspaceId } = c.req.param();
+      const query: TasksQueryParams = c.req.query();
 
       // Verify workspace exists
       const workspace = await this.workspacesController.getWorkspaceById(workspaceId);
@@ -74,9 +74,7 @@ export class TasksController {
         page: Math.floor(offset / limit) + 1
       };
 
-
-      // Only one response object needed, already declared above.
-      res.json(createSuccessResponse(response));
+      return c.json(createSuccessResponse(response));
     } catch (error) {
       console.error('Error fetching tasks:', error);
       throw error;
@@ -87,10 +85,10 @@ export class TasksController {
    * POST /api/workspaces/{workspaceId}/tasks
    * Create a new task in the workspace
    */
-  async createTask(req: Request, res: Response): Promise<void> {
+  async createTask(c: Context) {
     try {
-      const { workspaceId } = req.params;
-      const taskData: CreateTaskRequest = req.body;
+      const { workspaceId } = c.req.param();
+      const taskData: CreateTaskRequest = await c.req.json();
 
       // Validate required fields
       if (!taskData.title?.trim()) {
@@ -134,7 +132,7 @@ export class TasksController {
       // Map DB result to camelCase for API response
       const responseTask: Task = this.mapTaskDbToApi(createdTask);
 
-      res.status(201).json(createSuccessResponse({ task: responseTask }));
+      return c.json(createSuccessResponse({ task: responseTask }), 201);
     } catch (error) {
       console.error('Error creating task:', error);
       throw error;
@@ -145,16 +143,16 @@ export class TasksController {
    * GET /api/workspaces/{workspaceId}/tasks/{taskId}
    * Fetch a single task
    */
-  async getTask(req: Request, res: Response): Promise<void> {
+  async getTask(c: Context) {
     try {
-      const { workspaceId, taskId } = req.params as { workspaceId: string; taskId: string };
+      const { workspaceId, taskId } = c.req.param();
       const workspace = await this.workspacesController.getWorkspaceById(workspaceId);
       const workspaceDb = await this.databaseService.getWorkspace(workspace.path);
       const task = await workspaceDb.getTask(taskId);
       if (!task) {
-        throw new NotFoundError(`Task not found: ${taskId}`);
+        return c.json({ error: `Task not found: ${taskId}` }, 404);
       }
-      res.json(createSuccessResponse({ task: this.mapTaskDbToApi(task) }));
+      return c.json(createSuccessResponse({ task: this.mapTaskDbToApi(task) }));
     } catch (error) {
       console.error('Error fetching task:', error);
       throw error;
@@ -165,10 +163,10 @@ export class TasksController {
    * PATCH /api/workspaces/{workspaceId}/tasks/{taskId}/status
    * Update task status with validation and dependency guardrails
    */
-  async patchTaskStatus(req: Request, res: Response): Promise<void> {
+  async patchTaskStatus(c: Context) {
     try {
-      const { workspaceId, taskId } = req.params as { workspaceId: string; taskId: string };
-      const { status } = req.body as { status?: string };
+      const { workspaceId, taskId } = c.req.param();
+      const { status } = await c.req.json() as { status?: string };
       if (!status || typeof status !== 'string') {
         throw new ValidationError('Status is required');
       }
@@ -197,7 +195,7 @@ export class TasksController {
       }
       const check = canTransition(fromSpecly as any, status as any, { hasUnresolvedDependencies: hasUnresolvedDeps });
       if (!check.ok) {
-        throw new ValidationError(check.reason || `Invalid status transition: ${fromSpecly} -> ${status}`);
+        return c.json({ error: check.reason || `Invalid status transition: ${fromSpecly} -> ${status}` }, 422);
       }
       const now = new Date().toISOString();
       const updates: any = { status, updatedAt: now };
@@ -206,7 +204,7 @@ export class TasksController {
       }
       await workspaceDb.updateTask(taskId, updates);
       const updatedTask = await workspaceDb.getTask(taskId);
-      res.json(createSuccessResponse({ task: this.mapTaskDbToApi(updatedTask) }));
+      return c.json(createSuccessResponse({ task: this.mapTaskDbToApi(updatedTask) }));
     } catch (error) {
       console.error('Error updating task status:', error);
       throw error;
@@ -216,10 +214,10 @@ export class TasksController {
   /**
    * POST /api/workspaces/{workspaceId}/tasks/{taskId}/dependencies
    */
-  async addDependency(req: Request, res: Response): Promise<void> {
+  async addDependency(c: Context) {
     try {
-      const { workspaceId, taskId } = req.params as { workspaceId: string; taskId: string };
-      const { depends_on } = req.body as { depends_on?: string };
+      const { workspaceId, taskId } = c.req.param();
+      const { depends_on } = await c.req.json() as { depends_on?: string };
       if (!depends_on) { throw new ValidationError('depends_on is required'); }
       if (depends_on === taskId) { throw new ValidationError('Task cannot depend on itself'); }
       const workspace = await this.workspacesController.getWorkspaceById(workspaceId);
@@ -243,7 +241,7 @@ export class TasksController {
         for (const e of edges) stack.push(e.depends_on_task_id);
       }
       await workspaceDb.addTaskDependency(taskId, depends_on);
-      res.status(201).json(createSuccessResponse({ task_id: taskId, depends_on }));
+      return c.json(createSuccessResponse({ task_id: taskId, depends_on }), 201);
     } catch (error) {
       console.error('Error adding dependency:', error);
       throw error;
@@ -253,13 +251,14 @@ export class TasksController {
   /**
    * DELETE /api/workspaces/{workspaceId}/tasks/{taskId}/dependencies/:dependsOn
    */
-  async removeDependency(req: Request, res: Response): Promise<void> {
+  async removeDependency(c: Context) {
     try {
-      const { workspaceId, taskId, dependsOn } = req.params as { workspaceId: string; taskId: string; dependsOn: string };
+      const { workspaceId, taskId, dependsOn } = c.req.param();
       const workspace = await this.workspacesController.getWorkspaceById(workspaceId);
       const workspaceDb = await this.databaseService.getWorkspace(workspace.path);
       await workspaceDb.removeTaskDependency(taskId, dependsOn);
-      res.status(204).send();
+      c.status(204);
+      return c.body(null);
     } catch (error) {
       console.error('Error removing dependency:', error);
       throw error;
@@ -269,13 +268,13 @@ export class TasksController {
   /**
    * GET /api/workspaces/{workspaceId}/tasks/{taskId}/dependencies
    */
-  async listDependencies(req: Request, res: Response): Promise<void> {
+  async listDependencies(c: Context) {
     try {
-      const { workspaceId, taskId } = req.params as { workspaceId: string; taskId: string };
+      const { workspaceId, taskId } = c.req.param();
       const workspace = await this.workspacesController.getWorkspaceById(workspaceId);
       const workspaceDb = await this.databaseService.getWorkspace(workspace.path);
       const deps = await workspaceDb.listTaskDependencies(taskId);
-      res.json(createSuccessResponse({ task_id: taskId, dependencies: deps }));
+      return c.json(createSuccessResponse({ task_id: taskId, dependencies: deps }));
     } catch (error) {
       console.error('Error listing dependencies:', error);
       throw error;
@@ -286,10 +285,10 @@ export class TasksController {
    * PUT /api/workspaces/{workspaceId}/tasks/{taskId}
    * Update a task property
    */
-  async updateTask(req: Request, res: Response): Promise<void> {
+  async updateTask(c: Context) {
     try {
-      const { workspaceId, taskId } = req.params;
-      const updateData: UpdateTaskRequest = req.body;
+      const { workspaceId, taskId } = c.req.param();
+      const updateData: UpdateTaskRequest = await c.req.json();
 
       // Validate required fields
       if (!updateData.field) {
@@ -355,7 +354,7 @@ export class TasksController {
         throw new Error('Failed to update task');
       }
 
-      res.json(createSuccessResponse({
+      return c.json(createSuccessResponse({
         task: {
           id: (updatedTask as any).id,
           updatedAt: (updatedTask as any).updatedAt,

@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import type { Context } from 'hono';
 import { getGlobalDatabaseService, GlobalDatabaseService } from '../database/global-queries.js';
 import { DatabaseService } from '../services/database-service.js';
 import { specs, tools, toolVersions } from '../database/schema/global-schema.js';
@@ -7,12 +7,13 @@ import { validateToolGraph, GraphValidationError } from '../utils/graph-validate
 import { mapGraphValidationToPublicError } from '../utils/graph-error-map.js';
 import { validateSpecSecurity, validateCommandAliasUniqueness, validateGraphSizeLimits, validateGraphDepth, SecurityValidationError } from '../utils/security-validators.js';
 import { eq } from 'drizzle-orm';
+import { createSuccessResponse } from './middleware.js';
 
 // Minimal Zod-like manual validation (avoid new dep): trust shapes; rely on DB + validator for safety.
 
-// Allow per-request override (tests can inject isolated in-memory dbService via req.app.locals.dbService)
-function resolveDbService(req: Request, fallback: any): GlobalDatabaseService {
-    const injected = (req.app?.locals as any)?.dbService;
+// Allow per-request override (tests can inject isolated in-memory dbService via context)
+function resolveDbService(c: Context, fallback: any): GlobalDatabaseService {
+    const injected = (c as any).dbService;
     // Cases:
     // 1. Already a GlobalDatabaseService -> use directly
     if (injected instanceof GlobalDatabaseService) return injected;
@@ -27,8 +28,8 @@ function resolveDbService(req: Request, fallback: any): GlobalDatabaseService {
 export class SpecsController {
     constructor(private defaultDbService: GlobalDatabaseService = getGlobalDatabaseService()) { }
 
-    async createSpec(req: Request, res: Response) {
-        const body = req.body || {};
+    async createSpec(c: Context) {
+        const body = await c.req.json() || {};
         // Extract subset used for hashing to ensure determinism (mirror spec hashing expectations)
         const specForHash = {
             executor_type: body.executor_type,
@@ -46,24 +47,27 @@ export class SpecsController {
             metadata: body.metadata ?? {}
         };
         if (!specForHash.executor_type || !specForHash.executor_version || !specForHash.intent) {
-            return res.status(400).json({ error: 'Missing required spec fields', required: ['executor_type', 'executor_version', 'intent'] });
+            return c.json({ error: 'Missing required spec fields', required: ['executor_type', 'executor_version', 'intent'] }, 400);
+            return;
         }
 
         // SP-013: Security validation
         const securityErr = validateSpecSecurity(specForHash);
         if (securityErr) {
-            return res.status(422).json({ error: securityErr.message, code: securityErr.code, details: securityErr.details });
+            return c.json({ error: securityErr.message, code: securityErr.code, details: securityErr.details }, 422);
+            return;
         }
 
         const { hash } = hashSpec(specForHash);
-        const dbService = resolveDbService(req, this.defaultDbService);
+        const dbService = resolveDbService(c, this.defaultDbService);
         await dbService.initialize();
         const mgr = dbService.getDrizzleManager();
         const db = mgr.getDb();
         // Check existing
         const existing = await db.select().from(specs).where(eq(specs.hash, hash)).limit(1);
         if (existing.length) {
-            return res.status(200).json({ hash, created: false });
+            return c.json({ hash, created: false });
+            return;
         }
         await db.insert(specs).values({
             hash,
@@ -81,55 +85,69 @@ export class SpecsController {
             security: specForHash.security,
             metadata: specForHash.metadata
         } as any);
-        return res.status(201).json({ hash, created: true });
+        return c.json({ hash, created: true }, 201);
     }
 }
 
 export class ToolsController {
     constructor(private defaultDbService: GlobalDatabaseService = getGlobalDatabaseService()) { }
 
-    async createTool(req: Request, res: Response) {
-        const { name, description, command_alias } = req.body || {};
-        if (!name) return res.status(400).json({ error: 'name required' });
-        const dbService = resolveDbService(req, this.defaultDbService);
+    async createTool(c: Context) {
+        const { name, description, command_alias } = await c.req.json() || {};
+        if (!name) {
+            return c.json({ error: 'name required' }, 400);
+            return;
+        }
+        const dbService = resolveDbService(c, this.defaultDbService);
         await dbService.initialize();
 
         // SP-013: Validate command_alias uniqueness
         if (command_alias) {
             const aliasErr = await validateCommandAliasUniqueness(dbService, command_alias);
             if (aliasErr) {
-                return res.status(409).json({ error: aliasErr.message, code: aliasErr.code, details: aliasErr.details });
+                return c.json({ error: aliasErr.message, code: aliasErr.code, details: aliasErr.details }, 409);
+                return;
             }
         }
 
         const db = dbService.getDrizzleManager().getDb();
         const existing = await db.select().from(tools).where(eq(tools.name, name)).limit(1);
-        if (existing.length) return res.status(409).json({ error: 'tool exists', name });
+        if (existing.length) {
+            return c.json({ error: 'tool exists', name }, 409);
+            return;
+        }
         await db.insert(tools).values({ name, description, commandAlias: command_alias } as any);
-        return res.status(201).json({ name, created: true });
+        return c.json({ name, created: true }, 201);
     }
 
-    async createToolVersion(req: Request, res: Response) {
-        const toolName = req.params.tool;
-        const body = req.body || {};
+    async createToolVersion(c: Context) {
+        const toolName = c.req.param('tool');
+        const body = await c.req.json() || {};
         const ordered_specs = body.ordered_specs;
         const entry_spec = body.entry_spec;
         const edges = body.edges || [];
         if (!Array.isArray(ordered_specs) || !entry_spec) {
-            return res.status(400).json({ error: 'ordered_specs[] and entry_spec required' });
+            return c.json({ error: 'ordered_specs[] and entry_spec required' }, 400);
+            return;
         }
-        const dbService = resolveDbService(req, this.defaultDbService);
+        const dbService = resolveDbService(c, this.defaultDbService);
         await dbService.initialize();
         const db = dbService.getDrizzleManager().getDb();
         // Tool existence optional? Enforce existence.
         const toolExists = await db.select().from(tools).where(eq(tools.name, toolName)).limit(1);
-        if (!toolExists.length) return res.status(404).json({ error: 'tool not found', tool: toolName });
+        if (!toolExists.length) {
+            return c.json({ error: 'tool not found', tool: toolName }, 404);
+            return;
+        }
 
         // Validate all specs exist
         const specRows = await db.select({ hash: specs.hash }).from(specs);
         const specSet = new Set(specRows.map((r: { hash: string }) => r.hash));
         for (const h of ordered_specs) {
-            if (!specSet.has(h)) return res.status(422).json({ error: 'spec missing', spec: h, code: 'GRAPH_MISSING_NODE' });
+            if (!specSet.has(h)) {
+                return c.json({ error: 'spec missing', spec: h, code: 'GRAPH_MISSING_NODE' }, 422);
+                return;
+            }
         }
         // SP-013: Graph size & depth validation
         const graphManifest = {
@@ -140,12 +158,14 @@ export class ToolsController {
 
         const sizeErr = validateGraphSizeLimits(graphManifest);
         if (sizeErr) {
-            return res.status(422).json({ error: sizeErr.message, code: sizeErr.code, details: sizeErr.details });
+            return c.json({ error: sizeErr.message, code: sizeErr.code, details: sizeErr.details }, 422);
+            return;
         }
 
         const depthErr = validateGraphDepth(graphManifest);
         if (depthErr) {
-            return res.status(422).json({ error: depthErr.message, code: depthErr.code, details: depthErr.details });
+            return c.json({ error: depthErr.message, code: depthErr.code, details: depthErr.details }, 422);
+            return;
         }
 
         // Structural validation via existing validator (maps cycles/missing). Use try/catch.
@@ -154,14 +174,19 @@ export class ToolsController {
         } catch (e: any) {
             if (e instanceof GraphValidationError) {
                 const pub = mapGraphValidationToPublicError(e);
-                return res.status(422).json({ error: e.message, code: pub.code });
+                return c.json({ error: e.message, code: pub.code }, 422);
+                return;
             }
-            return res.status(500).json({ error: 'validation failure', detail: e?.message });
+            return c.json({ error: 'validation failure', detail: e?.message }, 500);
+            return;
         }
         const { hash } = hashToolVersion({ ordered_specs, edges, entry_spec, tool_name: toolName });
         const existing = await db.select().from(toolVersions).where(eq(toolVersions.hash, hash)).limit(1);
-        if (existing.length) return res.status(200).json({ hash, tool: toolName, created: false });
+        if (existing.length) {
+            return c.json({ hash, tool: toolName, created: false });
+            return;
+        }
         await db.insert(toolVersions).values({ hash, toolName, graphManifest: { ordered_specs, entry_spec, edges } } as any);
-        return res.status(201).json({ hash, tool: toolName, created: true });
+        return c.json({ hash, tool: toolName, created: true }, 201);
     }
 }

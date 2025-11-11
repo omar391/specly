@@ -3,7 +3,7 @@
  * GET /api/workspaces - List all workspaces
  */
 
-import { Request, Response } from 'express';
+import type { Context } from 'hono';
 import { DatabaseService } from '../services/database-service.js';
 import { WorkspacesResponse, WorkspaceSummary } from './types.js';
 import { createSuccessResponse, createErrorResponse, NotFoundError } from './middleware.js';
@@ -15,7 +15,7 @@ export class WorkspacesController {
    * GET /api/workspaces
    * List all Specly workspaces with summary information
    */
-  async getWorkspaces(req: Request, res: Response): Promise<void> {
+  async getWorkspaces(c: Context) {
     try {
       // Query workspaces from global database
       const globalDb = this.databaseService.getGlobal();
@@ -80,7 +80,7 @@ export class WorkspacesController {
         workspaces: enrichedWorkspaces
       };
 
-      res.json(createSuccessResponse(response));
+      return c.json(createSuccessResponse(response));
     } catch (error) {
       console.error('Error fetching workspaces:', error);
       throw error;
