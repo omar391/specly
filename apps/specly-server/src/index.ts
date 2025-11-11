@@ -1,16 +1,12 @@
-#!/usr/bin/env node
-
-/**
- * Specly Integrated Server
- * 
- * Unified server that combines MCP server + UI + REST API
- */
-
-import { startMcpServer } from '@omar391/mcp-kit/server';
-import { parseCliArgs, type CliOptions } from './utils/cli-parser.js';
+import { startMcpServer, type ExtendedCliOptions } from '@omar391/mcp-kit/server';
+import { parseCliArgs } from '@omar391/mcp-kit/utils/cli-parser';
 import { MCPToolHandlers } from '@omar391/mcp-kit/server/core/types';
 import { createToolHandlers } from '@omar391/mcp-kit/server/handlers';
 import { zodToJsonSchema } from 'zod-to-json-schema';
+import { Hono, type Context } from 'hono';
+import * as os from 'os';
+import * as path from 'path';
+import * as fs from 'fs';
 
 import { ToolNames } from './constants/tool-names.js';
 import { initializeGlobalDatabaseService, type GlobalDatabaseService } from './database/global-queries.js';
@@ -31,12 +27,265 @@ import { RuleUpdateTool, ruleUpdateToolSchema } from './tools/rule-update.js';
 import { RemoteInterfaceTool, remoteInterfaceToolSchema } from './tools/remote-interface.js';
 import { UpdateResourcesTool, updateResourcesToolSchema } from './tools/update-resources.js';
 import { UpdateStepsTool, updateStepsToolSchema } from './tools/update-steps.js';
-import { SpeclyInstanceManager } from './server/instance-manager.js';
 import { InstanceManager } from '@omar391/mcp-kit/server/local/node-instance';
+import { BackgroundJobsService } from './services/background-jobs-service.js';
+
+// Version constant
+export const SPECLY_VERSION = (() => {
+  try {
+    const pkgPath = new URL('../../package.json', import.meta.url);
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+    return pkg.version || '0.1.0';
+  } catch {
+    return '0.1.0';
+  }
+})();
+
+/**
+ * SpeclyServer class encapsulates all server state and initialization
+ */
+export class SpeclyServer {
+  private seedManager!: SeedManager;
+  private lastSeedSummary: any | null = null;
+  private orchestrator!: PromptOrchestrator;
+  private initTool!: InitToolNew;
+  private startTool!: StartTool;
+  private addTool!: AddToolNew;
+  private statusTool!: StatusToolNew;
+  private updateTool!: UpdateToolNew;
+  private auditTool!: AuditToolNew;
+  private focusTool!: FocusToolNew;
+  private githubTool!: GitHubTool;
+  private ruleUpdateTool!: RuleUpdateTool;
+  private remoteInterfaceTool!: RemoteInterfaceTool;
+  private updateResourcesTool!: UpdateResourcesTool;
+  private updateStepsTool!: UpdateStepsTool;
+  private globalDbService!: GlobalDatabaseService;
+  private databaseService!: DatabaseService;
+  private sseManager!: SSEEventManager;
+  private serverInitialized = false;
+  private backgroundJobsService?: BackgroundJobsService;
+  private gcInterval: NodeJS.Timeout | null = null;
+
+  async initializeServer() {
+    try {
+  // Initialize global database using pure Drizzle system
+      this.globalDbService = await initializeGlobalDatabaseService();
+      const globalDrizzleManager = this.globalDbService.getDrizzleManager();
+
+      // Create DatabaseService for API endpoints
+      this.databaseService = new DatabaseService(globalDrizzleManager);
+
+      // Initialize SSE manager
+      this.sseManager = new SSEEventManager();
+
+      // Initialize services with pure Drizzle operations
+      this.seedManager = new SeedManager(globalDrizzleManager);
+      this.orchestrator = new PromptOrchestrator(globalDrizzleManager);
+
+      // Initialize tools with pure Drizzle database manager
+      this.initTool = new InitToolNew(globalDrizzleManager);
+      this.startTool = new StartTool(globalDrizzleManager);
+      this.addTool = new AddToolNew(globalDrizzleManager);
+      this.statusTool = new StatusToolNew(globalDrizzleManager);
+      this.updateTool = new UpdateToolNew(globalDrizzleManager);
+      this.auditTool = new AuditToolNew(globalDrizzleManager);
+      this.focusTool = new FocusToolNew(globalDrizzleManager);
+      this.githubTool = new GitHubTool(globalDrizzleManager);
+      this.ruleUpdateTool = new RuleUpdateTool(globalDrizzleManager);
+      this.remoteInterfaceTool = new RemoteInterfaceTool(globalDrizzleManager);
+      this.updateResourcesTool = new UpdateResourcesTool(globalDrizzleManager);
+      this.updateStepsTool = new UpdateStepsTool(globalDrizzleManager);
+
+      // Initialize global seed data (MCP server mappings etc.)
+      await this.seedManager.initializeGlobalData();
+
+      this.serverInitialized = true;
+    } catch (error) {
+      console.error('Error initializing server:', error);
+      throw error;
+    }
+  }
+
+  async ensureServerInitialized(): Promise<void> {
+    if (this.serverInitialized) {
+      return;
+    }
+    await this.initializeServer();
+  }
+
+  createMCPToolHandlers(): MCPToolHandlers {
+    const specs = [
+      { name: ToolNames.INIT, description: "Initialize a Specly workspace with .task folder structure and configuration", schema: initToolSchema, exec: async (input: any) => await this.initTool.execute(input) },
+      {
+        name: ToolNames.START, description: "Initialize Specly session for a workspace and provide comprehensive project context", schema: startToolSchema, exec: async (input: any) => {
+          const result = await this.startTool.execute(input); return result;
+        }
+      },
+      { name: ToolNames.ADD, description: "Orchestrate task creation workflow with analytical validation", schema: addToolSchema, exec: async (input: any) => await this.addTool.execute(input) },
+      { name: ToolNames.STATUS, description: "Generate comprehensive project status report with analysis and recommendations", schema: statusToolSchema, exec: async (input: any) => await this.statusTool.execute(input) },
+      { name: ToolNames.UPDATE, description: "Update task properties with audit trail and validation", schema: updateToolSchema, exec: async (input: any) => await this.updateTool.execute(input) },
+      { name: ToolNames.AUDIT, description: "Perform comprehensive project audit with health checking and cleanup recommendations", schema: auditToolSchema, exec: async (input: any) => await this.auditTool.execute(input as any) },
+      { name: ToolNames.FOCUS, description: "Focus on a specific task and provide comprehensive implementation context", schema: focusToolSchema, exec: async (input: any) => await this.focusTool.execute(input) },
+      { name: ToolNames.GITHUB, description: "Integrate with GitHub for issue creation, PR management, and task synchronization", schema: githubToolSchema, exec: async (input: any) => await this.githubTool.execute(input) },
+      { name: ToolNames.RULE_UPDATE, description: "Manage workspace-specific rules and guidelines", schema: ruleUpdateToolSchema, exec: async (input: any) => await this.ruleUpdateTool.execute(input) },
+      { name: ToolNames.REMOTE_INTERFACE, description: "Manage connections to external systems for task synchronization", schema: remoteInterfaceToolSchema, exec: async (input: any) => await this.remoteInterfaceTool.execute(input) },
+      { name: ToolNames.UPDATE_RESOURCES, description: "Update project documentation resources like project.md and design.md", schema: updateResourcesToolSchema, exec: async (input: any) => await this.updateResourcesTool.execute(input) },
+      { name: ToolNames.UPDATE_STEPS, description: "Update workspace-specific feedback steps and validation rules", schema: updateStepsToolSchema, exec: async (input: any) => await this.updateStepsTool.execute(input) },
+    ];
+
+    const handlers = createToolHandlers(specs);
+
+    // Adapt listTools to emit json-schema objects for UI/SDK consumers
+    const listTools = async () => {
+      const lt = await handlers.listTools();
+      return {
+        tools: lt.tools.map((t: any) => ({ ...t, inputSchema: zodToJsonSchema(t.inputSchema) }))
+      };
+    };
+
+    return { listTools, handleToolCall: handlers.handleToolCall } as MCPToolHandlers;
+  }
+
+  // Configure Specly-specific Hono app settings
+  async configureSpeclyApp(app: Hono, options: { dev: boolean }) {
+    // Add error handling
+    app.onError((error: Error, c: Context) => {
+      console.error('API Error:', error);
+
+      // Default error response
+      let statusCode = 500;
+      let errorResponse = { error: { code: 'INTERNAL_ERROR', message: 'An internal server error occurred' } };
+
+      // Handle specific error types
+      if (error.name === 'ValidationError') {
+        statusCode = 422;
+        errorResponse = { error: { code: 'VALIDATION_ERROR', message: error.message } };
+      } else if (error.name === 'NotFoundError') {
+        statusCode = 404;
+        errorResponse = { error: { code: 'NOT_FOUND', message: error.message } };
+      } else if (error.name === 'BadRequestError') {
+        statusCode = 400;
+        errorResponse = { error: { code: 'BAD_REQUEST', message: error.message } };
+      }
+
+      return c.json(errorResponse, statusCode as any);
+    });
+
+    // Add development-specific middleware
+    if (options.dev) {
+      console.log('  CORS: Enabled for localhost development');
+    }
+  }
+
+  // Setup Specly API routes in Hono app
+  async setupSpeclyApi(app: Hono) {
+    const apiRouter = await createApiRouter(this.databaseService);
+    app.route('/api', apiRouter);
+  }
+
+  async ensureSpeclySeed(force: boolean) {
+    // Detect if Specly baseline exists by checking for root profile
+    try {
+      const db = this.globalDbService.getDrizzleManager().getDb();
+      const rows = await db.all?.("SELECT id FROM profiles WHERE name = 'root-profile' LIMIT 1") || [];
+      const needsSeed = force || rows.length === 0;
+      if (needsSeed) {
+        const result = await this.seedManager.seedSpecly();
+        this.lastSeedSummary = { event: 'specly_seed_summary', timestamp: new Date().toISOString(), ...result, forced: force };
+        // Single authoritative summary line
+        console.log(JSON.stringify(this.lastSeedSummary));
+      }
+    } catch (err) {
+      console.error('Error checking/performing Specly seed:', err);
+    }
+  }
+
+  getGlobalDbService(): GlobalDatabaseService {
+    if (!this.serverInitialized || !this.globalDbService) {
+      throw new Error('Server not initialized. Call initializeServer() first.');
+    }
+    return this.globalDbService;
+  }
+
+  startBackgroundJobs(): void {
+    if (this.backgroundJobsService) return; // already started
+
+    const config = {
+      transientSessionHours: parseInt(process.env.SPECLY_GC_TRANSIENT_SESSION_HOURS || '24', 10),
+      softDeleteDays: parseInt(process.env.SPECLY_GC_SOFT_DELETE_DAYS || '90', 10),
+      enabled: process.env.SPECLY_GC_ENABLED !== 'false'
+    };
+
+    if (!config.enabled) {
+      console.log(JSON.stringify({
+        ts: new Date().toISOString(),
+        level: 'info',
+        msg: 'Background jobs disabled via SPECLY_GC_ENABLED=false'
+      }));
+      return;
+    }
+
+    this.backgroundJobsService = new BackgroundJobsService(this.globalDbService, config);
+
+    this.backgroundJobsService.runAll().then((results: any) => {
+      console.log(JSON.stringify({
+        ts: new Date().toISOString(),
+        level: 'info',
+        msg: 'Initial GC sweep completed',
+        transient_sessions_deleted: results.transientSessionsDeleted,
+        soft_delete_purged: results.softDeletePurged
+      }));
+    }).catch((err: Error) => {
+      console.error(JSON.stringify({
+        ts: new Date().toISOString(),
+        level: 'error',
+        msg: 'Initial GC sweep failed',
+        error: err.message
+      }));
+    });
+
+    const intervalMs = 60 * 60 * 1000; // 1 hour
+    this.gcInterval = setInterval(() => {
+      this.backgroundJobsService!.runAll().catch((err: Error) => {
+        console.error(JSON.stringify({
+          ts: new Date().toISOString(),
+          level: 'error',
+          msg: 'Scheduled GC sweep failed',
+          error: err.message
+        }));
+      });
+    }, intervalMs);
+
+    console.log(JSON.stringify({
+      ts: new Date().toISOString(),
+      level: 'info',
+      msg: 'Background jobs started',
+      transient_session_hours: config.transientSessionHours,
+      soft_delete_days: config.softDeleteDays,
+      sweep_interval_ms: intervalMs
+    }));
+  }
+
+  stopBackgroundJobs(): void {
+    if (this.gcInterval) {
+      clearInterval(this.gcInterval);
+      this.gcInterval = null;
+      console.log(JSON.stringify({
+        ts: new Date().toISOString(),
+        level: 'info',
+        msg: 'Background jobs stopped'
+      }));
+    }
+  }
+}
+
+// Create singleton instance
+const speclyServer = new SpeclyServer();
 
 // Legacy multi-step types removed; all tools now return SpeclyToolResult.
 
-// Global variables
+// Global variables - keeping for backward compatibility during transition
 let seedManager: SeedManager;
 let lastSeedSummary: any | null = null;
 let orchestrator: PromptOrchestrator;
@@ -60,220 +309,122 @@ let sseManager: SSEEventManager;
 
 let serverInitialized = false;
 
-async function initializeServer() {
-  try {
-    // Initialize global database using pure Drizzle system
-    globalDbService = await initializeGlobalDatabaseService();
-    const globalDrizzleManager = globalDbService.getDrizzleManager();
-
-    // Create DatabaseService for API endpoints
-    databaseService = new DatabaseService(globalDrizzleManager);
-
-    // Initialize SSE manager
-    sseManager = new SSEEventManager();
-
-    // Initialize services with pure Drizzle operations
-    seedManager = new SeedManager(globalDrizzleManager);
-    orchestrator = new PromptOrchestrator(globalDrizzleManager);
-
-    // Initialize tools with pure Drizzle database manager
-    initTool = new InitToolNew(globalDrizzleManager);
-    startTool = new StartTool(globalDrizzleManager);
-    addTool = new AddToolNew(globalDrizzleManager);
-
-    statusTool = new StatusToolNew(globalDrizzleManager);
-    updateTool = new UpdateToolNew(globalDrizzleManager);
-    auditTool = new AuditToolNew(globalDrizzleManager);
-    focusTool = new FocusToolNew(globalDrizzleManager);
-    githubTool = new GitHubTool(globalDrizzleManager);
-    ruleUpdateTool = new RuleUpdateTool(globalDrizzleManager);
-    remoteInterfaceTool = new RemoteInterfaceTool(globalDrizzleManager);
-    updateResourcesTool = new UpdateResourcesTool(globalDrizzleManager);
-    updateStepsTool = new UpdateStepsTool(globalDrizzleManager);
-
-    // Initialize global seed data (MCP server mappings etc.)
-    await seedManager.initializeGlobalData();
-
-    serverInitialized = true;
-  } catch (error) {
-    console.error('Error initializing server:', error);
-    throw error;
-  }
+// Backward compatibility functions
+export async function initializeServer() {
+  await speclyServer.initializeServer();
+  // Update legacy globals for backward compatibility
+  const drizzleManager = speclyServer.getGlobalDbService().getDrizzleManager();
+  seedManager = new SeedManager(drizzleManager);
+  orchestrator = new PromptOrchestrator(drizzleManager);
+  initTool = new InitToolNew(drizzleManager);
+  startTool = new StartTool(drizzleManager);
+  addTool = new AddToolNew(drizzleManager);
+  statusTool = new StatusToolNew(drizzleManager);
+  updateTool = new UpdateToolNew(drizzleManager);
+  auditTool = new AuditToolNew(drizzleManager);
+  focusTool = new FocusToolNew(drizzleManager);
+  githubTool = new GitHubTool(drizzleManager);
+  ruleUpdateTool = new RuleUpdateTool(drizzleManager);
+  remoteInterfaceTool = new RemoteInterfaceTool(drizzleManager);
+  updateResourcesTool = new UpdateResourcesTool(drizzleManager);
+  updateStepsTool = new UpdateStepsTool(drizzleManager);
+  globalDbService = speclyServer.getGlobalDbService();
+  databaseService = new DatabaseService(drizzleManager);
+  sseManager = new SSEEventManager();
+  serverInitialized = true;
 }
 
-async function ensureServerInitialized(): Promise<void> {
-  if (serverInitialized) {
-    return;
-  }
-  await initializeServer();
+export async function ensureServerInitialized(): Promise<void> {
+  await speclyServer.ensureServerInitialized();
 }
 
-function createMCPToolHandlers(): MCPToolHandlers {
-  const specs = [
-    { name: ToolNames.INIT, description: "Initialize a Specly workspace with .task folder structure and configuration", schema: initToolSchema, exec: (input: any) => initTool.execute(input) },
-    {
-      name: ToolNames.START, description: "Initialize Specly session for a workspace and provide comprehensive project context", schema: startToolSchema, exec: async (input: any) => {
-        const result = await startTool.execute(input); return { content: result.content, isError: result.isError };
-      }
-    },
-    { name: ToolNames.ADD, description: "Orchestrate task creation workflow with analytical validation", schema: addToolSchema, exec: (input: any) => addTool.execute(input) },
-    { name: ToolNames.STATUS, description: "Generate comprehensive project status report with analysis and recommendations", schema: statusToolSchema, exec: (input: any) => statusTool.execute(input) },
-    { name: ToolNames.UPDATE, description: "Update task properties with audit trail and validation", schema: updateToolSchema, exec: (input: any) => updateTool.execute(input) },
-    { name: ToolNames.AUDIT, description: "Perform comprehensive project audit with health checking and cleanup recommendations", schema: auditToolSchema, exec: (input: any) => auditTool.execute(input as any) },
-    { name: ToolNames.FOCUS, description: "Focus on a specific task and provide comprehensive implementation context", schema: focusToolSchema, exec: (input: any) => focusTool.execute(input) },
-    { name: ToolNames.GITHUB, description: "Integrate with GitHub for issue creation, PR management, and task synchronization", schema: githubToolSchema, exec: async (input: any) => { const r = await githubTool.execute(input); return { content: r.content, isError: r.isError }; } },
-    { name: ToolNames.RULE_UPDATE, description: "Manage workspace-specific rules and guidelines", schema: ruleUpdateToolSchema, exec: async (input: any) => { const r = await ruleUpdateTool.execute(input); return { content: r.content, isError: r.isError }; } },
-    { name: ToolNames.REMOTE_INTERFACE, description: "Manage connections to external systems for task synchronization", schema: remoteInterfaceToolSchema, exec: async (input: any) => { const r = await remoteInterfaceTool.execute(input); return { content: r.content, isError: r.isError }; } },
-    { name: ToolNames.UPDATE_RESOURCES, description: "Update project documentation resources like project.md and design.md", schema: updateResourcesToolSchema, exec: async (input: any) => { const r = await updateResourcesTool.execute(input); return { content: r.content, isError: r.isError }; } },
-    { name: ToolNames.UPDATE_STEPS, description: "Update workspace-specific feedback steps and validation rules", schema: updateStepsToolSchema, exec: async (input: any) => { const r = await updateStepsTool.execute(input); return { content: r.content, isError: r.isError }; } },
-  ];
-
-  const handlers = createToolHandlers(specs);
-
-  // Adapt listTools to emit json-schema objects for UI/SDK consumers
-  const listTools = async () => {
-    const lt = await handlers.listTools();
-    return {
-      tools: lt.tools.map((t: any) => ({ ...t, inputSchema: zodToJsonSchema(t.inputSchema) }))
-    };
-  };
-
-  return { listTools, handleToolCall: handlers.handleToolCall } as MCPToolHandlers;
+export function createMCPToolHandlers(): MCPToolHandlers {
+  return speclyServer.createMCPToolHandlers();
 }
 
 // Configure Specly-specific Hono app settings
-async function configureSpeclyApp(app: any, options: { dev: boolean }) {
-  // Add development-specific middleware
-  if (options.dev) {
-    console.log('  CORS: Enabled for localhost development');
-  }
+export async function configureSpeclyApp(app: Hono, options: { dev: boolean }) {
+  await speclyServer.configureSpeclyApp(app, options);
 }
 
 // Setup Specly API routes in Hono app
-async function setupSpeclyApi(app: any, databaseService: DatabaseService) {
-  const apiRouter = await createApiRouter(databaseService);
-
-  // TODO: Integrate Express apiRouter with Hono
-  // Currently adding basic routes directly since Express router can't be mounted in Hono
-  // Need to either migrate API to Hono or create Express-to-Hono adapter
-
-  app.get('/api/health', (c: any) => c.json({ status: 'ok', timestamp: new Date().toISOString() }));
-  app.get('/api/workspaces', async (c: any) => {
-    try {
-      // Basic implementation - would need full migration
-      return c.json({ workspaces: [], message: 'API migration in progress' });
-    } catch (error) {
-      return c.json({ error: 'Failed to fetch workspaces' }, 500);
-    }
-  });
-
-  // Add SSE endpoint
-  app.get('/api/events', (c: any) => {
-    return new Response(null, {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Cache-Control',
-      },
-    });
-  });
+export async function setupSpeclyApi(app: Hono, databaseService: DatabaseService) {
+  await speclyServer.setupSpeclyApi(app);
 }
 
-async function ensureSpeclySeed(force: boolean) {
-  // Detect if Specly baseline exists by checking for root profile
-  try {
-    const db = globalDbService.getDrizzleManager().getDb();
-    const rows = await db.all?.("SELECT id FROM profiles WHERE name = 'root-profile' LIMIT 1") || [];
-    const needsSeed = force || rows.length === 0;
-    if (needsSeed) {
-      const result = await seedManager.seedSpecly();
-      lastSeedSummary = { event: 'specly_seed_summary', timestamp: new Date().toISOString(), ...result, forced: force };
-      // Single authoritative summary line
-      console.log(JSON.stringify(lastSeedSummary));
-    }
-  } catch (err) {
-    console.error('Error checking/performing Specly seed:', err);
-  }
+export async function ensureSpeclySeed(force: boolean) {
+  await speclyServer.ensureSpeclySeed(force);
 }
 
 export async function main() {
-  await startMcpServer<CliOptions>({
+  await startMcpServer<ExtendedCliOptions>({
     serverName: 'specly',
-    serverVersion: SpeclyInstanceManager.VERSION,
-    toolHandlers: createMCPToolHandlers(),
+    serverVersion: SPECLY_VERSION,
+    toolHandlers: speclyServer.createMCPToolHandlers(),
     defaultPort: 8989,
     createInstanceManager: (options) => {
-      if (options.local) {
-        return new SpeclyInstanceManager(undefined, options.port);
-      } else {
-        return new InstanceManager({
-          lockPath: undefined,
-          port: options.port,
-          getVersion: () => SpeclyInstanceManager.VERSION
-        });
-      }
+      return new InstanceManager({
+        lockPath: options.local ? path.join(os.tmpdir(), "specly-8989.lock") : undefined,
+        port: options.port,
+        getVersion: () => SPECLY_VERSION
+      });
     },
     onInitialize: async (options) => {
-      await ensureServerInitialized();
-      await ensureSpeclySeed(!!options.forceSeed);
+      await speclyServer.ensureServerInitialized();
+      await speclyServer.ensureSpeclySeed(!!options.forceSeed);
     },
     configureApp: async (app, options) => {
-      await configureSpeclyApp(app, { dev: options.local });
+      await speclyServer.configureSpeclyApp(app, { dev: options.local });
     },
     setupRoutes: async (app, options) => {
-      await setupSpeclyApi(app, databaseService);
+      await speclyServer.setupSpeclyApi(app);
     },
     onAfterStart: async (app, options) => {
       console.log(`Specly backend server running on http://localhost:${options.port}`);
     },
     localMode: {
       onLocalStart: async (instanceManager, options) => {
-        if (instanceManager instanceof SpeclyInstanceManager) {
-          instanceManager.startBackgroundJobs(globalDbService);
-        }
+        speclyServer.startBackgroundJobs();
       },
-      setupLocalRoutes: async (app, instanceManager, options) => {
-        if (instanceManager instanceof SpeclyInstanceManager) {
-          app.post('/shutdown', async (c: any) => {
-            console.log('Shutdown requested via API');
-            instanceManager.stopBackgroundJobs();
-            // Graceful shutdown
-            setTimeout(() => {
-              process.exit(0);
-            }, 100);
-            return c.json({ status: 'shutting_down' });
-          });
-
-          app.post('/transition', async (c: any) => {
-            console.log('Version transition requested via API');
-            instanceManager.stopBackgroundJobs();
-            // Start new instance
-            setTimeout(async () => {
-              const { spawn } = await import('child_process');
-              spawn(process.argv[0], process.argv.slice(1), {
-                detached: true,
-                stdio: 'inherit',
-              }).unref();
-            }, 100);
-            return c.json({ status: 'transitioning' });
-          });
-        }
+      onShutdown: async (instanceManager, options) => {
+        console.log('Shutdown requested via API');
+        speclyServer.stopBackgroundJobs();
+        // Graceful shutdown
+        setTimeout(() => {
+          process.exit(0);
+        }, 100);
+      },
+      onTransition: async (instanceManager, options) => {
+        console.log('Version transition requested via API');
+        speclyServer.stopBackgroundJobs();
+        // Start new instance
+        setTimeout(async () => {
+          const { spawn } = await import('child_process');
+          spawn(process.argv[0], process.argv.slice(1), {
+            detached: true,
+            stdio: 'inherit',
+          }).unref();
+        }, 100);
       },
     },
     cliConfig: {
-      customFlagHandlers: {
-        '--force-seed': () => {
-          // This will be handled by the custom options parser
-        },
-      },
+      appName: 'specly',
+      appDescription: 'Specly MCP Server',
       customOptionsParser: (args, options) => {
         // Parse Specly-specific options
         const forceSeed = args.includes('--force-seed') || process.env.SPECLY_FORCE_SEED === '1';
         return { ...options, forceSeed };
       },
+      customHelpText: `
+SPECLY-SPECIFIC OPTIONS:
+  --force-seed          Force re-run of Specly seeding even if data present
+                        (or set SPECLY_FORCE_SEED=1)
+
+HTTP MODE ENDPOINTS:
+  - Serves UI at http://localhost:<port>/
+  - REST API at http://localhost:<port>/api/
+  - MCP via Server-Sent Events at http://localhost:<port>/mcp
+`
     },
   });
 }
@@ -281,7 +432,7 @@ export async function main() {
 if (import.meta.url === `file://${process.argv[1]}` || process.argv[1].endsWith('dist/index.js')) {
   main().catch((err) => {
     // Only log error if not in stdio mode
-    let cliOptions: CliOptions;
+    let cliOptions: ExtendedCliOptions;
     try {
       cliOptions = parseCliArgs();
     } catch {
@@ -289,6 +440,7 @@ if (import.meta.url === `file://${process.argv[1]}` || process.argv[1].endsWith(
         port: 8989,
         mode: 'http',
         local: false,
+        dev: false,
         help: false,
         killExisting: true,
         forceSeed: false,

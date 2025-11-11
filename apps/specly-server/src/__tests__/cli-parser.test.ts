@@ -1,5 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { parseCliArgs, displayHelp, validateCliOptions, isStdioMode } from '../utils/cli-parser.js';
+import { parseCliArgs, displayHelp, validateCliOptions, isStdioMode, type BaseCliOptions } from '@omar391/mcp-kit/utils/cli-parser';
+
+type TestOptions = BaseCliOptions & { forceSeed: boolean };
+
+const testConfig = {
+  customOptionsParser: (args: string[], options: TestOptions) => {
+    const forceSeed = args.includes('--force-seed') || process.env.SPECLY_FORCE_SEED === '1';
+    return { ...options, forceSeed };
+  }
+};
 
 describe('CLI Parser', () => {
   let originalArgv: string[];
@@ -17,67 +26,68 @@ describe('CLI Parser', () => {
 
   describe('parseCliArgs', () => {
     it('should parse default options', () => {
-      const options = parseCliArgs([]);
+      const options = parseCliArgs<TestOptions>([], testConfig);
       
       expect(options.port).toBe(8989);
       expect(options.mode).toBe('http');
       expect(options.dev).toBe(false);
       expect(options.help).toBe(false);
       expect(options.killExisting).toBe(true);
+      expect(options.forceSeed).toBe(false);
     });
 
     it('should parse port with --port flag', () => {
-      const options = parseCliArgs(['--port', '3000']);
+      const options = parseCliArgs<TestOptions>(['--port', '3000'], testConfig);
       expect(options.port).toBe(3000);
     });
 
     it('should parse port with -p short flag', () => {
-      const options = parseCliArgs(['-p', '4000']);
+      const options = parseCliArgs<TestOptions>(['-p', '4000'], testConfig);
       expect(options.port).toBe(4000);
     });
 
     it('should parse port with --port=value format', () => {
-      const options = parseCliArgs(['--port=5000']);
+      const options = parseCliArgs<TestOptions>(['--port=5000'], testConfig);
       expect(options.port).toBe(5000);
     });
 
     it('should parse stdio mode', () => {
-      const options = parseCliArgs(['--stdio']);
+      const options = parseCliArgs<TestOptions>(['--stdio'], testConfig);
       expect(options.mode).toBe('stdio');
     });
 
     it('should parse http mode', () => {
-      const options = parseCliArgs(['--http']);
+      const options = parseCliArgs<TestOptions>(['--http'], testConfig);
       expect(options.mode).toBe('http');
     });
 
     it('should parse dev mode', () => {
-      const options = parseCliArgs(['--dev']);
+      const options = parseCliArgs<TestOptions>(['--dev'], testConfig);
       expect(options.dev).toBe(true);
     });
 
     it('should parse help flag', () => {
-      const options = parseCliArgs(['--help']);
+      const options = parseCliArgs<TestOptions>(['--help'], testConfig);
       expect(options.help).toBe(true);
     });
 
     it('should parse -h short help flag', () => {
-      const options = parseCliArgs(['-h']);
+      const options = parseCliArgs<TestOptions>(['-h'], testConfig);
       expect(options.help).toBe(true);
     });
 
     it('should parse force-seed flag', () => {
-      const options = parseCliArgs(['--force-seed']);
+      const options = parseCliArgs<TestOptions>(['--force-seed'], testConfig);
       expect(options.forceSeed).toBe(true);
     });
 
     it('should parse no-kill flag', () => {
-      const options = parseCliArgs(['--no-kill']);
+      const options = parseCliArgs<TestOptions>(['--no-kill'], testConfig);
       expect(options.killExisting).toBe(false);
     });
 
     it('should handle multiple flags together', () => {
-      const options = parseCliArgs(['--port', '9000', '--dev', '--no-kill']);
+      const options = parseCliArgs<TestOptions>(['--port', '9000', '--dev', '--no-kill'], testConfig);
       
       expect(options.port).toBe(9000);
       expect(options.dev).toBe(true);
@@ -85,29 +95,29 @@ describe('CLI Parser', () => {
     });
 
     it('should throw on invalid port number', () => {
-      expect(() => parseCliArgs(['--port', 'invalid'])).toThrow(/Invalid port number/);
+      expect(() => parseCliArgs<TestOptions>(['--port', 'invalid'], testConfig)).toThrow(/Invalid port number/);
     });
 
     it('should throw on port out of range', () => {
-      expect(() => parseCliArgs(['--port', '99999'])).toThrow(/Invalid port number/);
+      expect(() => parseCliArgs<TestOptions>(['--port', '99999'], testConfig)).toThrow(/Invalid port number/);
     });
 
     it('should throw on unknown option', () => {
-      expect(() => parseCliArgs(['--unknown-flag'])).toThrow(/Unknown option/);
+      expect(() => parseCliArgs<TestOptions>(['--unknown-flag'], testConfig)).toThrow(/Unknown option/);
     });
 
     it('should throw when --port has no value', () => {
-      expect(() => parseCliArgs(['--port'])).toThrow(/--port requires a port number/);
+      expect(() => parseCliArgs<TestOptions>(['--port'], testConfig)).toThrow(/--port requires a port number/);
     });
 
     it('should handle legacy --sse flag', () => {
-      const options = parseCliArgs(['--sse']);
+      const options = parseCliArgs<TestOptions>(['--sse'], testConfig);
       expect(options.mode).toBe('http');
     });
 
     it('should respect SPECLY_FORCE_SEED env variable', () => {
       process.env.SPECLY_FORCE_SEED = '1';
-      const options = parseCliArgs([]);
+      const options = parseCliArgs<TestOptions>([], testConfig);
       
       expect(options.forceSeed).toBe(true);
     });
@@ -189,7 +199,10 @@ describe('CLI Parser', () => {
     it('should display help text', () => {
       const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
       
-      displayHelp();
+      displayHelp({
+        appName: 'specly',
+        appDescription: 'Specly MCP Server',
+      });
       
       expect(consoleLogSpy).toHaveBeenCalled();
       const output = consoleLogSpy.mock.calls.join('\n');
@@ -207,17 +220,17 @@ describe('CLI Parser', () => {
 
   describe('Edge Cases', () => {
     it('should handle empty args array', () => {
-      const options = parseCliArgs([]);
+      const options = parseCliArgs<TestOptions>([], testConfig);
       expect(options).toBeDefined();
       expect(options.port).toBe(8989);
     });
 
     it('should handle args with mixed formats', () => {
-      const options = parseCliArgs([
+      const options = parseCliArgs<TestOptions>([
         '--port=7000',
         '--dev',
         '-h'
-      ]);
+      ], testConfig);
       
       expect(options.port).toBe(7000);
       expect(options.dev).toBe(true);
@@ -225,23 +238,23 @@ describe('CLI Parser', () => {
     });
 
     it('should handle port at boundary values', () => {
-      const options1 = parseCliArgs(['--port', '1']);
+      const options1 = parseCliArgs<TestOptions>(['--port', '1'], testConfig);
       expect(options1.port).toBe(1);
       
-      const options2 = parseCliArgs(['--port', '65535']);
+      const options2 = parseCliArgs<TestOptions>(['--port', '65535'], testConfig);
       expect(options2.port).toBe(65535);
     });
 
     it('should handle negative port numbers', () => {
-      expect(() => parseCliArgs(['--port', '-100'])).toThrow('--port requires a port number');
+      expect(() => parseCliArgs<TestOptions>(['--port', '-100'], testConfig)).toThrow('--port requires a port number');
     });
 
     it('should handle non-numeric port', () => {
-      expect(() => parseCliArgs(['--port', 'abc'])).toThrow(/Invalid port number/);
+      expect(() => parseCliArgs<TestOptions>(['--port', 'abc'], testConfig)).toThrow(/Invalid port number/);
     });
 
     it('should ignore non-flag arguments', () => {
-      const options = parseCliArgs(['somearg', '--port', '3000']);
+      const options = parseCliArgs<TestOptions>(['somearg', '--port', '3000'], testConfig);
       expect(options.port).toBe(3000);
     });
   });

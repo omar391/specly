@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Request, Response } from 'express';
+import type { Context } from 'hono';
 import { WorkspacesController } from '../api/workspaces.js';
 import { DatabaseService } from '../services/database-service.js';
 
@@ -10,8 +10,7 @@ describe('WorkspacesController', () => {
   let mockDatabaseService: any;
   let mockGlobalDb: any;
   let mockWorkspaceDb: any;
-  let mockRequest: Partial<Request>;
-  let mockResponse: Partial<Response>;
+  let mockContext: Partial<Context>;
   let controller: WorkspacesController;
 
   beforeEach(() => {
@@ -31,10 +30,8 @@ describe('WorkspacesController', () => {
       getWorkspace: vi.fn().mockResolvedValue(mockWorkspaceDb)
     };
 
-    mockRequest = {};
-    mockResponse = {
-      json: vi.fn(),
-      status: vi.fn().mockReturnThis()
+    mockContext = {
+      json: vi.fn()
     };
 
     (DatabaseService as any).mockImplementation(() => mockDatabaseService);
@@ -45,10 +42,10 @@ describe('WorkspacesController', () => {
     it('returns empty workspaces list when no workspaces exist', async () => {
       mockGlobalDb.getAllWorkspaces.mockResolvedValue([]);
 
-      await controller.getWorkspaces(mockRequest as Request, mockResponse as Response);
+      await controller.getWorkspaces(mockContext as Context);
 
       expect(mockGlobalDb.getAllWorkspaces).toHaveBeenCalled();
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockContext.json).toHaveBeenCalledWith({
         data: { workspaces: [] }
       });
     });
@@ -73,7 +70,7 @@ describe('WorkspacesController', () => {
       mockGlobalDb.getAllWorkspaces.mockResolvedValue([mockWorkspace]);
       mockWorkspaceDb.getAllTasks.mockResolvedValue(mockTasks);
 
-      await controller.getWorkspaces(mockRequest as Request, mockResponse as Response);
+      await controller.getWorkspaces(mockContext as Context);
 
       expect(mockGlobalDb.getAllWorkspaces).toHaveBeenCalled();
       expect(mockDatabaseService.getWorkspace).toHaveBeenCalledWith('/path/to/workspace');
@@ -91,7 +88,7 @@ describe('WorkspacesController', () => {
         updated_at: '2024-01-01T00:00:00Z'
       };
 
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockContext.json).toHaveBeenCalledWith({
         data: { workspaces: [expectedWorkspace] }
       });
     });
@@ -115,7 +112,7 @@ describe('WorkspacesController', () => {
       mockGlobalDb.getAllWorkspaces.mockResolvedValue([mockWorkspace]);
       mockWorkspaceDb.getAllTasks.mockResolvedValue(mockTasks);
 
-      await controller.getWorkspaces(mockRequest as Request, mockResponse as Response);
+      await controller.getWorkspaces(mockContext as Context);
 
       const expectedWorkspace = {
         id: 'workspace-1',
@@ -129,7 +126,7 @@ describe('WorkspacesController', () => {
         updated_at: '2024-01-01T00:00:00Z'
       };
 
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockContext.json).toHaveBeenCalledWith({
         data: { workspaces: [expectedWorkspace] }
       });
     });
@@ -154,7 +151,7 @@ describe('WorkspacesController', () => {
       mockGlobalDb.getAllWorkspaces.mockResolvedValue([mockWorkspace]);
       mockWorkspaceDb.getAllTasks.mockResolvedValue(mockTasks);
 
-      await controller.getWorkspaces(mockRequest as Request, mockResponse as Response);
+      await controller.getWorkspaces(mockContext as Context);
 
       const expectedWorkspace = {
         id: 'workspace-1',
@@ -168,7 +165,7 @@ describe('WorkspacesController', () => {
         updated_at: '2024-01-01T00:00:00Z'
       };
 
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockContext.json).toHaveBeenCalledWith({
         data: { workspaces: [expectedWorkspace] }
       });
     });
@@ -192,7 +189,7 @@ describe('WorkspacesController', () => {
       mockGlobalDb.getAllWorkspaces.mockResolvedValue([mockWorkspace]);
       mockWorkspaceDb.getAllTasks.mockResolvedValue(mockTasks);
 
-      await controller.getWorkspaces(mockRequest as Request, mockResponse as Response);
+      await controller.getWorkspaces(mockContext as Context);
 
       const expectedWorkspace = {
         id: 'workspace-1',
@@ -206,7 +203,7 @@ describe('WorkspacesController', () => {
         updated_at: '2024-01-01T00:00:00Z'
       };
 
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockContext.json).toHaveBeenCalledWith({
         data: { workspaces: [expectedWorkspace] }
       });
     });
@@ -225,7 +222,7 @@ describe('WorkspacesController', () => {
       mockGlobalDb.getAllWorkspaces.mockResolvedValue([mockWorkspace]);
       mockDatabaseService.getWorkspace.mockRejectedValue(new Error('Database access failed'));
 
-      await controller.getWorkspaces(mockRequest as Request, mockResponse as Response);
+      await controller.getWorkspaces(mockContext as Context);
 
       const expectedWorkspace = {
         id: 'workspace-1',
@@ -239,7 +236,7 @@ describe('WorkspacesController', () => {
         updated_at: '2024-01-01T00:00:00Z'
       };
 
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockContext.json).toHaveBeenCalledWith({
         data: { workspaces: [expectedWorkspace] }
       });
     });
@@ -282,9 +279,9 @@ describe('WorkspacesController', () => {
         }
       });
 
-      await controller.getWorkspaces(mockRequest as Request, mockResponse as Response);
+      await controller.getWorkspaces(mockContext as Context);
 
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockContext.json).toHaveBeenCalledWith({
         data: {
           workspaces: [
             {
@@ -334,7 +331,7 @@ describe('WorkspacesController', () => {
       mockGlobalDb.getAllWorkspaces.mockResolvedValue([mockWorkspace]);
       mockWorkspaceDb.getAllTasks.mockResolvedValue(mockTasks);
 
-      await controller.getWorkspaces(mockRequest as Request, mockResponse as Response);
+      await controller.getWorkspaces(mockContext as Context);
 
       const expectedWorkspace = {
         id: 'workspace-1',
@@ -348,7 +345,7 @@ describe('WorkspacesController', () => {
         updated_at: '2024-01-01T00:00:00Z'
       };
 
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockContext.json).toHaveBeenCalledWith({
         data: { workspaces: [expectedWorkspace] }
       });
     });
@@ -373,7 +370,7 @@ describe('WorkspacesController', () => {
       mockGlobalDb.getAllWorkspaces.mockResolvedValue([mockWorkspace]);
       mockWorkspaceDb.getAllTasks.mockResolvedValue(mockTasks);
 
-      await controller.getWorkspaces(mockRequest as Request, mockResponse as Response);
+      await controller.getWorkspaces(mockContext as Context);
 
       const expectedWorkspace = {
         id: 'workspace-1',
@@ -387,7 +384,7 @@ describe('WorkspacesController', () => {
         updated_at: '2024-01-01T00:00:00Z'
       };
 
-      expect(mockResponse.json).toHaveBeenCalledWith({
+      expect(mockContext.json).toHaveBeenCalledWith({
         data: { workspaces: [expectedWorkspace] }
       });
     });
@@ -395,7 +392,7 @@ describe('WorkspacesController', () => {
     it('handles getAllWorkspaces failure', async () => {
       mockGlobalDb.getAllWorkspaces.mockRejectedValue(new Error('Database connection failed'));
 
-      await expect(controller.getWorkspaces(mockRequest as Request, mockResponse as Response)).rejects.toThrow('Database connection failed');
+      await expect(controller.getWorkspaces(mockContext as Context)).rejects.toThrow('Database connection failed');
     });
   });
 

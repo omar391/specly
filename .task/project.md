@@ -123,25 +123,21 @@ Specly delivered MCP multi-step flows with template orchestration, UI (Home / To
 - 2025-09-02: Specly project doc created; legacy project.md replaced; direct cutover tasks enumerated (SP-001..SP-020, SP-100+).
 
 ## 21. MCP Server Bootstrap Notes (TP-205)
-- `startMcpExpressServer` currently:
-	- Derives port/dev/version defaults from options or environment before constructing the `BaseInstanceManager`.
-	- Coordinates instance roles via `coordinateInstanceRole` (when enabled) or `instanceManager.tryBecomeMain`, returning proxy context if another process already owns MAIN.
-	- Lazily creates the Express server (via provided factory) only for MAIN role, wiring metrics, MCP handlers, optional `configureApp`/`setupApi`, and default control endpoints.
-	- Handles graceful shutdown with optional overrides, HTTP control hooks, and OS signal listeners while defaulting to `process.exit` when shutdown completes.
-	- Manages automatic proxy startup (when `autoProxy !== false`) and calls `onProxyStart` even when the consumer skips spawning a proxy server.
-- Main-role invariants:
-	- Express server start/wiring happens once per successful MAIN acquisition; proxy paths never invoke `configureApp`, `setupApi`, or `attachMcp`.
-	- `performShutdown` guards against double invocation and always executes `controlEndpoints.onShutdown` before `gracefulShutdown`/`expressServer.stop`.
-	- Health/root endpoints always emit resolved version/mode metadata and expose MCP/health paths derived from options.
-- Proxy-role invariants:
-	- Returns `proxyServer: null` when `autoProxy === false`; otherwise returns the created proxy HTTP server instance.
-	- Propagates coordination metadata from `coordinateInstanceRole` so consumers can observe why a proxy role was assigned.
-- Rename/abstraction guardrails:
-	- Preserve callbacks (`onBeforeStart`, `onAfterStart`, `onProxyStart`, `gracefulShutdown`) and existing option defaults during migration to the new discriminated union API.
-	- Expose a transport adapter contract that can supply Express-like MCP/health wiring while allowing edge runtimes to omit HTTP server creation.
-	- `startMcpServer` now expects a discriminated union (`{ kind: 'express', ... } | { kind: 'edge', ... }`) instead of adapters and returns precise result types via overloads. Use `startMcpExpressServer` for direct Express bootstrap. The legacy `startMcpNodeServer` alias has been removed.
-	- `StartNodeServerOptions` remains renamed to `McpExpressServerOptions`; the union surfaces as `McpServerExpressOptions` / `McpServerEdgeOptions` and the migration steps are captured in `packages/mcp-kit/CHANGELOG.md`.
-	- Express-specific orchestration lives in `server/express/transport.ts`, keeping `server/index.ts` limited to transport negotiation and edge wiring.
+- `startMcpServer` currently:
+	- Derives port/dev/version defaults from options or environment before constructing the server.
+	- Creates a Hono-based MCP server that works across all JavaScript runtimes.
+	- Handles tool registration, MCP protocol handling, and server lifecycle.
+	- Supports both Node.js/Bun deployment and edge runtime deployment.
+- Server invariants:
+	- Universal Hono-based core with runtime-specific features detected automatically.
+	- Tool handlers are registered and validated at startup.
+	- MCP protocol compliance with proper JSON-RPC handling.
+	- Graceful shutdown with cleanup of resources.
+- API evolution:
+	- Replaced Express-specific `startMcpExpressServer` with universal `startMcpServer`.
+	- Removed legacy `startMcpNodeServer` alias.
+	- Simplified API with direct server creation instead of discriminated unions.
+	- Express-specific orchestration removed in favor of universal Hono implementation.
 
 ---
 Authoritative references: `docs/specly-architecture.md`, `docs/task.md`, `docs/migration_roadmap.md`, `docs/migration_roadmap_ui.md`.

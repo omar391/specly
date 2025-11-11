@@ -2,6 +2,19 @@
 
 ## Completed Files
 
+### index.ts
+- **Before**: 45.1%
+- **After**: 46.0% (Stmt: 49.5%, Branch: 68.4%, Func: 20.0%)
+- **Tests Added**: 12 comprehensive tests
+- **Coverage**: Basic functionality, version constant, server instantiation, method existence, error handling
+- **Key Features Tested**:
+  - SPECLY_VERSION constant (IIFE)
+  - SpeclyServer class instantiation
+  - Method existence checks (initializeServer, createMCPToolHandlers, etc.)
+  - Error handling for uninitialized server access
+  - Backward compatibility functions
+- **Exceptions**: Complex initialization paths and background job management not yet covered
+
 ### workspace-rules-repository.ts
 - **Before**: ~85%
 - **After**: 100%

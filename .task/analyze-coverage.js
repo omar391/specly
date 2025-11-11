@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const coverageFile = path.join(__dirname, '../coverage/coverage-final.json');
+const coverageFile = path.join(__dirname, '../apps/specly-server/coverage/coverage-final.json');
 const data = JSON.parse(fs.readFileSync(coverageFile, 'utf8'));
 
 const files = [];
