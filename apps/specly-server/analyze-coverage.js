@@ -7,7 +7,9 @@ const sorted = files.map(f => {
   const branches = data.b ? Object.values(data.b).filter(v => v > 0).length / Object.keys(data.b).length * 100 : 0;
   const functions = data.f ? Object.values(data.f).filter(v => v > 0).length / Object.keys(data.f).length * 100 : 0;
   const overall = (statements + branches + functions) / 3;
-  return { file: f.replace('apps/specly-server/', ''), coverage: overall, statements, branches, functions };
+  // Fix path replacement to handle full absolute paths correctly
+  const relativePath = f.replace(/.*\/apps\/specly-server\//, '');
+  return { file: relativePath, coverage: overall, statements, branches, functions };
 }).sort((a, b) => a.coverage - b.coverage);
 console.log('Lowest coverage files:');
 sorted.slice(0, 10).forEach(f => {

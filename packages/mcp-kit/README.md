@@ -66,13 +66,13 @@ import { detectRuntime, isNodeLike } from '@omar391/mcp-kit/server/core/runtime'
 
 if (isNodeLike()) {
   // Node.js/Bun specific features available
-  const { startMcpExpressServer } = await import('@omar391/mcp-kit/server/local/express-bridge');
+  const { startMcpServer } = await import('@omar391/mcp-kit/server');
 
-  const result = await startMcpExpressServer({
-    toolHandlers,
+  const result = await startMcpServer({
     serverName: 'my-server',
     serverVersion: '1.0.0',
-    port: 3000
+    toolHandlers,
+    defaultPort: 3000
   });
 } else {
   // Universal deployment
@@ -92,7 +92,6 @@ The new universal architecture is built around Hono and provides:
 - **`types.ts`**: Shared TypeScript types and interfaces
 
 ### Local Features (`server/local/`)
-- **`express-bridge.ts`**: Express.js integration for Node.js environments
 - **`node-instance/`**: Multi-instance coordination and process management
 - **`port-manager.ts`**: Port allocation and conflict resolution
 - **`process-manager.ts`**: Process lifecycle and signal handling
@@ -162,18 +161,9 @@ Returns true for Node.js and Bun environments.
 
 ### Local Features (Node.js/Bun only)
 
-#### `startMcpExpressServer(options)`
+#### `startMcpServer(options)`
 
-Starts an Express.js MCP server with multi-instance coordination.
-
-```typescript
-const result = await startMcpExpressServer({
-  toolHandlers,
-  serverName: 'my-server',
-  serverVersion: '1.0.0',
-  port: 3000
-});
-```
+Starts an MCP server with multi-instance coordination and local features.
 
 ## Breaking Changes
 
@@ -216,8 +206,13 @@ const app = createHonoMcpServer({
 
 // For Node.js deployment
 if (typeof process !== 'undefined') {
-  const { startMcpExpressServer } = await import('@omar391/mcp-kit/server/local/express-bridge');
-  await startMcpExpressServer({ toolHandlers, port: 3000 });
+  const { startMcpServer } = await import('@omar391/mcp-kit/server');
+  await startMcpServer({
+    serverName: 'my-server',
+    serverVersion: '1.0.0',
+    toolHandlers,
+    defaultPort: 3000
+  });
 } else {
   // Universal deployment
   export default { fetch: app.fetch };
@@ -243,17 +238,16 @@ if (typeof process !== 'undefined') {
 ### Node.js / Bun
 
 ```typescript
-import { createHonoMcpServer } from '@omar391/mcp-kit/server/core/hono-mcp';
-import { startMcpExpressServer } from '@omar391/mcp-kit/server/local/express-bridge';
+import { startMcpServer } from '@omar391/mcp-kit/server';
 
-const app = createHonoMcpServer({ /* options */ });
-
-const result = await startMcpExpressServer({
-  toolHandlers: app.toolHandlers,
-  port: 3000
+const result = await startMcpServer({
+  serverName: 'my-server',
+  serverVersion: '1.0.0',
+  toolHandlers,
+  defaultPort: 3000
 });
 
-console.log(`Server running on port ${result.port}`);
+console.log(`Server running`);
 ```
 
 ### Cloudflare Workers

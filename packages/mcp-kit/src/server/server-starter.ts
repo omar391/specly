@@ -51,6 +51,10 @@ export interface ServerConfig<T extends ExtendedCliOptions = ExtendedCliOptions>
         onLocalStart?: (instanceManager: IInstanceManager, options: T) => Promise<void> | void;
         /** Hook to add local control routes */
         setupLocalRoutes?: (app: HonoType, instanceManager: IInstanceManager, options: T) => Promise<void> | void;
+        /** Hook called when shutdown is requested */
+        onShutdown?: (instanceManager: IInstanceManager, options: T) => Promise<void> | void;
+        /** Hook called when transition is requested */
+        onTransition?: (instanceManager: IInstanceManager, options: T) => Promise<void> | void;
     };
 }
 
@@ -185,6 +189,21 @@ export async function startMcpServer<T extends ExtendedCliOptions = ExtendedCliO
                 // Call local routes hook if in local mode
                 if (cliOptions.local && localMode?.setupLocalRoutes) {
                     await localMode.setupLocalRoutes(app, instanceManager, cliOptions);
+                }
+                // Add control routes if in local mode and hooks are defined
+                if (cliOptions.local) {
+                    if (localMode?.onShutdown) {
+                        app.post('/shutdown', async (c) => {
+                            await localMode.onShutdown!(instanceManager, cliOptions);
+                            return c.json({ status: 'shutdown initiated' });
+                        });
+                    }
+                    if (localMode?.onTransition) {
+                        app.post('/transition', async (c) => {
+                            await localMode.onTransition!(instanceManager, cliOptions);
+                            return c.json({ status: 'transition initiated' });
+                        });
+                    }
                 }
             },
             onBeforeStart: () => { }, // Already called above

@@ -319,8 +319,8 @@ export class TasksController {
       }
 
       // Validate specific field values
-      if (updateData.field === 'priority' && !['High', 'Medium', 'Low'].includes(updateData.value as string)) {
-        throw new ValidationError('Priority must be High, Medium, or Low');
+      if (updateData.field === 'priority' && !['high', 'medium', 'low'].includes(updateData.value as string)) {
+        throw new ValidationError('Priority must be high, medium, or low');
       }
 
       if (updateData.field === 'status' && !['queued', 'in_progress', 'awaiting_input', 'blocked', 'paused', 'completed', 'failed'].includes((updateData.value as string))) {

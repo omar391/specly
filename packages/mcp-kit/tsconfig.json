@@ -24,7 +24,6 @@
         "node_modules",
         "dist",
         "src/**/__tests__/**",
-        "src/examples/**",
-        "src/server/local/express-bridge.ts"
+        "src/examples/**"
     ]
 }

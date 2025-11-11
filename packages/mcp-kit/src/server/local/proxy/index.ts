@@ -1,5 +1,5 @@
-import * as http from 'http';
-import type { Server as HttpServer } from 'http';
+import { serve, type ServerType } from '@hono/node-server';
+import { Hono } from 'hono';
 
 export interface ProxyMetadata {
     mainVersion?: string;
@@ -9,47 +9,57 @@ export interface ProxyMetadata {
 }
 
 export class ProxyManager {
-    private server: HttpServer | null = null;
+    private server: ServerType | null = null;
     private metadata: ProxyMetadata | null = null;
 
-    async start(targetPort: number, metadata?: ProxyMetadata): Promise<HttpServer> {
-        // Dynamic import for http-proxy (CommonJS module)
-        const httpProxyModule = await import('http-proxy');
-        const proxy = (httpProxyModule as any).createProxyServer({
-            target: `http://127.0.0.1:${targetPort}`,
-            ws: true,
-            changeOrigin: true,
-            autoRewrite: true,
-        });
+    async start(targetPort: number, metadata?: ProxyMetadata): Promise<ServerType> {
+        const proxyApp = new Hono();
 
-        const server = http.createServer((req, res) => {
+        // Store metadata for later access
+        this.metadata = metadata ?? { mainPort: targetPort };
+
+        // Proxy all requests to the target port
+        proxyApp.all('*', async (c) => {
+            const targetUrl = `http://127.0.0.1:${targetPort}${c.req.path}`;
+            const upstreamReq = new Request(targetUrl, c.req.raw);
+
             // Add proxy metadata headers for debugging/tracing
             if (this.metadata) {
                 if (this.metadata.mainVersion) {
-                    res.setHeader('X-Proxy-Main-Version', this.metadata.mainVersion);
+                    upstreamReq.headers.set('X-Proxy-Main-Version', this.metadata.mainVersion);
                 }
                 if (this.metadata.instanceId) {
-                    res.setHeader('X-Proxy-Instance-Id', this.metadata.instanceId);
+                    upstreamReq.headers.set('X-Proxy-Instance-Id', this.metadata.instanceId);
                 }
                 if (this.metadata.startTime) {
-                    res.setHeader('X-Proxy-Start-Time', this.metadata.startTime.toString());
+                    upstreamReq.headers.set('X-Proxy-Start-Time', this.metadata.startTime.toString());
                 }
-                res.setHeader('X-Proxy-Main-Port', this.metadata.mainPort.toString());
+                upstreamReq.headers.set('X-Proxy-Main-Port', this.metadata.mainPort.toString());
             }
 
-            proxy.web(req, res, {}, (err: Error & { code?: string }) => {
-                res.writeHead(502, { 'Content-Type': 'text/plain' });
-                res.end('Proxy error: ' + err?.message);
-            });
+            try {
+                const resp = await fetch(upstreamReq, {
+                    redirect: 'manual',
+                });
+                return new Response(resp.body, resp);
+            } catch (error) {
+                return c.json({ error: 'Proxy error', message: error instanceof Error ? error.message : 'Unknown error' }, 502);
+            }
         });
 
-        server.on('upgrade', (req, socket, head) => {
-            proxy.ws(req, socket as any, head);
+        // Start the Hono server and get the underlying HttpServer
+        const server = serve({
+            fetch: proxyApp.fetch,
+            port: 0, // Let the system assign a port
+            hostname: '127.0.0.1'
         });
 
-        await new Promise<void>((resolve) => { server.listen(0, '127.0.0.1', () => resolve()); });
+        // Wait for the server to be listening
+        await new Promise<void>((resolve) => {
+            server.on('listening', () => resolve());
+        });
+
         this.server = server;
-        this.metadata = metadata ?? { mainPort: targetPort };
         return server;
     }
 
@@ -78,5 +88,51 @@ export class ProxyManager {
     }
 }
 
-// Re-export Hono-based proxy for modern usage
-export { startHonoProxy, type HonoProxyOptions } from './hono-proxy.js';
+export interface HonoProxyOptions {
+    targetPort: number;
+    listenPort: number;
+    metadata?: {
+        mainVersion?: string;
+        instanceId?: string;
+        startTime?: number;
+    };
+}
+
+export async function startHonoProxy(options: HonoProxyOptions): Promise<void> {
+    const { targetPort, listenPort, metadata } = options;
+
+    const proxyApp = new Hono();
+
+    proxyApp.all('*', async (c) => {
+        const targetUrl = `http://127.0.0.1:${targetPort}${c.req.path}`;
+        const upstreamReq = new Request(targetUrl, c.req.raw);
+
+        if (metadata) {
+            if (metadata.mainVersion) {
+                upstreamReq.headers.set('X-Proxy-Main-Version', metadata.mainVersion);
+            }
+            if (metadata.instanceId) {
+                upstreamReq.headers.set('X-Proxy-Instance-Id', metadata.instanceId);
+            }
+            if (metadata.startTime) {
+                upstreamReq.headers.set('X-Proxy-Start-Time', metadata.startTime.toString());
+            }
+            upstreamReq.headers.set('X-Proxy-Main-Port', targetPort.toString());
+        }
+
+        try {
+            const resp = await fetch(upstreamReq, {
+                redirect: 'manual',
+            });
+            return new Response(resp.body, resp);
+        } catch (error) {
+            return c.json({ error: 'Proxy error', message: error instanceof Error ? error.message : 'Unknown error' }, 502);
+        }
+    });
+
+    serve({
+        fetch: proxyApp.fetch,
+        port: listenPort,
+        hostname: '127.0.0.1'
+    });
+}

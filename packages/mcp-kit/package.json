@@ -45,7 +45,7 @@
             }
         },
         "./server/handlers": {
-            "import": "./dist/server/handlers.js",
+            "import": "./dist/universal/server/handlers.js",
             "types": "./dist/server/handlers.d.ts"
         },
         "./server/stdio": {
@@ -59,19 +59,19 @@
             }
         },
         "./server/core/hono-mcp": {
-            "import": "./dist/server/core/hono-mcp.js",
+            "import": "./dist/universal/server/core/hono-mcp.js",
             "types": "./dist/server/core/hono-mcp.d.ts"
         },
         "./server/core/types": {
-            "import": "./dist/server/core/types.js",
+            "import": "./dist/universal/server/core/types.js",
             "types": "./dist/server/core/types.d.ts"
         },
         "./server/core/middleware": {
-            "import": "./dist/server/core/middleware.js",
+            "import": "./dist/universal/server/core/middleware.js",
             "types": "./dist/server/core/middleware.d.ts"
         },
         "./server/core/runtime": {
-            "import": "./dist/server/core/runtime.js",
+            "import": "./dist/universal/server/core/runtime.js",
             "types": "./dist/server/core/runtime.d.ts"
         },
         "./server/local/node-instance": {
@@ -87,7 +87,7 @@
             }
         },
         "./utils/cli-parser": {
-            "import": "./dist/utils/cli-parser.js",
+            "import": "./dist/universal/utils/cli-parser.js",
             "types": "./dist/utils/cli-parser.d.ts"
         }
     },
@@ -102,8 +102,7 @@
     },
     "dependencies": {
         "@modelcontextprotocol/sdk": "^1.15.0",
-        "hono": "^4.10.4",
-        "http-proxy": "^1.18.1"
+        "hono": "^4.10.4"
     },
     "devDependencies": {
         "@hono/node-server": "^1.19.6",

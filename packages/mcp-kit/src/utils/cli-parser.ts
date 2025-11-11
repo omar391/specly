@@ -8,6 +8,7 @@ export interface BaseCliOptions {
     port: number;
     mode: 'http' | 'stdio';
     local: boolean;
+    dev: boolean;
     help: boolean;
     killExisting: boolean;
 }
@@ -57,6 +58,7 @@ export function parseCliArgs<T extends BaseCliOptions = BaseCliOptions>(
         port: config.defaultPort ?? 8989,
         mode: config.defaultMode ?? 'http',
         local: false,
+        dev: false,
         help: false,
         killExisting: true,
     } as T;
@@ -111,6 +113,7 @@ export function parseCliArgs<T extends BaseCliOptions = BaseCliOptions>(
             case '--local':
             case '--dev':
                 (options as any).local = true;
+                (options as any).dev = true;
                 break;
 
             case '--help':
@@ -120,6 +123,10 @@ export function parseCliArgs<T extends BaseCliOptions = BaseCliOptions>(
 
             case '--no-kill':
                 (options as any).killExisting = false;
+                break;
+
+            case '--force-seed':
+                (options as any).forceSeed = true;
                 break;
 
             // Legacy compatibility

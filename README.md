@@ -171,7 +171,6 @@ pnpm graph
 │   │   │   │   │   ├── runtime.ts     # Runtime detection
 │   │   │   │   │   └── types.ts       # Shared types
 │   │   │   │   ├── local/    # 🖥️  Node.js/Bun specific features
-│   │   │   │   │   ├── express-bridge.ts  # Express integration
 │   │   │   │   │   ├── node-instance/     # Multi-instance coordination
 │   │   │   │   │   └── port-manager.ts    # Port management
 │   │   │   │   ├── handlers.ts # Tool handler utilities

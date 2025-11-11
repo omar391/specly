@@ -121,21 +121,6 @@ async function build() {
         // Build browser target (minimal, no Node.js APIs)
         await buildTarget('browser', buildTargets.browser, universalEntries);
 
-        // Copy universal builds to default dist for backwards compatibility
-        console.log('Copying universal builds for backwards compatibility...');
-        const universalDist = 'dist/universal';
-        const defaultDist = 'dist';
-
-        // Use cp command to recursively copy all files from universal to root dist
-        execSync(`cp -r ${universalDist}/* ${defaultDist}/ 2>/dev/null || true`, { stdio: 'inherit' });
-
-        // Copy local builds that should be available in default dist
-        console.log('Copying local builds for backwards compatibility...');
-        const nodeDist = 'dist/node';
-        execSync(`cp -r ${nodeDist}/server ${defaultDist}/ 2>/dev/null || true`, { stdio: 'inherit' });
-        execSync(`cp ${nodeDist}/index.js ${defaultDist}/ 2>/dev/null || true`, { stdio: 'inherit' });
-        execSync(`cp ${nodeDist}/client.js ${defaultDist}/ 2>/dev/null || true`, { stdio: 'inherit' });
-
         // Generate TypeScript declarations
         console.log('Generating TypeScript declarations...');
         execSync('npx tsc -p tsconfig.json --emitDeclarationOnly --skipLibCheck', { stdio: 'inherit' });
