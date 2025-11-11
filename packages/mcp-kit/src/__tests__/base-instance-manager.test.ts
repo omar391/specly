@@ -163,7 +163,7 @@ describe('InstanceManager (generic multi-instance coordination)', () => {
             const main = await startEphemeralServer((req, res) => { res.writeHead(200); res.end('from-main'); });
             manager = new InstanceManager({ lockPath, port: main.port });
             const proxyManager = new ProxyManager();
-            const proxyServer = await proxyManager.start(main.port);
+            const proxyServer = await proxyManager.start({ targetPort: main.port });
             manager.proxyManager = proxyManager;
             manager.proxyPort = proxyManager.port;
             manager.role = InstanceRole.PROXY;

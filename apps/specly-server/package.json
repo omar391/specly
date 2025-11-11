@@ -1,5 +1,5 @@
 {
-    "name": "@omar391/specly-server",
+    "name": "specly-server",
     "version": "0.1.0",
     "description": "Specly MCP Server - Task management via Model Context Protocol",
     "private": true,
@@ -34,9 +34,7 @@
         "@types/uuid": "^10.0.0",
         "better-sqlite3": "^12.2.0",
         "drizzle-orm": "^0.44.2",
-        "express": "^5.1.0",
         "hono": "^4.10.4",
-        "http-proxy": "^1.18.1",
         "sqlite3": "^5.1.7",
         "uuid": "^11.1.0",
         "zod": "^3.25.74",
@@ -45,8 +43,6 @@
     "devDependencies": {
         "@rsbuild/core": "^1.4.5",
         "@types/better-sqlite3": "^7.6.13",
-        "@types/express": "^5.0.3",
-        "@types/http-proxy": "^1.17.16",
         "@types/node": "^20.19.4",
         "@types/supertest": "^2.0.16",
         "@vitest/coverage-c8": "^0.33.0",

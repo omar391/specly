@@ -211,7 +211,7 @@ export class InstanceManager implements IInstanceManager {
             this.proxyManager = new ProxyManager();
         }
         const targetPort = config?.port ?? this.port;
-        const server = await this.proxyManager.start(targetPort);
+        const server = await this.proxyManager.start({ targetPort });
         this.proxyPort = this.proxyManager.port;
         this.role = InstanceRole.PROXY;
         return server;

@@ -20,7 +20,7 @@ const buildTargets = {
         platform: 'node',
         target: 'node18',
         format: 'esm',
-        external: ['@modelcontextprotocol/sdk', 'express', 'http-proxy'],
+        external: ['@modelcontextprotocol/sdk'],
         outdir: 'dist/node'
     },
     // Browser/edge compatible

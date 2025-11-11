@@ -91,21 +91,6 @@ export class DrizzleDatabaseManager {
   }
 
   /**
-   * Run Drizzle migrations
-   */
-  private async runMigrations(): Promise<void> {
-    if (!this.db) {
-      throw new Error('Database not initialized');
-    }
-
-    const migrationsFolder = join(process.cwd(), 'src', 'database', 'migrations');
-    if (existsSync(migrationsFolder)) {
-      await migrate(this.db, { migrationsFolder });
-      console.log('Migrations completed');
-    }
-  }
-
-  /**
   * Run programmatic migrations (pure TypeScript approach)
   * NOTE: Legacy tool flow / feedback tables have been fully removed per drastic migration directive.
   * This creates only the minimal tables still required when file migrations are not used.

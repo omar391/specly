@@ -19,17 +19,17 @@
 
 ### index.ts
 - **Before**: 64.18%
-- **After**: 66.76% (Stmt: 66.76%, Branch: 92.3%, Func: 53.33%)
-- **Tests Added**: 24 comprehensive tests (15 skipped main function tests)
-- **Coverage**: Significant improvement in core server functionality
+- **After**: 81.09% (Stmt: 81.09%, Branch: 88.23%, Func: 65%)
+- **Tests Added**: 18 comprehensive tests (main function test enabled)
+- **Coverage**: Significant improvement in core server functionality and main function execution
 - **Key Features Tested**:
   - SpeclyServer class: initialization, seeding, background jobs, error handling, MCP tool handlers
   - Backward compatibility functions: singleton pattern delegation
   - SPECLY_VERSION constant: version string generation
-  - Main function: MCP server configuration (currently skipped due to complex mocking)
-- **Mocking Strategy**: Extensive module-level mocks for MCP Kit, database services, and external dependencies; concrete implementations for internal logic
-- **Remaining Gaps**: Main function execution paths (9 tests skipped), SPECLY_VERSION edge cases (3 tests skipped)
-- **Challenges Resolved**: Complex mock setup for MCP server integration, singleton pattern testing, database seeding logic
+  - Main function: MCP server configuration with callback execution (createInstanceManager, onInitialize, configureApp, setupRoutes, onAfterStart, localMode callbacks, customOptionsParser)
+- **Mocking Strategy**: Extensive module-level mocks for MCP Kit, database services, and external dependencies; concrete implementations for internal logic; enhanced main function test with callback invocation
+- **Remaining Gaps**: Some main function edge cases and CLI execution paths
+- **Challenges Resolved**: Complex mock setup for MCP server integration, singleton pattern testing, database seeding logic, main function callback execution
 
 ## Files with Existing Good Coverage
 - **Before**: ~85%

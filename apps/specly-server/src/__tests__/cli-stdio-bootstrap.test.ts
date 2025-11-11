@@ -228,12 +228,19 @@ vi.mock('@omar391/mcp-kit/server/core/hono-mcp', () => ({
     createHonoMcpServer: createHonoMcpServerMock,
 }));
 
+vi.mock('@omar391/mcp-kit/server/hono-starter', () => ({
+    startHonoMcpServer: startHonoMcpServerMock,
+}));
+
 vi.mock('@omar391/mcp-kit/server', async () => {
     const actual = await vi.importActual<typeof import('@omar391/mcp-kit/server')>('@omar391/mcp-kit/server');
     return {
         ...actual,
         startMcpServer: startMcpServerMock,
-        startHonoMcpServer: startHonoMcpServerMock,
+        createToolHandlers: vi.fn(() => ({
+            listTools: vi.fn(async () => ({ tools: [] })),
+            handleToolCall: vi.fn(async () => ({})),
+        })),
     };
 });
 

@@ -30,7 +30,7 @@ describe('CLI Parser', () => {
       
       expect(options.port).toBe(8989);
       expect(options.mode).toBe('http');
-      expect(options.dev).toBe(false);
+      expect(options.local).toBe(false);
       expect(options.help).toBe(false);
       expect(options.killExisting).toBe(true);
       expect(options.forceSeed).toBe(false);
@@ -63,7 +63,7 @@ describe('CLI Parser', () => {
 
     it('should parse dev mode', () => {
       const options = parseCliArgs<TestOptions>(['--dev'], testConfig);
-      expect(options.dev).toBe(true);
+      expect(options.local).toBe(true);
     });
 
     it('should parse help flag', () => {
@@ -76,11 +76,6 @@ describe('CLI Parser', () => {
       expect(options.help).toBe(true);
     });
 
-    it('should parse force-seed flag', () => {
-      const options = parseCliArgs<TestOptions>(['--force-seed'], testConfig);
-      expect(options.forceSeed).toBe(true);
-    });
-
     it('should parse no-kill flag', () => {
       const options = parseCliArgs<TestOptions>(['--no-kill'], testConfig);
       expect(options.killExisting).toBe(false);
@@ -90,7 +85,7 @@ describe('CLI Parser', () => {
       const options = parseCliArgs<TestOptions>(['--port', '9000', '--dev', '--no-kill'], testConfig);
       
       expect(options.port).toBe(9000);
-      expect(options.dev).toBe(true);
+      expect(options.local).toBe(true);
       expect(options.killExisting).toBe(false);
     });
 
@@ -146,7 +141,7 @@ describe('CLI Parser', () => {
       const options = {
         port: 8989,
         mode: 'http' as const,
-        dev: false,
+        local: false,
         help: false,
         killExisting: true,
         forceSeed: false
@@ -159,7 +154,7 @@ describe('CLI Parser', () => {
       const options = {
         port: 0,
         mode: 'http' as const,
-        dev: false,
+        local: false,
         help: false,
         killExisting: true,
         forceSeed: false
@@ -172,7 +167,7 @@ describe('CLI Parser', () => {
       const options = {
         port: 70000,
         mode: 'http' as const,
-        dev: false,
+        local: false,
         help: false,
         killExisting: true,
         forceSeed: false
@@ -185,7 +180,7 @@ describe('CLI Parser', () => {
       const options = {
         port: 8989,
         mode: 'invalid' as any,
-        dev: false,
+        local: false,
         help: false,
         killExisting: true,
         forceSeed: false
@@ -233,7 +228,7 @@ describe('CLI Parser', () => {
       ], testConfig);
       
       expect(options.port).toBe(7000);
-      expect(options.dev).toBe(true);
+      expect(options.local).toBe(true);
       expect(options.help).toBe(true);
     });
 

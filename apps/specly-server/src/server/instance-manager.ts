@@ -3,8 +3,6 @@
 import fs from "fs";
 import path from "path";
 import * as os from "os";
-import * as http from "http";
-import type { Server as HttpServer } from 'http';
 import { BackgroundJobsService } from '../services/background-jobs-service.js';
 import type { GlobalDatabaseService } from '../database/global-queries.js';
 import { InstanceManager, InstanceRole, type InstanceLock, ProxyManager } from '@omar391/mcp-kit/server/local/node-instance';

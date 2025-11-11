@@ -38,7 +38,6 @@ export default defineConfig({
             externals: {
                 'better-sqlite3': 'better-sqlite3',
                 'sqlite3': 'sqlite3',
-                'express': 'express',
             },
             node: {
                 __dirname: false,

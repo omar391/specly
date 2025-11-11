@@ -1,7 +1,7 @@
 import { startMcpServer, type ExtendedCliOptions } from '@omar391/mcp-kit/server';
 import { parseCliArgs } from '@omar391/mcp-kit/utils/cli-parser';
 import { MCPToolHandlers } from '@omar391/mcp-kit/server/core/types';
-import { createToolHandlers } from '@omar391/mcp-kit/server/handlers';
+import { createToolHandlers } from '@omar391/mcp-kit/server';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { Hono, type Context } from 'hono';
 import * as os from 'os';
@@ -148,7 +148,7 @@ export class SpeclyServer {
   }
 
   // Configure Specly-specific Hono app settings
-  async configureSpeclyApp(app: Hono, options: { dev: boolean }) {
+  async configureSpeclyApp(app: Hono, options: { local: boolean }) {
     // Add error handling
     app.onError((error: Error, c: Context) => {
       console.error('API Error:', error);
@@ -173,7 +173,7 @@ export class SpeclyServer {
     });
 
     // Add development-specific middleware
-    if (options.dev) {
+    if (options.local) {
       console.log('  CORS: Enabled for localhost development');
     }
   }
@@ -296,7 +296,7 @@ export function createMCPToolHandlers(): MCPToolHandlers {
 }
 
 // Configure Specly-specific Hono app settings
-export async function configureSpeclyApp(app: Hono, options: { dev: boolean }) {
+export async function configureSpeclyApp(app: Hono, options: { local: boolean }) {
   await speclyServer.configureSpeclyApp(app, options);
 }
 
@@ -324,10 +324,10 @@ export async function main() {
     },
     onInitialize: async (options) => {
       await speclyServer.ensureServerInitialized();
-      await speclyServer.ensureSpeclySeed(!!options.forceSeed);
+      await speclyServer.ensureSpeclySeed(!!(options as any).forceSeed);
     },
     configureApp: async (app, options) => {
-      await speclyServer.configureSpeclyApp(app, { dev: options.local });
+      await speclyServer.configureSpeclyApp(app, { local: options.local });
     },
     setupRoutes: async (app, options) => {
       await speclyServer.setupSpeclyApi(app);
@@ -393,7 +393,6 @@ if (import.meta.url === `file://${process.argv[1]}` || process.argv[1].endsWith(
         port: 8989,
         mode: 'http',
         local: false,
-        dev: false,
         help: false,
         killExisting: true,
         forceSeed: false,

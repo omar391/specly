@@ -8,49 +8,60 @@ export interface ProxyMetadata {
     startTime?: number;
 }
 
+export interface ProxyStartOptions {
+    targetPort: number;
+    listenPort?: number;
+    metadata?: ProxyMetadata;
+}
+
+function createProxyApp(targetPort: number, metadata?: ProxyMetadata): Hono {
+    const proxyApp = new Hono();
+
+    proxyApp.all('*', async (c) => {
+        const targetUrl = `http://127.0.0.1:${targetPort}${c.req.path}`;
+        const upstreamReq = new Request(targetUrl, c.req.raw);
+
+        if (metadata) {
+            if (metadata.mainVersion) {
+                upstreamReq.headers.set('X-Proxy-Main-Version', metadata.mainVersion);
+            }
+            if (metadata.instanceId) {
+                upstreamReq.headers.set('X-Proxy-Instance-Id', metadata.instanceId);
+            }
+            if (metadata.startTime) {
+                upstreamReq.headers.set('X-Proxy-Start-Time', metadata.startTime.toString());
+            }
+            upstreamReq.headers.set('X-Proxy-Main-Port', metadata.mainPort?.toString() ?? targetPort.toString());
+        }
+
+        try {
+            const resp = await fetch(upstreamReq, {
+                redirect: 'manual',
+            });
+            return new Response(resp.body, resp);
+        } catch (error) {
+            return c.json({ error: 'Proxy error', message: error instanceof Error ? error.message : 'Unknown error' }, 502);
+        }
+    });
+
+    return proxyApp;
+}
+
 export class ProxyManager {
     private server: ServerType | null = null;
     private metadata: ProxyMetadata | null = null;
 
-    async start(targetPort: number, metadata?: ProxyMetadata): Promise<ServerType> {
-        const proxyApp = new Hono();
+    async start(options: ProxyStartOptions): Promise<ServerType> {
+        const { targetPort, listenPort = 0, metadata } = options;
+        const proxyApp = createProxyApp(targetPort, metadata);
 
         // Store metadata for later access
         this.metadata = metadata ?? { mainPort: targetPort };
 
-        // Proxy all requests to the target port
-        proxyApp.all('*', async (c) => {
-            const targetUrl = `http://127.0.0.1:${targetPort}${c.req.path}`;
-            const upstreamReq = new Request(targetUrl, c.req.raw);
-
-            // Add proxy metadata headers for debugging/tracing
-            if (this.metadata) {
-                if (this.metadata.mainVersion) {
-                    upstreamReq.headers.set('X-Proxy-Main-Version', this.metadata.mainVersion);
-                }
-                if (this.metadata.instanceId) {
-                    upstreamReq.headers.set('X-Proxy-Instance-Id', this.metadata.instanceId);
-                }
-                if (this.metadata.startTime) {
-                    upstreamReq.headers.set('X-Proxy-Start-Time', this.metadata.startTime.toString());
-                }
-                upstreamReq.headers.set('X-Proxy-Main-Port', this.metadata.mainPort.toString());
-            }
-
-            try {
-                const resp = await fetch(upstreamReq, {
-                    redirect: 'manual',
-                });
-                return new Response(resp.body, resp);
-            } catch (error) {
-                return c.json({ error: 'Proxy error', message: error instanceof Error ? error.message : 'Unknown error' }, 502);
-            }
-        });
-
         // Start the Hono server and get the underlying HttpServer
         const server = serve({
             fetch: proxyApp.fetch,
-            port: 0, // Let the system assign a port
+            port: listenPort, // Use provided port or 0 for auto-assign
             hostname: '127.0.0.1'
         });
 
@@ -100,35 +111,11 @@ export interface HonoProxyOptions {
 
 export async function startHonoProxy(options: HonoProxyOptions): Promise<void> {
     const { targetPort, listenPort, metadata } = options;
-
-    const proxyApp = new Hono();
-
-    proxyApp.all('*', async (c) => {
-        const targetUrl = `http://127.0.0.1:${targetPort}${c.req.path}`;
-        const upstreamReq = new Request(targetUrl, c.req.raw);
-
-        if (metadata) {
-            if (metadata.mainVersion) {
-                upstreamReq.headers.set('X-Proxy-Main-Version', metadata.mainVersion);
-            }
-            if (metadata.instanceId) {
-                upstreamReq.headers.set('X-Proxy-Instance-Id', metadata.instanceId);
-            }
-            if (metadata.startTime) {
-                upstreamReq.headers.set('X-Proxy-Start-Time', metadata.startTime.toString());
-            }
-            upstreamReq.headers.set('X-Proxy-Main-Port', targetPort.toString());
-        }
-
-        try {
-            const resp = await fetch(upstreamReq, {
-                redirect: 'manual',
-            });
-            return new Response(resp.body, resp);
-        } catch (error) {
-            return c.json({ error: 'Proxy error', message: error instanceof Error ? error.message : 'Unknown error' }, 502);
-        }
-    });
+    const fullMetadata: ProxyMetadata | undefined = metadata ? {
+        ...metadata,
+        mainPort: targetPort,
+    } : undefined;
+    const proxyApp = createProxyApp(targetPort, fullMetadata);
 
     serve({
         fetch: proxyApp.fetch,

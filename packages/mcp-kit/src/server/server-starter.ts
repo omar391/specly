@@ -4,14 +4,12 @@ import type { MCPToolHandlers } from './core/types.js';
 import { startHonoMcpServer, type StartHonoMcpOptions } from './hono-starter.js';
 import { startStdioServer } from './stdio.js';
 import { InstanceManager, type IInstanceManager } from './local/node-instance/index.js';
-import { startHonoProxy } from './local/proxy/index.js';
+import { ProxyManager } from './local/proxy/index.js';
 import { startStdioProxy } from './local/node-instance/index.js';
 import { parseCliArgs, displayHelp, type BaseCliOptions } from '../utils/cli-parser.js';
 import { ensurePortAvailable } from './local/port-manager.js';
 
 export interface ExtendedCliOptions extends BaseCliOptions {
-    /** Force seed/initialization */
-    forceSeed?: boolean;
     /** Custom CLI options */
     [key: string]: any;
 }
@@ -127,11 +125,13 @@ export async function startMcpServer<T extends ExtendedCliOptions = ExtendedCliO
             });
         } else {
             console.log(`[PROXY MODE] Main instance v${mainVersion} running on port ${instanceManager.port}. Starting HTTP proxy.`);
-            await startHonoProxy({
+            const proxyManager = new ProxyManager();
+            await proxyManager.start({
                 targetPort: instanceManager.port,
                 listenPort: cliOptions.port,
                 metadata: {
                     mainVersion,
+                    mainPort: instanceManager.port,
                     startTime: Date.now(),
                 },
             });
