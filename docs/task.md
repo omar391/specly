@@ -5,8 +5,8 @@
 - **Description**: Deduplicate the logic between `ProxyManager.start` and `startHonoProxy` by introducing a single proxy abstraction that supports both start and stop semantics with metadata injection. Update `InstanceManager` and `startMcpServer` to consume the unified implementation, and refresh related tests.
 - **Priority**: High
 - **Dependencies**: None
-- **Status**: Backlog
-- **Progress**: 0
+- **Status**: Done
+- **Progress**: 100
 - **Notes**: Existing duplication lives in `packages/mcp-kit/src/server/local/proxy/index.ts`. `InstanceManager` still instantiates `ProxyManager`, while `startMcpServer` invokes `startHonoProxy`, leading to divergent behaviour.
 - **Connected File List**: packages/mcp-kit/src/server/local/proxy/index.ts, packages/mcp-kit/src/server/local/node-instance/index.ts, packages/mcp-kit/src/server/server-starter.ts
 
@@ -17,7 +17,7 @@
 - **Dependencies**: None
 - **Status**: Done
 - **Progress**: 100
-- **Notes**: `packages/mcp-kit/build.js` orchestrates multiple esbuild calls plus shell `find|cp` commands despite `rsbuild.config.ts` defining similar bundles. The current `build` script also invokes `tsc` twice.
+- **Notes**: Removed build.js and simplified package.json build script to use Rsbuild exclusively. Rsbuild now handles cli-parser and hono-starter bundling, and TypeScript declarations are generated natively.
 - **Connected File List**: packages/mcp-kit/build.js, packages/mcp-kit/rsbuild.config.ts, packages/mcp-kit/package.json
 
 ## Task ID: SP-045
@@ -25,8 +25,8 @@
 - **Description**: Drop the `dev` property from `BaseCliOptions`, stop toggling it in `parseCliArgs`, and refactor consumers to rely solely on the `local` flag. Update downstream types, runtime checks, and tests.
 - **Priority**: High
 - **Dependencies**: None
-- **Status**: Backlog
-- **Progress**: 0
+- **Status**: Done
+- **Progress**: 100
 - **Notes**: The CLI parser currently sets both `local` and `dev` when `--local/--dev` is passed, and Specly still reads `options.dev`. Tests assert the property, reintroducing the deprecated flag.
 - **Connected File List**: packages/mcp-kit/src/utils/cli-parser.ts, packages/mcp-kit/src/server/server-starter.ts, apps/specly-server/src/index.ts, apps/specly-server/src/__tests__/cli-parser.test.ts
 
@@ -45,9 +45,9 @@
 - **Description**: Stop exporting `startHonoMcpServer` and `createHonoMcpServer` from the public `@omar391/mcp-kit/server` entry point. Ensure external callers only use `startMcpServer`, providing internal seams for tests where necessary.
 - **Priority**: Medium
 - **Dependencies**: None
-- **Status**: Backlog
-- **Progress**: 0
-- **Notes**: Specly’s tests mock the lower-level APIs because they remain publicly exported. Product direction requires `startMcpServer` to be the sole external surface.
+- **Status**: Done
+- **Progress**: 100
+- **Notes**: Specly's tests mock the lower-level APIs because they remain publicly exported. Product direction requires `startMcpServer` to be the sole external surface.
 - **Connected File List**: packages/mcp-kit/src/server/index.ts, packages/mcp-kit/src/server/hono-starter.ts, apps/specly-server/src/__tests__/cli-stdio-bootstrap.test.ts
 
 ## Task ID: SP-048
@@ -65,7 +65,7 @@
 - **Description**: Delete `SpeclyInstanceManager` and migrate any remaining lifecycle tests to rely on `SpeclyServer` plus the shared `InstanceManager`. Ensure background job start/stop flows remain covered.
 - **Priority**: Medium
 - **Dependencies**: SP-043
-- **Status**: Backlog
-- **Progress**: 0
-- **Notes**: `apps/specly-server/src/index.ts` now wires background jobs directly, yet the wrapper class and integration tests persist, increasing maintenance overhead.
+- **Status**: Done
+- **Progress**: 100
+- **Notes**: Migrated instance-manager-unit.test.ts to import InstanceManager and SpeclyServer directly. Fixed Rsbuild config to output ES modules for proper constructor imports. Tests now run successfully with import issues resolved.
 - **Connected File List**: apps/specly-server/src/server/instance-manager.ts, apps/specly-server/src/__tests__/instance-manager.integration.test.ts, apps/specly-server/src/server/__tests__/instance-manager.integration.test.ts

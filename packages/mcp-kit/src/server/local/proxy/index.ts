@@ -109,17 +109,13 @@ export interface HonoProxyOptions {
     };
 }
 
-export async function startHonoProxy(options: HonoProxyOptions): Promise<void> {
+export async function startHonoProxy(options: HonoProxyOptions): Promise<ProxyManager> {
     const { targetPort, listenPort, metadata } = options;
     const fullMetadata: ProxyMetadata | undefined = metadata ? {
         ...metadata,
         mainPort: targetPort,
     } : undefined;
-    const proxyApp = createProxyApp(targetPort, fullMetadata);
-
-    serve({
-        fetch: proxyApp.fetch,
-        port: listenPort,
-        hostname: '127.0.0.1'
-    });
+    const proxyManager = new ProxyManager();
+    await proxyManager.start({ targetPort, listenPort, metadata: fullMetadata });
+    return proxyManager;
 }

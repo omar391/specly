@@ -12,7 +12,7 @@ const universalEntries = {
     'server/core/middleware': './src/server/core/middleware.ts',
     'server/core/runtime': './src/server/core/runtime.ts',
     'server/handlers': './src/server/handlers.ts',
-    // 'utils/cli-parser': './src/utils/cli-parser.ts', // Don't bundle this, copy as-is
+    'utils/cli-parser': './src/utils/cli-parser.ts',
 };
 
 const localEntries = {
@@ -21,6 +21,7 @@ const localEntries = {
     'server/index': './src/server/index.ts',
     'server/stdio': './src/server/stdio.ts',
     'server/server-starter': './src/server/server-starter.ts',
+    'server/hono-starter': './src/server/hono-starter.ts',
     'server/local/node-instance': './src/server/local/node-instance/index.ts',
     'server/local/port-manager': './src/server/local/port-manager.ts',
 };
@@ -47,7 +48,7 @@ export default defineConfig({
 
             if (target === 'node') {
                 // For node target, output clean ES modules without library wrapper
-                config.output.library = undefined;
+                config.output.library = { type: 'module' };
                 config.output.module = true;
                 config.experiments = {
                     ...config.experiments,
@@ -55,7 +56,7 @@ export default defineConfig({
                 };
             } else if (target === 'universal') {
                 // For universal target, output clean ES modules without library wrapper
-                config.output.library = undefined;
+                config.output.library = { type: 'module' };
                 config.output.module = true;
                 config.experiments = {
                     ...config.experiments,

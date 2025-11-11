@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi, beforeEach } from 'vitest';
 import { SpeclyServer, SPECLY_VERSION, initializeServer, ensureServerInitialized, createMCPToolHandlers, configureSpeclyApp, setupSpeclyApi, ensureSpeclySeed, main } from '../index.js';
 import { Hono } from 'hono';
 
@@ -108,8 +108,8 @@ vi.mock('@omar391/mcp-kit/utils/cli-parser', () => ({
     parseCliArgs: vi.fn()
 }));
 
-vi.mock('@omar391/mcp-kit/server/local/node-instance', () => ({
-    InstanceManager: vi.fn()
+vi.mock('child_process', () => ({
+    spawn: mockSpawn
 }));
 
 // Create mock functions
@@ -120,25 +120,26 @@ const mockCreateToolHandlers = vi.fn((specs) => ({
 
 const mockStartMcpServer = vi.fn();
 const mockParseCliArgs = vi.fn();
+const mockSpawn = vi.fn().mockReturnValue({ unref: vi.fn() });
 
 // Set up mock implementations
 beforeAll(async () => {
     // Set up MCP Kit mocks
     const { createToolHandlers } = await import('@omar391/mcp-kit/server');
-    createToolHandlers.mockImplementation(mockCreateToolHandlers);
+    vi.mocked(createToolHandlers).mockImplementation(mockCreateToolHandlers);
 
     const { startMcpServer } = await import('@omar391/mcp-kit/server');
-    startMcpServer.mockImplementation(mockStartMcpServer);
+    vi.mocked(startMcpServer).mockImplementation(mockStartMcpServer);
 
     const { parseCliArgs } = await import('@omar391/mcp-kit/utils/cli-parser');
-    parseCliArgs.mockImplementation(mockParseCliArgs);
+    vi.mocked(parseCliArgs).mockImplementation(mockParseCliArgs);
 
     // Set up service mocks
     const { SeedManager } = await import('../services/seed-manager.js');
-    SeedManager.mockImplementation(() => mockSeedManager);
+    vi.mocked(SeedManager).mockImplementation(() => mockSeedManager as any);
 
     const { BackgroundJobsService } = await import('../services/background-jobs-service.js');
-    BackgroundJobsService.mockImplementation(() => mockBackgroundJobsService);
+    vi.mocked(BackgroundJobsService).mockImplementation(() => mockBackgroundJobsService as any);
 });
 
 // Create mock instances
@@ -156,11 +157,51 @@ const mockGlobalDbService = {
     getWorkspaceByPath: vi.fn(),
     createWorkspace: vi.fn(),
     getAllWorkspaces: vi.fn(),
-    updateWorkspaceActivity: vi.fn()
+    updateWorkspaceActivity: vi.fn(),
+    db: vi.fn(),
+    getToolVersion: vi.fn(),
+    getSpecsByHashes: vi.fn(),
+    getActionJournalEntries: vi.fn(),
+    getToolVersions: vi.fn(),
+    getSpecs: vi.fn(),
+    getWorkspaces: vi.fn(),
+    getWorkspace: vi.fn(),
+    createToolVersion: vi.fn(),
+    updateToolVersion: vi.fn(),
+    deleteToolVersion: vi.fn(),
+    getSpec: vi.fn(),
+    createSpec: vi.fn(),
+    updateSpec: vi.fn(),
+    deleteSpec: vi.fn(),
+    getActionJournalEntry: vi.fn(),
+    createActionJournalEntry: vi.fn(),
+    updateActionJournalEntry: vi.fn(),
+    deleteActionJournalEntry: vi.fn(),
+    all: vi.fn(),
+    updateWorkspace: vi.fn(),
+    deleteWorkspace: vi.fn(),
+    createSession: vi.fn(),
+    getSession: vi.fn(),
+    updateSession: vi.fn(),
+    deleteSession: vi.fn(),
+    getSessions: vi.fn(),
+    getActiveSessions: vi.fn(),
+    getExpiredSessions: vi.fn(),
+    cleanupExpiredSessions: vi.fn(),
+    getWorkspaceStats: vi.fn(),
+    getGlobalStats: vi.fn(),
+    getRecentActivity: vi.fn(),
+    getToolUsageStats: vi.fn(),
+    getErrorStats: vi.fn()
 };
 
 const mockDatabaseService = {
-    getGlobal: vi.fn().mockReturnValue(mockGlobalDbService)
+    getGlobal: vi.fn().mockReturnValue(mockGlobalDbService),
+    workspaceDbCache: new Map(),
+    getWorkspace: vi.fn(),
+    clearWorkspaceCache: vi.fn(),
+    isGlobalReady: vi.fn(),
+    isWorkspaceReady: vi.fn()
 };
 
 const mockSeedManager = {
@@ -173,7 +214,11 @@ const mockPromptOrchestrator = {
 };
 
 const mockBackgroundJobsService = {
-    runAll: vi.fn()
+    runAll: vi.fn(),
+    globalDb: vi.fn(),
+    transientSessionGC: vi.fn(),
+    softDeletePurge: vi.fn(),
+    getConfig: vi.fn()
 };
 
 const mockTools = {
@@ -181,6 +226,14 @@ const mockTools = {
 };
 
 describe('index.ts', () => {
+    beforeAll(() => {
+        vi.useFakeTimers();
+    });
+
+    afterAll(() => {
+        vi.restoreAllMocks();
+        vi.useRealTimers();
+    });
     describe('SPECLY_VERSION', () => {
         it('returns a version string', () => {
             expect(typeof SPECLY_VERSION).toBe('string');
@@ -195,7 +248,7 @@ describe('index.ts', () => {
             server = new SpeclyServer();
             // Reset mocks
             const { initializeGlobalDatabaseService } = await import('../database/global-queries.js');
-            initializeGlobalDatabaseService.mockResolvedValue(mockGlobalDbService);
+            vi.mocked(initializeGlobalDatabaseService).mockResolvedValue(mockGlobalDbService as any);
 
             mockDrizzleManager.getDb.mockReturnValue({
                 all: vi.fn().mockResolvedValue([])
@@ -211,7 +264,7 @@ describe('index.ts', () => {
 
             it('throws error when initialization fails', async () => {
                 const { initializeGlobalDatabaseService } = await import('../database/global-queries.js');
-                initializeGlobalDatabaseService.mockRejectedValue(new Error('Init failed'));
+                vi.mocked(initializeGlobalDatabaseService).mockRejectedValue(new Error('Init failed'));
 
                 await expect(server.initializeServer()).rejects.toThrow('Init failed');
                 expect(server['serverInitialized']).toBe(false);
@@ -228,7 +281,7 @@ describe('index.ts', () => {
         describe('configureSpeclyApp', () => {
             it('adds error handling middleware', async () => {
                 const app = new Hono();
-                await server.configureSpeclyApp(app, { dev: true });
+                await server.configureSpeclyApp(app, { local: false });
 
                 // Test error handling by triggering an error
                 const error = new Error('Test error');
@@ -347,7 +400,7 @@ describe('index.ts', () => {
             it('configures app through singleton', async () => {
                 await initializeServer();
                 const app = new Hono();
-                await configureSpeclyApp(app, { dev: true });
+                await configureSpeclyApp(app, { local: false });
                 expect(app).toBeDefined();
             });
         });
@@ -356,7 +409,7 @@ describe('index.ts', () => {
             it('sets up API through singleton', async () => {
                 await initializeServer();
                 const app = new Hono();
-                await setupSpeclyApi(app, mockDatabaseService);
+                await setupSpeclyApi(app, mockDatabaseService as any);
                 expect(app).toBeDefined();
             });
         });
@@ -439,6 +492,129 @@ describe('index.ts', () => {
                 localMode: expect.any(Object),
                 cliConfig: expect.any(Object)
             });
+        });
+
+        it('logs server start message in onAfterStart', async () => {
+            const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
+
+            mockParseCliArgs.mockReturnValue({
+                port: 8989,
+                mode: 'http',
+                local: false,
+                dev: false,
+                help: false,
+                killExisting: true,
+                forceSeed: false
+            });
+
+            mockStartMcpServer.mockImplementation(async (config) => {
+                if (config.onAfterStart) {
+                    const app = new Hono();
+                    await config.onAfterStart(app, { port: 8989, local: false });
+                }
+                return undefined;
+            });
+
+            await main();
+
+            expect(consoleSpy).toHaveBeenCalledWith('Specly backend server running on http://localhost:8989');
+            consoleSpy.mockRestore();
+        });
+
+        it('handles local mode shutdown with logging and process exit', async () => {
+            const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
+            const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: string | number | null | undefined) => {
+                // noop to avoid actual process exit during tests
+            }) as any);
+
+            mockParseCliArgs.mockReturnValue({
+                port: 8989,
+                mode: 'http',
+                local: true,
+                dev: false,
+                help: false,
+                killExisting: true,
+                forceSeed: false
+            });
+
+            mockStartMcpServer.mockImplementation(async (config) => {
+                if (config.localMode?.onShutdown) {
+                    const instanceManager = config.createInstanceManager!({ port: 8989, local: true });
+                    await config.localMode.onShutdown(instanceManager, { port: 8989, local: true, forceSeed: false });
+                }
+                return undefined;
+            });
+
+            await main();
+
+            // Run pending timers to execute setTimeout callbacks
+            vi.runOnlyPendingTimers();
+
+            expect(consoleSpy).toHaveBeenCalledWith('Shutdown requested via API');
+            expect(exitSpy).toHaveBeenCalledWith(0);
+
+            consoleSpy.mockRestore();
+            exitSpy.mockRestore();
+        });
+
+        it('handles local mode transition with logging and spawn', async () => {
+            const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
+
+            mockParseCliArgs.mockReturnValue({
+                port: 8989,
+                mode: 'http',
+                local: true,
+                dev: false,
+                help: false,
+                killExisting: true,
+                forceSeed: false
+            });
+
+            mockStartMcpServer.mockImplementation(async (config) => {
+                if (config.localMode?.onTransition) {
+                    const instanceManager = config.createInstanceManager!({ port: 8989, local: true });
+                    await config.localMode.onTransition(instanceManager, { port: 8989, local: true, forceSeed: false });
+                }
+                return undefined;
+            });
+
+            await main();
+
+            // Run pending timers to execute setTimeout callbacks
+            vi.runOnlyPendingTimers();
+
+            expect(consoleSpy).toHaveBeenCalledWith('Version transition requested via API');
+            expect(mockSpawn).toHaveBeenCalledWith(process.argv[0], process.argv.slice(1), {
+                detached: true,
+                stdio: 'inherit'
+            });
+
+            consoleSpy.mockRestore();
+        });
+
+        it('parses custom options correctly', async () => {
+            mockParseCliArgs.mockReturnValue({
+                port: 8989,
+                mode: 'http',
+                local: false,
+                dev: false,
+                help: false,
+                killExisting: true,
+                forceSeed: false
+            });
+
+            mockStartMcpServer.mockImplementation(async (config) => {
+                if (config.cliConfig?.customOptionsParser) {
+                    const result1 = config.cliConfig.customOptionsParser([], { port: 8989, mode: 'http', local: false, dev: false, help: false, killExisting: true });
+                    expect(result1.forceSeed).toBe(false);
+
+                    const result2 = config.cliConfig.customOptionsParser(['--force-seed'], { port: 8989, mode: 'http', local: false, dev: false, help: false, killExisting: true });
+                    expect(result2.forceSeed).toBe(true);
+                }
+                return undefined;
+            });
+
+            await main();
         });
     });
 });

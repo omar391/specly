@@ -404,7 +404,7 @@ Complete examples available in [`docs/api-design.md`](./docs/api-design.md).
 
 ## 🧪 Testing
 
-Specly includes comprehensive test coverage with **≈1700 automated tests across packages**:
+Specly includes comprehensive test coverage with **≈1735 automated tests across packages**:
 
 ```bash
 # Run all tests across packages

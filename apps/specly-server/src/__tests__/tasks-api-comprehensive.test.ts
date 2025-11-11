@@ -307,7 +307,7 @@ describe('Tasks API Comprehensive Coverage', () => {
             const res = await app.request(`/workspaces/${workspaceId}/tasks/TP-nonexistent`);
             expect(res.status).toBe(404);
             const body = await res.json();
-            expect(body.error).toContain('Task not found');
+            expect(body.error.message).toContain('Task not found');
         });
 
         it('returns 404 for non-existent workspace', async () => {
@@ -544,8 +544,8 @@ describe('Tasks API Comprehensive Coverage', () => {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     field: 'invalid_field',
-                    value: 'value',
-                    reason: 'test'
+                    value: 'new title',
+                    reason: 'test update'
                 })
             });
             expect(res.status).toBe(422);

@@ -44,6 +44,10 @@
                 "types": "./dist/server/index.d.ts"
             }
         },
+        "./server/hono-starter": {
+            "import": "./dist/universal/server/hono-starter.js",
+            "types": "./dist/server/hono-starter.d.ts"
+        },
         "./server/handlers": {
             "import": "./dist/universal/server/handlers.js",
             "types": "./dist/server/handlers.d.ts"
@@ -56,16 +60,6 @@
             "default": {
                 "import": "./dist/server/stdio.js",
                 "types": "./dist/server/stdio.d.ts"
-            }
-        },
-        "./server/hono-starter": {
-            "node": {
-                "import": "./dist/node/server/hono-starter.js",
-                "types": "./dist/server/hono-starter.d.ts"
-            },
-            "default": {
-                "import": "./dist/server/hono-starter.js",
-                "types": "./dist/server/hono-starter.d.ts"
             }
         },
         "./server/core/hono-mcp": {
@@ -97,15 +91,21 @@
             }
         },
         "./utils/cli-parser": {
-            "import": "./dist/universal/utils/cli-parser.js",
-            "types": "./dist/utils/cli-parser.d.ts"
+            "node": {
+                "import": "./dist/node/utils/cli-parser.js",
+                "types": "./dist/utils/cli-parser.d.ts"
+            },
+            "default": {
+                "import": "./dist/universal/utils/cli-parser.js",
+                "types": "./dist/utils/cli-parser.d.ts"
+            }
         }
     },
     "files": [
         "dist"
     ],
     "scripts": {
-        "build": "BUILD_TARGET=universal rsbuild build && BUILD_TARGET=node rsbuild build && BUILD_TARGET=browser rsbuild build && tsc -p tsconfig.json --emitDeclarationOnly --skipLibCheck && tsc src/utils/cli-parser.ts --outDir dist/universal/utils --target es2020 --module es2020 --skipLibCheck --declaration false && esbuild src/server/hono-starter.ts --outfile=dist/node/server/hono-starter.js --format=esm --target=es2020 --platform=node --bundle --external:@modelcontextprotocol/sdk && find dist -maxdepth 2 -name \"*.d.ts\" -o -name \"*.d.ts.map\" | grep -v \"/node/\" | grep -v \"/browser/\" | grep -v \"/universal/\" | xargs -I {} cp {} dist/node/ 2>/dev/null || true && find dist -maxdepth 2 -name \"*.d.ts\" -o -name \"*.d.ts.map\" | grep -v \"/node/\" | grep -v \"/browser/\" | grep -v \"/universal/\" | xargs -I {} cp {} dist/browser/ 2>/dev/null || true && find dist -maxdepth 2 -name \"*.d.ts\" -o -name \"*.d.ts.map\" | grep -v \"/node/\" | grep -v \"/browser/\" | grep -v \"/universal/\" | xargs -I {} cp {} dist/universal/ 2>/dev/null || true && mkdir -p dist/universal/utils dist/node/utils dist/browser/utils && cp dist/universal/utils/cli-parser.js dist/node/utils/cli-parser.js && cp dist/universal/utils/cli-parser.js dist/browser/utils/cli-parser.js && mkdir -p dist/browser/server && cp dist/node/server/hono-starter.js dist/browser/server/hono-starter.js",
+        "build": "BUILD_TARGET=universal rsbuild build && BUILD_TARGET=node rsbuild build && BUILD_TARGET=browser rsbuild build && tsc -p tsconfig.json --emitDeclarationOnly --skipLibCheck",
         "dev": "tsc -w -p tsconfig.json",
         "lint": "tsc --noEmit",
         "test": "vitest run"

@@ -69,7 +69,7 @@ export class SpeclyServer {
 
   async initializeServer() {
     try {
-  // Initialize global database using pure Drizzle system
+      // Initialize global database using pure Drizzle system
       this.globalDbService = await initializeGlobalDatabaseService();
       const globalDrizzleManager = this.globalDbService.getDrizzleManager();
 
@@ -271,6 +271,7 @@ export class SpeclyServer {
     if (this.gcInterval) {
       clearInterval(this.gcInterval);
       this.gcInterval = null;
+      this.backgroundJobsService = undefined;
       console.log(JSON.stringify({
         ts: new Date().toISOString(),
         level: 'info',

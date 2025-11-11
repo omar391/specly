@@ -5,8 +5,8 @@ import path from "path";
 import http from "http";
 import crypto from "crypto";
 
-import { SpeclyInstanceManager, InstanceRole } from "../instance-manager.js";
-import { InstanceManager } from "@omar391/mcp-kit/server/local/node-instance";
+import { InstanceManager, InstanceRole } from "@omar391/mcp-kit/server/local/node-instance";
+import { SpeclyServer } from "../../index.js";
 import { GlobalDatabaseService } from "../../database/global-queries.js";
 import { BackgroundJobsService } from "../../services/background-jobs-service.js";
 import { DrizzleDatabaseManager, DatabaseType } from "../../database/drizzle-connection.js";
@@ -30,14 +30,20 @@ async function closeServer(server?: http.Server) {
     }
 }
 
-describe("InstanceManager Unit", () => {
+describe("InstanceManager and SpeclyServer Unit", () => {
     let lockPath: string;
-    let manager: SpeclyInstanceManager;
+    let manager: InstanceManager;
+    let speclyServer: SpeclyServer;
     let server: http.Server | undefined;
 
-    beforeEach(() => {
+    beforeEach(async () => {
         lockPath = uniqueLockPath();
-        manager = new SpeclyInstanceManager(lockPath);
+        manager = new InstanceManager({ lockPath, port: 0, getVersion: () => "test" });
+        speclyServer = new SpeclyServer();
+        // Initialize with in-memory db for testing
+        const gdb = new GlobalDatabaseService(new DrizzleDatabaseManager(":memory:", DatabaseType.GLOBAL));
+        await gdb.initialize();
+        (speclyServer as any).globalDbService = gdb;
         server = undefined;
     });
 
@@ -66,7 +72,7 @@ describe("InstanceManager Unit", () => {
         const json = JSON.parse(raw);
         expect(typeof json.pid).toBe("number");
         expect(typeof json.timestamp).toBe("number");
-        expect(json.version).toBe(SpeclyInstanceManager.VERSION);
+        expect(json.version).toBe(manager.version);
 
         await manager.removeLock();
         expect(fs.existsSync(lockPath)).toBe(false);
@@ -184,41 +190,32 @@ describe("InstanceManager Unit", () => {
         await closeServer(proxyServer);
     });
 
-    it("startBackgroundJobs respects role gating and env disabled, starts and stops when MAIN", async () => {
+    it("startBackgroundJobs respects env disabled, starts and stops when enabled", async () => {
         const logSpy = vi.spyOn(console, "log").mockImplementation(() => { });
         const errSpy = vi.spyOn(console, "error").mockImplementation(() => { });
 
-        // Not MAIN -> early return
-        manager.role = InstanceRole.PROXY;
-        // Create a minimal in-memory Global DB instance
-        const gdb = new GlobalDatabaseService(new DrizzleDatabaseManager(":memory:", DatabaseType.GLOBAL));
-        await gdb.initialize();
-        manager.startBackgroundJobs(gdb);
-        expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('"msg":"Background jobs not started - not MAIN instance"'));
-
         // Env disabled -> no start
-        manager.role = InstanceRole.MAIN;
         process.env.SPECLY_GC_ENABLED = "false";
-        manager.startBackgroundJobs(gdb);
+        speclyServer.startBackgroundJobs();
         expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('"msg":"Background jobs disabled via SPECLY_GC_ENABLED=false"'));
 
         // Enabled, custom thresholds via env
         process.env.SPECLY_GC_ENABLED = "true";
         process.env.SPECLY_GC_TRANSIENT_SESSION_HOURS = "12";
         process.env.SPECLY_GC_SOFT_DELETE_DAYS = "45";
-        manager.startBackgroundJobs(gdb);
+        speclyServer.startBackgroundJobs();
         expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('"msg":"Background jobs started"'));
         // stop
-        manager.stopBackgroundJobs();
+        speclyServer.stopBackgroundJobs();
         expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('"msg":"Background jobs stopped"'));
 
         // Simulate initial sweep failure by temporarily monkey-patching prototype before start
         const origRunAll = (BackgroundJobsService as any).prototype.runAll;
         (BackgroundJobsService as any).prototype.runAll = () => Promise.reject(new Error("boom"));
-        manager.startBackgroundJobs(gdb);
+        speclyServer.startBackgroundJobs();
         await new Promise((r) => setTimeout(r, 0));
         expect(errSpy).toHaveBeenCalledWith(expect.stringContaining('"msg":"Initial GC sweep failed"'));
-        manager.stopBackgroundJobs();
+        speclyServer.stopBackgroundJobs();
         // restore
         (BackgroundJobsService as any).prototype.runAll = origRunAll;
 

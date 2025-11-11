@@ -51,6 +51,7 @@ export interface IInstanceManager {
  */
 export class InstanceManager implements IInstanceManager {
     static defaultVersion = '0.1.0';
+    static VERSION = InstanceManager.defaultVersion;
 
     private _lockPath: string;
     private _port: number;

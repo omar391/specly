@@ -2,15 +2,18 @@ import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { StartTool, startToolSchema } from '../tools/start.js';
 import { GlobalDatabaseService } from '../database/global-queries.js';
 import { PromptOrchestrator } from '../services/prompt-orchestrator.js';
+import { WorkspaceRulesRepository } from '../repositories/workspace-rules-repository.js';
 import type { DrizzleDatabaseManager } from '../database/drizzle-connection.js';
 
 // Mock dependencies
 vi.mock('../database/global-queries.js');
 vi.mock('../services/prompt-orchestrator.js');
+vi.mock('../repositories/workspace-rules-repository.js');
 
 let mockDrizzleDb: DrizzleDatabaseManager;
 let mockGlobalDb: GlobalDatabaseService;
 let mockOrchestrator: PromptOrchestrator;
+let mockRulesRepo: WorkspaceRulesRepository;
 let startTool: StartTool;
 
 describe('StartTool', () => {
@@ -18,16 +21,27 @@ describe('StartTool', () => {
     mockDrizzleDb = {} as DrizzleDatabaseManager;
     mockGlobalDb = new GlobalDatabaseService();
     mockOrchestrator = new PromptOrchestrator(mockDrizzleDb);
+    mockRulesRepo = new WorkspaceRulesRepository(mockGlobalDb);
 
     // Setup mocks
     vi.mocked(GlobalDatabaseService).mockImplementation(() => mockGlobalDb);
     vi.mocked(PromptOrchestrator).mockImplementation(() => mockOrchestrator);
+    vi.mocked(WorkspaceRulesRepository).mockImplementation(() => mockRulesRepo);
+
+    // Mock getDrizzleManager to return a mock that has getDb
+    vi.mocked(mockGlobalDb.getDrizzleManager).mockReturnValue({
+      getDb: vi.fn().mockReturnValue({}),
+      initialize: vi.fn(),
+      transaction: vi.fn(),
+      close: vi.fn(),
+      isReady: vi.fn().mockReturnValue(true)
+    } as any);
 
     startTool = new StartTool(mockDrizzleDb);
   });
 
   describe('execute', () => {
-    it.skip('successfully starts a new session for new workspace', async () => {
+    it('successfully starts a new session for new workspace', async () => {
       const input = { workspace_path: '/tmp/test-workspace' };
       const mockWorkspace = {
         id: 'ws-123',
@@ -59,6 +73,7 @@ describe('StartTool', () => {
       vi.mocked(mockGlobalDb.getWorkspaceSessions).mockResolvedValue([]);
       vi.mocked(mockOrchestrator.orchestratePrompt).mockResolvedValue(mockOrchestrationResult);
       vi.mocked(mockGlobalDb.updateWorkspaceActivity).mockResolvedValue();
+      vi.mocked(mockRulesRepo.list).mockResolvedValue([]);
 
       const result = await startTool.execute(input);
 
@@ -91,14 +106,14 @@ describe('StartTool', () => {
           workspace_path: '/tmp/test-workspace',
           session_id: 'session-123',
           timestamp: expect.any(String),
-          workspace_rules: null,
-          standard_global_rules: null
+          workspace_rules: [],
+          standard_global_rules: []
         }
       );
       expect(mockGlobalDb.updateWorkspaceActivity).toHaveBeenCalledWith('ws-123');
     });
 
-    it.skip('reuses existing workspace and closes active sessions', async () => {
+    it('reuses existing workspace and closes active sessions', async () => {
       const input = { workspace_path: '/tmp/existing-workspace' };
       const mockWorkspace = {
         id: 'ws-existing',
@@ -138,6 +153,7 @@ describe('StartTool', () => {
       vi.mocked(mockGlobalDb.createSession).mockResolvedValue(mockNewSession);
       vi.mocked(mockOrchestrator.orchestratePrompt).mockResolvedValue(mockOrchestrationResult);
       vi.mocked(mockGlobalDb.updateWorkspaceActivity).mockResolvedValue();
+      vi.mocked(mockRulesRepo.list).mockResolvedValue([]);
 
       const result = await startTool.execute(input);
 

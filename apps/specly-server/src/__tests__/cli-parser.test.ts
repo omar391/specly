@@ -61,8 +61,8 @@ describe('CLI Parser', () => {
       expect(options.mode).toBe('http');
     });
 
-    it('should parse dev mode', () => {
-      const options = parseCliArgs<TestOptions>(['--dev'], testConfig);
+    it('should parse local mode', () => {
+      const options = parseCliArgs<TestOptions>(['--local'], testConfig);
       expect(options.local).toBe(true);
     });
 
@@ -82,7 +82,7 @@ describe('CLI Parser', () => {
     });
 
     it('should handle multiple flags together', () => {
-      const options = parseCliArgs<TestOptions>(['--port', '9000', '--dev', '--no-kill'], testConfig);
+      const options = parseCliArgs<TestOptions>(['--port', '9000', '--local', '--no-kill'], testConfig);
       
       expect(options.port).toBe(9000);
       expect(options.local).toBe(true);
@@ -223,7 +223,7 @@ describe('CLI Parser', () => {
     it('should handle args with mixed formats', () => {
       const options = parseCliArgs<TestOptions>([
         '--port=7000',
-        '--dev',
+        '--local',
         '-h'
       ], testConfig);
       

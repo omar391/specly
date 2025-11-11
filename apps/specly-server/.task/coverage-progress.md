@@ -1,6 +1,19 @@
 # Test Coverage Progress
 
-## Completed Files
+### sessions.ts
+- **Before**: 79.85%
+- **After**: 100% (Stmt: 100%, Branch: 100%, Func: 100%)
+- **Tests Added**: 6 comprehensive unit tests for SessionsController
+- **Coverage**: Complete coverage of validation logic and API response formatting
+- **Key Features Tested**:
+  - SessionsController.getSessions method with direct mocking
+  - Successful session retrieval with data mapping (boolean conversion for is_active)
+  - Workspace filtering via query parameters
+  - Parameter validation: BadRequestError for non-string task_id and workspace_id
+  - Empty sessions array handling
+  - Correct response format using createSuccessResponse helper
+- **Mocking Strategy**: Module-level mocks for DatabaseService and GlobalDatabaseService; direct controller instantiation with isolated dependencies
+- **Challenges Resolved**: Branch coverage for validation logic not covered by integration tests; API response format differences between expected and actual implementations
 
 ### update-steps.ts
 - **Before**: 11.36%
@@ -61,8 +74,8 @@
 
 ## Summary
 - Total test files: 93
-- Total tests: 1633 (added 24 for index.ts)
-- Files below 95%: ~10 (estimated)
-- Current focus: index.ts (completed - 66.76% coverage)
+- Total tests: 1599 (added 6 for sessions.ts)
+- Files below 95%: ~8 (estimated)
+- Current focus: tasks.ts (64.36% baseline)
 - Next: Identify next lowest coverage file</content>
 <parameter name="filePath">/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/apps/specly-server/.task/coverage-progress.md

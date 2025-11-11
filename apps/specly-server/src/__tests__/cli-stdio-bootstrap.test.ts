@@ -70,6 +70,12 @@ const createToolModule = () => {
     return { Tool, schema };
 };
 
+const instanceManagerMocks = {
+    tryBecomeMain: vi.fn(),
+    startBackgroundJobs: vi.fn(),
+    stopBackgroundJobs: vi.fn(),
+};
+
 vi.mock('@omar391/mcp-kit/utils/cli-parser', () => ({
     parseCliArgs: parseCliArgsMock,
     displayHelp: displayHelpMock,
@@ -107,39 +113,6 @@ vi.mock('../services/prompt-orchestrator.js', () => ({
         constructor(_: unknown) { }
     },
 }));
-
-const instanceManagerMocks = vi.hoisted(() => {
-    return {
-        tryBecomeMain: vi.fn(),
-        startBackgroundJobs: vi.fn(),
-        stopBackgroundJobs: vi.fn(),
-    };
-});
-
-vi.mock('../server/instance-manager.js', async () => {
-    const actual = await vi.importActual<typeof import('@omar391/mcp-kit/server/local/node-instance')>('@omar391/mcp-kit/server/local/node-instance');
-    class SpeclyInstanceManager {
-        static VERSION = 'test-version';
-        port: number;
-        proxyPort: number;
-        role = actual.InstanceRole.MAIN;
-        version = 'test-version';
-
-        constructor(_lockPath?: string, _port?: number) {
-            this.port = _port ?? 8989;
-            this.proxyPort = this.port + 1;
-        }
-
-        tryBecomeMain = instanceManagerMocks.tryBecomeMain;
-        startBackgroundJobs = instanceManagerMocks.startBackgroundJobs;
-        stopBackgroundJobs = instanceManagerMocks.stopBackgroundJobs;
-    }
-
-    return {
-        SpeclyInstanceManager,
-        InstanceRole: actual.InstanceRole,
-    };
-});
 
 vi.mock('../server/specly-express-hooks.js', () => ({
     configureSpeclyApp: vi.fn(),

@@ -385,6 +385,13 @@ The codebase now has comprehensive test coverage with systematic exception docum
 
 ## Latest Updates (November 10, 2025)
 
+- **tools/update-resources.ts** - **100%** avg (Stmt: 100%, Branch: 100%, Func: 100%) ⬆️ **+88.9%**
+   - Status: **COMPLETED**
+   - Covered: 90/90 stmts, 9/9 branches, 4/4 funcs
+   - Tests Added: 9 focused unit tests in `src/__tests__/update-resources-tool.test.ts`
+   - Categories: constructor wiring, successful orchestration prompt generation, workspace-not-found error, Error and non-Error exception paths, schema validation (valid + invalid payloads)
+   - Notes: Leveraged fake timers for deterministic timestamps and ensured reason optionality is preserved in orchestration payloads.
+
 - **index.ts** - **76.52%** avg (Stmt: 76.52%, Branch: 93.47%, Func: 47.5%) ⬆️ **+12.34%**
    - Status: **COMPLETED with documented exceptions**
    - Covered: SpeclyServer class (initializeServer, ensureServerInitialized, createMCPToolHandlers, configureSpeclyApp, setupSpeclyApi, ensureSpeclySeed, getGlobalDbService, startBackgroundJobs, stopBackgroundJobs), backward compatibility functions, SPECLY_VERSION constant

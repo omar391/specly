@@ -56,8 +56,8 @@ export class TasksController {
       const workspace = await this.workspacesController.getWorkspaceById(workspaceId);
 
       // Build SQL query based on filters
-      const limit = query.limit ? Math.min(query.limit, 100) : 50; // Max 100, default 50
-      const offset = query.offset || 0;
+      const limit = query.limit ? Math.min(Number(query.limit), 100) : 50; // Max 100, default 50
+      const offset = Number(query.offset) || 0;
       const workspaceDb = await this.databaseService.getWorkspace(workspace.path);
       const tasks = await workspaceDb.getTasksPaginated(query.status, limit, offset);
       const total = await workspaceDb.countTasks(query.status);
@@ -92,13 +92,13 @@ export class TasksController {
 
       // Validate required fields
       if (!taskData.title?.trim()) {
-        throw new ValidationError('Task title is required');
+        return c.json(createErrorResponse('VALIDATION_ERROR', 'Task title is required'), 422);
       }
       if (!taskData.description?.trim()) {
-        throw new ValidationError('Task description is required');
+        return c.json(createErrorResponse('VALIDATION_ERROR', 'Task description is required'), 422);
       }
       if (!['high', 'medium', 'low'].includes(taskData.priority)) {
-        throw new ValidationError('Priority must be high, medium, or low');
+        return c.json(createErrorResponse('VALIDATION_ERROR', 'Priority must be high, medium, or low'), 422);
       }
 
       // Verify workspace exists
@@ -150,7 +150,7 @@ export class TasksController {
       const workspaceDb = await this.databaseService.getWorkspace(workspace.path);
       const task = await workspaceDb.getTask(taskId);
       if (!task) {
-        return c.json({ error: `Task not found: ${taskId}` }, 404);
+        return c.json(createErrorResponse('NOT_FOUND', `Task not found: ${taskId}`), 404);
       }
       return c.json(createSuccessResponse({ task: this.mapTaskDbToApi(task) }));
     } catch (error) {
@@ -168,18 +168,18 @@ export class TasksController {
       const { workspaceId, taskId } = c.req.param();
       const { status } = await c.req.json() as { status?: string };
       if (!status || typeof status !== 'string') {
-        throw new ValidationError('Status is required');
+        return c.json(createErrorResponse('VALIDATION_ERROR', 'Status is required'), 422);
       }
       try {
         assertValidStatus(status);
       } catch (e: any) {
-        throw new ValidationError(e?.message || 'Invalid status value');
+        return c.json(createErrorResponse('VALIDATION_ERROR', e?.message || 'Invalid status value'), 422);
       }
       const workspace = await this.workspacesController.getWorkspaceById(workspaceId);
       const workspaceDb = await this.databaseService.getWorkspace(workspace.path);
       const existingTask = await workspaceDb.getTask(taskId);
       if (!existingTask) {
-        throw new NotFoundError(`Task not found: ${taskId}`);
+        return c.json(createErrorResponse('NOT_FOUND', `Task not found: ${taskId}`), 404);
       }
       const fromSpecly: string = (existingTask.status as string) ?? 'queued';
       const deps = await workspaceDb.listTaskDependencies(taskId);
@@ -195,7 +195,7 @@ export class TasksController {
       }
       const check = canTransition(fromSpecly as any, status as any, { hasUnresolvedDependencies: hasUnresolvedDeps });
       if (!check.ok) {
-        return c.json({ error: check.reason || `Invalid status transition: ${fromSpecly} -> ${status}` }, 422);
+        return c.json(createErrorResponse('VALIDATION_ERROR', check.reason || `Invalid status transition: ${fromSpecly} -> ${status}`), 422);
       }
       const now = new Date().toISOString();
       const updates: any = { status, updatedAt: now };
@@ -218,22 +218,22 @@ export class TasksController {
     try {
       const { workspaceId, taskId } = c.req.param();
       const { depends_on } = await c.req.json() as { depends_on?: string };
-      if (!depends_on) { throw new ValidationError('depends_on is required'); }
-      if (depends_on === taskId) { throw new ValidationError('Task cannot depend on itself'); }
+      if (!depends_on) { return c.json(createErrorResponse('VALIDATION_ERROR', 'depends_on is required'), 422); }
+      if (depends_on === taskId) { return c.json(createErrorResponse('VALIDATION_ERROR', 'Task cannot depend on itself'), 422); }
       const workspace = await this.workspacesController.getWorkspaceById(workspaceId);
       const workspaceDb = await this.databaseService.getWorkspace(workspace.path);
       // Ensure both tasks exist
       const t1 = await workspaceDb.getTask(taskId);
       const t2 = await workspaceDb.getTask(depends_on);
-      if (!t1) { throw new NotFoundError(`Task not found: ${taskId}`); }
-      if (!t2) { throw new NotFoundError(`Task not found: ${depends_on}`); }
+      if (!t1) { return c.json(createErrorResponse('NOT_FOUND', `Task not found: ${taskId}`), 404); }
+      if (!t2) { return c.json(createErrorResponse('NOT_FOUND', `Task not found: ${depends_on}`), 404); }
       // Cycle detection: check if there is a path from depends_on to taskId
       const seen = new Set<string>();
       const stack = [depends_on];
       while (stack.length) {
         const cur = stack.pop()!;
         if (cur === taskId) {
-          throw new ValidationError('Dependency would create a cycle');
+          return c.json(createErrorResponse('VALIDATION_ERROR', 'Dependency would create a cycle'), 422);
         }
         if (seen.has(cur)) continue;
         seen.add(cur);
@@ -292,13 +292,13 @@ export class TasksController {
 
       // Validate required fields
       if (!updateData.field) {
-        throw new ValidationError('Field to update is required');
+        return c.json(createErrorResponse('VALIDATION_ERROR', 'Field to update is required'), 422);
       }
       if (updateData.value === undefined || updateData.value === null) {
-        throw new ValidationError('Value is required');
+        return c.json(createErrorResponse('VALIDATION_ERROR', 'Value is required'), 422);
       }
       if (!updateData.reason?.trim()) {
-        throw new ValidationError('Reason for update is required');
+        return c.json(createErrorResponse('VALIDATION_ERROR', 'Reason for update is required'), 422);
       }
 
       // Verify workspace exists
@@ -309,28 +309,28 @@ export class TasksController {
       const existingTask = await workspaceDb.getTask(taskId);
 
       if (!existingTask) {
-        throw new NotFoundError(`Task not found: ${taskId}`);
+        return c.json(createErrorResponse('NOT_FOUND', `Task not found: ${taskId}`), 404);
       }
 
       // Validate field and value
       const allowedFields = ['title', 'description', 'priority', 'status', 'progress', 'notes'];
       if (!allowedFields.includes(updateData.field)) {
-        throw new ValidationError(`Invalid field: ${updateData.field}`);
+        return c.json(createErrorResponse('VALIDATION_ERROR', `Invalid field: ${updateData.field}`), 422);
       }
 
       // Validate specific field values
       if (updateData.field === 'priority' && !['high', 'medium', 'low'].includes(updateData.value as string)) {
-        throw new ValidationError('Priority must be high, medium, or low');
+        return c.json(createErrorResponse('VALIDATION_ERROR', 'Priority must be high, medium, or low'), 422);
       }
 
       if (updateData.field === 'status' && !['queued', 'in_progress', 'awaiting_input', 'blocked', 'paused', 'completed', 'failed'].includes((updateData.value as string))) {
-        throw new ValidationError('Invalid status value');
+        return c.json(createErrorResponse('VALIDATION_ERROR', 'Invalid status value'), 422);
       }
 
       if (updateData.field === 'progress') {
         const progress = Number(updateData.value);
         if (isNaN(progress) || progress < 0 || progress > 100) {
-          throw new ValidationError('Progress must be a number between 0 and 100');
+          return c.json(createErrorResponse('VALIDATION_ERROR', 'Progress must be a number between 0 and 100'), 422);
         }
       }
 

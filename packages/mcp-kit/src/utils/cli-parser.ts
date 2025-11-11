@@ -39,18 +39,34 @@ export interface CliParserConfig<T extends BaseCliOptions = BaseCliOptions> {
     customFlagHandlers?: Record<string, CustomFlagHandler<T>>;
 }
 
+const runtimeProcess: NodeJS.Process = (() => {
+    if (typeof globalThis !== 'undefined' && typeof (globalThis as any).process !== 'undefined') {
+        return (globalThis as any).process as NodeJS.Process;
+    }
+
+    if (typeof process !== 'undefined') {
+        return process as NodeJS.Process;
+    }
+
+    // Minimal fallback for non-Node environments
+    return {
+        argv: [],
+        env: {},
+    } as unknown as NodeJS.Process;
+})();
+
 /**
  * Returns true if running in stdio mode (either --stdio in argv or STDIO_MODE env set)
  */
 export function isStdioMode(): boolean {
-    return process.argv.includes('--stdio') || process.env.STDIO_MODE === '1';
+    return runtimeProcess.argv.includes('--stdio') || runtimeProcess.env.STDIO_MODE === '1';
 }
 
 /**
  * Generic CLI parser with extensibility for app-specific options
  */
 export function parseCliArgs<T extends BaseCliOptions = BaseCliOptions>(
-    args: string[] = process.argv.slice(2),
+    args: string[] = runtimeProcess.argv.slice(2),
     config: CliParserConfig<T> = {}
 ): T {
     const options = {
@@ -109,7 +125,6 @@ export function parseCliArgs<T extends BaseCliOptions = BaseCliOptions>(
                 break;
 
             case '--local':
-            case '--dev':
                 (options as any).local = true;
                 break;
 

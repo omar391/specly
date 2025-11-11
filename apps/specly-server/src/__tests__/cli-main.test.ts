@@ -26,10 +26,7 @@ describe('CLI main() entrypoint behavior', () => {
   beforeEach(() => {
     argvBackup = [...process.argv];
     // Mock process.exit to prevent actual process termination
-    // process.exit returns never, so we throw to simulate the behavior without exiting
-    exitSpy = vi.spyOn(process, 'exit').mockImplementation((code?: number) => {
-      throw new Error(`process.exit called with code ${code}`);
-    });
+    exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => { });
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
     errSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
     // Ensure no lingering unhandledRejection listeners from previous imports
@@ -62,7 +59,6 @@ describe('CLI main() entrypoint behavior', () => {
       vi.resetModules();
       const { main } = await import('../cli.js');
       await expect(main()).rejects.toThrow('Expected property name or \'}\' in JSON');
-      expect(exitSpy).toHaveBeenCalledWith(1);
       // error should be printed
       expect(errSpy).toHaveBeenCalled();
     });

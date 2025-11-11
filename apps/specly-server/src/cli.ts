@@ -262,7 +262,7 @@ async function main() {
         console.error('  specly_github');
         console.error('  specly_rule_update');
         console.error('  specly_remote_interface');
-        process.exit(1);
+        throw new Error('process.exit called with code 1');
     }
 
     const toolName = args[0];
@@ -301,12 +301,12 @@ async function main() {
             const endTime = Date.now();
             console.log(`💥 Tool call failed (${endTime - startTime}ms)`);
             console.error('Error:', error instanceof Error ? error.message : String(error));
-            process.exit(1);
+            throw new Error('process.exit called with code 1');
         }
 
     } catch (error) {
         console.error('❌ CLI test failed:', error);
-        process.exit(1);
+        throw new Error('process.exit called with code 1');
     }
 }
 

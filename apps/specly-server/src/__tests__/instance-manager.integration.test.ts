@@ -12,20 +12,34 @@ import path from 'path';
 import os from 'os';
 import http from 'http';
 import { spawn, ChildProcess } from 'child_process';
-import { SpeclyInstanceManager, InstanceRole } from '../server/instance-manager.js';
-import { InstanceManager } from '@omar391/mcp-kit/server/local/node-instance';
+import { InstanceManager, InstanceRole } from '@omar391/mcp-kit/server/local/node-instance';
+
+// Get version from package.json
+const SPECLY_VERSION = (() => {
+    try {
+        const pkgPath = new URL('../package.json', import.meta.url);
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+        return pkg.version || '0.1.0';
+    } catch {
+        return '0.1.0';
+    }
+})();
 
 describe('Instance Manager Root-to-Child Process System', () => {
     let testLockPath: string;
     let testPort: number;
-    let instanceManager: SpeclyInstanceManager;
+    let instanceManager: InstanceManager;
     let spawnedProcesses: ChildProcess[] = [];
 
     beforeEach(() => {
         // Create unique test lock path and port for each test
         testLockPath = path.join(os.tmpdir(), `specly-test-${Date.now()}-${Math.random().toString(36).substring(2)}.lock`);
         testPort = 9000 + Math.floor(Math.random() * 1000); // Random port between 9000-9999
-        instanceManager = new SpeclyInstanceManager(testLockPath, testPort);
+        instanceManager = new InstanceManager({
+            lockPath: testLockPath,
+            port: testPort,
+            getVersion: () => SPECLY_VERSION
+        });
     });
 
     afterEach(async () => {
@@ -69,19 +83,19 @@ describe('Instance Manager Root-to-Child Process System', () => {
             const lockData = JSON.parse(lockContent);
 
             expect(lockData).toHaveProperty('pid', process.pid);
-            expect(lockData).toHaveProperty('version', SpeclyInstanceManager.VERSION);
+            expect(lockData).toHaveProperty('version', SPECLY_VERSION);
             expect(lockData).toHaveProperty('timestamp');
             expect(typeof lockData.timestamp).toBe('number');
         });
 
         it('should fail to become main when lock already exists', async () => {
             // First instance becomes main
-            const firstManager = new SpeclyInstanceManager(testLockPath, testPort);
+            const firstManager = new InstanceManager({ lockPath: testLockPath, port: testPort, getVersion: () => SPECLY_VERSION });
             const firstIsMain = await firstManager.tryBecomeMain();
             expect(firstIsMain).toBe(true);
 
             // Second instance should fail to become main
-            const secondManager = new SpeclyInstanceManager(testLockPath, testPort);
+            const secondManager = new InstanceManager({ lockPath: testLockPath, port: testPort, getVersion: () => SPECLY_VERSION });
             const secondIsMain = await secondManager.tryBecomeMain();
             expect(secondIsMain).toBe(false);
         });
@@ -90,7 +104,7 @@ describe('Instance Manager Root-to-Child Process System', () => {
             // Create a fake lock file with a non-existent PID
             const staleLock = {
                 pid: 999999, // Very unlikely to exist
-                version: SpeclyInstanceManager.VERSION,
+                version: SPECLY_VERSION,
                 timestamp: Date.now()
             };
             fs.writeFileSync(testLockPath, JSON.stringify(staleLock));
@@ -108,7 +122,7 @@ describe('Instance Manager Root-to-Child Process System', () => {
         it('should properly read and validate lock file format', async () => {
             const validLock = {
                 pid: process.pid,
-                version: SpeclyInstanceManager.VERSION,
+                version: SPECLY_VERSION,
                 timestamp: Date.now()
             };
             fs.writeFileSync(testLockPath, JSON.stringify(validLock));
@@ -154,7 +168,7 @@ describe('Instance Manager Root-to-Child Process System', () => {
             const freePort = addr.port as number;
             await new Promise<void>((resolve) => tmpServer.close(() => resolve()));
 
-            const testManager = new SpeclyInstanceManager(testLockPath, freePort);
+            const testManager = new InstanceManager({ lockPath: testLockPath, port: freePort, getVersion: () => SPECLY_VERSION });
             const isAvailable = await testManager.waitForPort(2000);
             expect(isAvailable).toBe(true);
         });
@@ -253,7 +267,7 @@ describe('Instance Manager Root-to-Child Process System', () => {
             try {
                 const fetchedVersion = await instanceManager.fetchMainVersion();
                 expect(fetchedVersion).toBe('0.0.1');
-                expect(fetchedVersion).not.toBe(SpeclyInstanceManager.VERSION);
+                expect(fetchedVersion).not.toBe(SPECLY_VERSION);
             } finally {
                 mockServer.close();
             }
@@ -357,13 +371,13 @@ describe('Instance Manager Root-to-Child Process System', () => {
             });
 
             // Step 2: Second instance checks version and finds mismatch
-            const secondManager = new SpeclyInstanceManager(testLockPath, testPort);
+            const secondManager = new InstanceManager({ lockPath: testLockPath, port: testPort, getVersion: () => SPECLY_VERSION });
             const secondIsMain = await secondManager.tryBecomeMain();
             expect(secondIsMain).toBe(false);
 
             const mainVersion = await secondManager.fetchMainVersion();
             expect(mainVersion).toBe('0.0.1');
-            expect(mainVersion).not.toBe(SpeclyInstanceManager.VERSION);
+            expect(mainVersion).not.toBe(SPECLY_VERSION);
 
             // Step 3: Second instance requests shutdown
             const shutdownSuccess = await secondManager.requestMainShutdown();
@@ -395,7 +409,7 @@ describe('Instance Manager Root-to-Child Process System', () => {
 
         it('should handle concurrent tryBecomeMain attempts', async () => {
             // Simulate multiple instances trying to become main simultaneously
-            const managers = Array.from({ length: 3 }, () => new SpeclyInstanceManager(testLockPath, testPort));
+            const managers = Array.from({ length: 3 }, () => new InstanceManager({ lockPath: testLockPath, port: testPort, getVersion: () => SPECLY_VERSION }));
 
             const promises = managers.map(manager => manager.tryBecomeMain());
             const results = await Promise.all(promises);
