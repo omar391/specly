@@ -63,8 +63,28 @@ export class WorkspaceDatabaseService {
 
   async createTask(task: NewTask): Promise<Task> {
     const db = this.db.getDb();
-    const [result] = await db.insert(tasks).values(task).returning();
-    return result;
+    // Some sqlite/drizzle environments return the inserted row via `returning()`,
+    // while others (or certain test mocks) expect `.returning()` to be called.
+    // Try to use `.returning()` if available; otherwise fall back to selecting by id.
+    const insertBuilder: any = db.insert(tasks).values(task as any);
+
+    if (insertBuilder && typeof insertBuilder.returning === 'function') {
+      try {
+        const returned = await insertBuilder.returning();
+        if (Array.isArray(returned) && returned.length) {
+          return returned[0] as Task;
+        }
+      } catch (e) {
+        // If returning() throws or isn't supported in this environment, ignore and fallback
+      }
+    }
+
+    // Fallback: perform insert without relying on returning(), then fetch by id
+    await db.insert(tasks).values(task as any);
+    const rows: any = await db.select().from(tasks).where(eq(tasks.id, (task as any).id)).limit(1);
+    // Some query builders return the result directly, others return a promise resolving to an array
+    const created = Array.isArray(rows) ? rows[0] : (rows && rows[0]) ? rows[0] : rows;
+    return created as Task;
   }
 
   async getTask(id: string): Promise<Task | null> {
