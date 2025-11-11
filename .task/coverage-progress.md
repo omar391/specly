@@ -404,3 +404,10 @@ The codebase now has comprehensive test coverage with systematic exception docum
 *Test Suite: Vitest - 1699 tests passing (increased from 1662)*
 *Target: 100% statement, branch, and function coverage (exceptions must be explicitly documented)*
 *Agent: TestCoverageMaximizer (concrete DB patterns applied)*
+
+## Recent Quick Update (2025-11-11)
+
+- Action: Added `src/__tests__/index.extra.test.ts` to cover additional branches in `src/index.ts` (SPECLY_VERSION, configureSpeclyApp error mapping, getGlobalDbService error path).
+- Result: `src/index.ts` statements coverage increased from ~80.53% to 89.63%.
+- Tests: New test file contains 4 tests; full suite run completed with all tests passing.
+
