@@ -39,9 +39,7 @@ export const mcpServerMappings = sqliteTable('mcp_server_mappings', {
 });
 
 // -------------------------------------------------------------
-// Specly New Global Schema (SP-001)
-// NOTE: Legacy tool_flows / feedback_steps retained temporarily until
-// migration completes & code references removed. New tables are additive.
+// Specly Global Schema (SP-001)
 // -------------------------------------------------------------
 
 export const specs = sqliteTable('specs', {

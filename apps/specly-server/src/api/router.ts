@@ -12,7 +12,6 @@ import { SpecsController, ToolsController } from './specs-tools.js';
 import { ProfilesController } from './profiles.js';
 import { SessionsController } from './sessions.js';
 import { RulesController } from './rules.js';
-// Legacy ToolFlowsController & FeedbackStepsController removed (drastic migration)
 import { 
   createErrorResponse,
   createSuccessResponse,
