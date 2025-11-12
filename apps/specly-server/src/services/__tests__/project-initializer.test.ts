@@ -142,6 +142,37 @@ describe('ProjectInitializer (unit)', () => {
         globalDbMock.getDb = originalGetDb;
     });
 
+    it('isWorkspaceInitialized returns false when tasks exist but no workspace rules', async () => {
+        // set workspace selection
+        const workspaceObj = { id: 'w3', path: '/p/w3' };
+        globalDbMock._nextSelectReturn = workspaceObj;
+
+        // make workspace DB return a task count > 0
+        const wdb = {
+            getDb: () => ({
+                select: () => ({ from: () => ({ get: async () => ({ count: 1 }) }) })
+            })
+        };
+        // ensure initializeWorkspaceDatabase returns our workspace DB
+        const drizzleModule = await import('../../database/drizzle-connection.js');
+        vi.spyOn(drizzleModule, 'initializeWorkspaceDatabase').mockResolvedValue(wdb as any);
+
+        // return empty rules array from global DB
+        const emptyRules: any = [];
+        emptyRules.get = async () => emptyRules;
+        const originalGetDb = globalDbMock.getDb;
+        globalDbMock.getDb = () => ({
+            select: () => ({ from: () => ({ where: () => emptyRules }) })
+        } as any);
+
+        const anyM = manager as any;
+        const r = await anyM.isWorkspaceInitialized('/p/w3');
+        expect(r).toBe(false);
+
+        // restore original
+        globalDbMock.getDb = originalGetDb;
+    });
+
     it('reinitializeWorkspace clears tasks when preserveTasks=false', async () => {
         // prepare existing workspace selection
         const existing = { id: 'ex2', path: '/p/ex2', name: 'n' };
