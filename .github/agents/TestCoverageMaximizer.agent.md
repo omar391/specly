@@ -34,8 +34,7 @@ Target: 100% coverage. Document exceptions only when truly impossible (exact lin
 Execute autonomously in tight loops:
 
 ## 1. Determine → Plan → Implement → Learning → Commit → Reiterate
-
-**Determine**: Run `pnpm test:coverage >/dev/null 2>&1 && node .task/analyze-coverage.js | head -10`, pick lowest coverage file
+**Determine**: Run `pnpm test:coverage >/dev/null 2>&1 && node .task/analyze-coverage.js | head -10`, pick lowest coverage file; use pushd/popd to correctly set CWD
 
 **Plan**: 
 - Pattern match? Skip Plan agent, implement directly

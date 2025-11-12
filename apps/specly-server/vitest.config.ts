@@ -22,6 +22,9 @@ export default defineConfig({
             exclude: [
                 '**/*.test.ts',
                 '**/types.ts',
+                // exclude type-only files and folder (not executable JS)
+                'src/types/**',
+                '**/*.d.ts',
                 '**/__mocks__/**',
                 '**/test/**',
             ],
