@@ -15,6 +15,22 @@
 - **Mocking Strategy**: Module-level mocks for DatabaseService and GlobalDatabaseService; direct controller instantiation with isolated dependencies
 - **Challenges Resolved**: Branch coverage for validation logic not covered by integration tests; API response format differences between expected and actual implementations
 
+### specs-tools.ts
+- **Before**: 82.5%
+- **After**: 86.03% (Stmt: 82.5%, Branch: 75.6%, Func: 100.0%)
+- **Tests Added**: 8 new tests covering resolveDbService branches and createToolVersion edge cases
+- **Coverage**: Improved coverage of database service injection logic and graph validation error handling
+- **Key Features Tested**:
+  - resolveDbService function with GlobalDatabaseService injection
+  - resolveDbService function with DatabaseService injection  
+  - resolveDbService function with DrizzleDatabaseManager injection
+  - createToolVersion with non-array ordered_specs (missing entry_spec)
+  - createToolVersion with edges containing conditions
+  - createToolVersion with non-GraphValidationError exceptions
+  - createToolVersion with multiple missing specs
+- **Mocking Strategy**: Updated GlobalDatabaseService mock to properly handle constructor calls; maintained existing mocks for graph validation and database operations
+- **Challenges Resolved**: Branch coverage for different injected dbService types; error handling paths in createToolVersion method
+
 ### update-steps.ts
 - **Before**: 11.36%
 - **After**: 100% (Stmt: 100%, Branch: 100%, Func: 100%)
@@ -29,6 +45,16 @@
   - Schema validation for input parameters
   - Tool definition generation
 - **Mocking Strategy**: Module-level mocks with mockImplementation to allow real class instantiation while isolating dependencies
+
+### specs-tools.test.ts
+- **Before**: Had 6 failing tests blocking coverage analysis
+- **After**: 16/16 tests passing (100% for this test file)
+- **Issues Fixed**: 
+  - Mock setup for Drizzle ORM queries (db.select({ hash: specs.hash }).from(specs))
+  - GraphValidationError constructor usage (ERR_CYCLE, 'cycle')
+  - mapGraphValidationToPublicError mock return value ({ code: 'GRAPH_CYCLE', message: 'cycle' })
+  - Explicit message property setting for mocked errors
+- **Coverage**: Test file now fully functional, enabling coverage data generation
 
 ### index.ts
 - **Before**: 64.18%
@@ -74,8 +100,8 @@
 
 ## Summary
 - Total test files: 93
-- Total tests: 1599 (added 6 for sessions.ts)
+- Total tests: 1607 (added 8 for specs-tools.ts)
 - Files below 95%: ~8 (estimated)
-- Current focus: tasks.ts (64.36% baseline)
+- Current focus: specs-tools.ts (86.03% baseline)
 - Next: Identify next lowest coverage file</content>
 <parameter name="filePath">/Volumes/Projects/business/AstronLab/omar391/mcp-servers/specly-mcp/apps/specly-server/.task/coverage-progress.md

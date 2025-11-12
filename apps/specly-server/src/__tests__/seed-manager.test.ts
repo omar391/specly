@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { SeedManager } from '../services/seed-manager.js';
-import { profiles, profileVersions, workspaces, workspaceProfileVersions } from '../database/schema/global-schema.js';
+import { profiles, profileVersions, workspaces, workspaceProfileVersions, mcpServerMappings } from '../database/schema/global-schema.js';
 import { DrizzleDatabaseManager, DatabaseType } from '../database/drizzle-connection.js';
-import { SPECLY_SEED_SPECS, SPECLY_SEED_TOOLS } from '../data/embedded-seed-data.js';
+import { SPECLY_SEED_SPECS, SPECLY_SEED_TOOLS, MCP_SERVER_MAPPINGS_SEED } from '../data/embedded-seed-data.js';
 import { eq } from 'drizzle-orm';
 
 describe('SeedManager Specly seeding (SP-004)', () => {
@@ -14,6 +14,34 @@ describe('SeedManager Specly seeding (SP-004)', () => {
         await isolated.initialize();
         db = isolated.getDb();
         seedManager = new SeedManager(isolated as any);
+    });
+
+    it('initializes global MCP server mappings', async () => {
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
+
+        await seedManager.initializeGlobalData();
+
+        const mappings = await db.select().from(mcpServerMappings);
+        expect(mappings.length).toBe(MCP_SERVER_MAPPINGS_SEED.length);
+
+        consoleSpy.mockRestore();
+    });
+
+    it('handles initialization errors gracefully', async () => {
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+        // Mock the db to throw an error
+        const originalDb = seedManager['drizzleDb'];
+        seedManager['drizzleDb'] = {
+            ...originalDb,
+            delete: vi.fn().mockRejectedValue(new Error('DB error')),
+        };
+
+        await expect(seedManager.initializeGlobalData()).rejects.toThrow('DB error');
+
+        // Restore
+        seedManager['drizzleDb'] = originalDb;
+        consoleSpy.mockRestore();
     });
 
     it('is idempotent (second run creates zero new)', async () => {
