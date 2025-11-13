@@ -58,6 +58,7 @@ export async function main() {
 }
 
 // Keep CLI behavior: run when executed directly
+/* istanbul ignore next */
 if (import.meta.url === `file://${process.argv[1]}` || process.argv[1].endsWith('seed-specly.ts') || process.argv[1].endsWith('seed-specly.js')) {
     main().catch(err => {
         console.error('Seed failed', err);
