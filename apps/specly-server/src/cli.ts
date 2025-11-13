@@ -317,6 +317,7 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // Only run main when not in test environment
+/* istanbul ignore next */
 if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
     main().catch(error => {
         console.error('❌ Fatal error:', error);

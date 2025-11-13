@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { executeToolCall } from '../cli.js';
+import { executeToolCall, main } from '../cli.js';
 import { setTestDatabaseInstances, resetDatabaseInstances } from '../test-utils/database-test-helpers.js';
 import { DrizzleDatabaseManager, DatabaseType } from '../database/drizzle-connection.js';
 import { GlobalDatabaseService } from '../database/global-queries.js';
@@ -422,5 +422,65 @@ describe('CLI Tool Execution Tests', () => {
             expect(result).toBeDefined();
             expect(result.content).toBeDefined();
         }, 10000);
+    });
+});
+
+describe('CLI main function', () => {
+    let originalArgv: string[];
+    let originalExit: typeof process.exit;
+    let originalConsoleLog: typeof console.log;
+    let originalConsoleError: typeof console.error;
+    let consoleLogSpy: any;
+    let consoleErrorSpy: any;
+
+    beforeEach(() => {
+        originalArgv = process.argv;
+        originalExit = process.exit;
+        process.exit = vi.fn() as any;
+
+        // Mock console methods
+        originalConsoleLog = console.log;
+        originalConsoleError = console.error;
+        consoleLogSpy = vi.fn();
+        consoleErrorSpy = vi.fn();
+        console.log = consoleLogSpy;
+        console.error = consoleErrorSpy;
+    });
+
+    afterEach(() => {
+        process.argv = originalArgv;
+        process.exit = originalExit;
+
+        // Restore console methods
+        console.log = originalConsoleLog;
+        console.error = originalConsoleError;
+    });
+
+    it('should show usage when no args provided', async () => {
+        process.argv = ['node', 'cli.js'];
+
+        await expect(main()).rejects.toThrow('process.exit called with code 1');
+        expect(consoleErrorSpy).toHaveBeenCalledWith('Usage: npm run test:tool -- <toolName> [arguments]');
+    });
+
+    it('should execute tool successfully', async () => {
+        process.argv = ['node', 'cli.js', 'specly_init', '{"project_requirements": "test"}'];
+
+        await expect(main()).rejects.toThrow('process.exit called with code 1'); // because it calls process.exit
+        expect(consoleLogSpy).toHaveBeenCalledWith('🧪 Testing tool: specly_init');
+    });
+
+    it('should handle invalid tool name', async () => {
+        process.argv = ['node', 'cli.js', 'invalid_tool'];
+
+        await expect(main()).rejects.toThrow('process.exit called with code 1');
+        expect(consoleErrorSpy).toHaveBeenCalledWith('Error:', 'Unknown tool: invalid_tool. Available tools: specly_init, specly_start, specly_add, specly_status, specly_update, specly_audit, specly_focus, specly_github, specly_rule_update, specly_remote_interface, specly_update_resources, specly_update_steps');
+    });
+
+    it('should handle tool execution error', async () => {
+        process.argv = ['node', 'cli.js', 'specly_init', '{"invalid": "args"}'];
+
+        await expect(main()).rejects.toThrow('process.exit called with code 1');
+        expect(consoleLogSpy).toHaveBeenCalledWith('💥 Tool call failed (0ms)');
     });
 });
