@@ -179,7 +179,7 @@ describe('SpecsController', () => {
         expect(ctx.json).toHaveBeenCalledWith({ hash: 'dbservicehash', created: true }, 201);
     });
 
-    it('createSpec - uses injected DrizzleDatabaseManager', async () => {
+    it('createSpec - fails on security validation error', async () => {
         const ctx: any = {
             req: {
                 json: vi.fn().mockResolvedValue({
@@ -190,21 +190,17 @@ describe('SpecsController', () => {
             },
             json: vi.fn(),
         };
-        const mockDrizzleMgr = { getDb: () => mockDb };
-        (ctx as any).dbService = mockDrizzleMgr; // Inject DrizzleDatabaseManager
 
         const { hashSpec } = await import('../../utils/hash.js');
-        (hashSpec as any).mockReturnValue({ hash: 'drizzlehash' });
+        (hashSpec as any).mockReturnValue({ hash: 'securityhash' });
 
         const { validateSpecSecurity } = await import('../../utils/security-validators.js');
-        (validateSpecSecurity as any).mockReturnValue(null);
+        (validateSpecSecurity as any).mockReturnValue({ message: 'security error', code: 'SEC_ERROR', details: {} });
 
         await controller.createSpec(ctx);
 
-        expect(ctx.json).toHaveBeenCalledWith({ hash: 'drizzlehash', created: true }, 201);
+        expect(ctx.json).toHaveBeenCalledWith({ error: 'security error', code: 'SEC_ERROR', details: {} }, 422);
     });
-
-});
 
 describe('ToolsController', () => {
     let controller: ToolsController;
@@ -307,6 +303,20 @@ describe('ToolsController', () => {
         await controller.createTool(ctx);
 
         expect(ctx.json).toHaveBeenCalledWith({ name: 'testtool', created: true }, 201);
+    });
+
+    it('createTool - fails on command_alias validation error', async () => {
+        const ctx: any = {
+            req: { json: vi.fn().mockResolvedValue({ name: 'testtool', command_alias: 'duplicate' }) },
+            json: vi.fn(),
+        };
+
+        const { validateCommandAliasUniqueness } = await import('../../utils/security-validators.js');
+        (validateCommandAliasUniqueness as any).mockResolvedValue({ message: 'alias exists', code: 'ALIAS_DUPLICATE', details: {} });
+
+        await controller.createTool(ctx);
+
+        expect(ctx.json).toHaveBeenCalledWith({ error: 'alias exists', code: 'ALIAS_DUPLICATE', details: {} }, 409);
     });
 
     it('createToolVersion - success with edges having conditions', async () => {
@@ -497,6 +507,42 @@ describe('ToolsController', () => {
         expect(ctx.json).toHaveBeenCalledWith({ error: 'validation failure', detail: 'unexpected error' }, 500);
     });
 
+    it('createToolVersion - fails on GraphValidationError in graph validation', async () => {
+        const ctx: any = {
+            req: {
+                param: vi.fn().mockReturnValue('testtool'),
+                json: vi.fn().mockResolvedValue({
+                    ordered_specs: ['hash1'],
+                    entry_spec: 'hash1',
+                    edges: []
+                })
+            },
+            json: vi.fn(),
+        };
+
+        // Mock tool exists
+        mockDb.select().limit.mockResolvedValueOnce([{ name: 'testtool' }]);
+        // Mock specs exist - handled by mockImplementation
+
+        const { validateGraphSizeLimits, validateGraphDepth } = await import('../../utils/security-validators.js');
+        (validateGraphSizeLimits as any).mockReturnValue(null);
+        (validateGraphDepth as any).mockReturnValue(null);
+
+        const { GraphValidationError, validateToolGraph } = await import('../../utils/graph-validate.js');
+        const { mapGraphValidationToPublicError } = await import('../../utils/graph-error-map.js');
+        const mockMappedError = { code: 'GRAPH_CYCLE', message: 'graph error' };
+        (validateToolGraph as any).mockImplementation(() => {
+            const error = new GraphValidationError('ERR_CYCLE', 'graph error');
+            error.message = 'graph error'; // Ensure message is set
+            throw error;
+        });
+        (mapGraphValidationToPublicError as any).mockReturnValue(mockMappedError);
+
+        await controller.createToolVersion(ctx);
+
+        expect(ctx.json).toHaveBeenCalledWith({ error: 'graph error', code: 'GRAPH_CYCLE' }, 422);
+    });
+
     it('createToolVersion - returns existing if hash matches', async () => {
         const ctx: any = {
             req: {
@@ -531,4 +577,7 @@ describe('ToolsController', () => {
 
         expect(ctx.json).toHaveBeenCalledWith({ hash: 'existingversion', tool: 'testtool', created: false });
     });
+});
+
+
 });

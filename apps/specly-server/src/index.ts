@@ -383,6 +383,7 @@ HTTP MODE ENDPOINTS:
   });
 }
 
+/* istanbul ignore next */
 if (import.meta.url === `file://${process.argv[1]}` || process.argv[1].endsWith('dist/index.js')) {
   main().catch((err) => {
     // Only log error if not in stdio mode

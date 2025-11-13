@@ -1,5 +1,6 @@
 import fs from 'fs';
-const coverage = JSON.parse(fs.readFileSync('coverage/coverage-final.json', 'utf8'));
+const data = JSON.parse(fs.readFileSync('coverage-report.json', 'utf8'));
+const coverage = data.coverageMap;
 const files = Object.keys(coverage).filter(f => f.includes('src/') && !f.includes('__tests__'));
 const sorted = files.map(f => {
   const data = coverage[f];

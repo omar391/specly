@@ -48,14 +48,12 @@ export class SpecsController {
         };
         if (!specForHash.executor_type || !specForHash.executor_version || !specForHash.intent) {
             return c.json({ error: 'Missing required spec fields', required: ['executor_type', 'executor_version', 'intent'] }, 400);
-            return;
         }
 
         // SP-013: Security validation
         const securityErr = validateSpecSecurity(specForHash);
         if (securityErr) {
             return c.json({ error: securityErr.message, code: securityErr.code, details: securityErr.details }, 422);
-            return;
         }
 
         const { hash } = hashSpec(specForHash);
@@ -67,7 +65,6 @@ export class SpecsController {
         const existing = await db.select().from(specs).where(eq(specs.hash, hash)).limit(1);
         if (existing.length) {
             return c.json({ hash, created: false });
-            return;
         }
         await db.insert(specs).values({
             hash,
@@ -96,7 +93,6 @@ export class ToolsController {
         const { name, description, command_alias } = await c.req.json() || {};
         if (!name) {
             return c.json({ error: 'name required' }, 400);
-            return;
         }
         const dbService = resolveDbService(c, this.defaultDbService);
         await dbService.initialize();
@@ -106,7 +102,6 @@ export class ToolsController {
             const aliasErr = await validateCommandAliasUniqueness(dbService, command_alias);
             if (aliasErr) {
                 return c.json({ error: aliasErr.message, code: aliasErr.code, details: aliasErr.details }, 409);
-                return;
             }
         }
 
@@ -114,7 +109,6 @@ export class ToolsController {
         const existing = await db.select().from(tools).where(eq(tools.name, name)).limit(1);
         if (existing.length) {
             return c.json({ error: 'tool exists', name }, 409);
-            return;
         }
         await db.insert(tools).values({ name, description, commandAlias: command_alias } as any);
         return c.json({ name, created: true }, 201);
@@ -128,7 +122,6 @@ export class ToolsController {
         const edges = body.edges || [];
         if (!Array.isArray(ordered_specs) || !entry_spec) {
             return c.json({ error: 'ordered_specs[] and entry_spec required' }, 400);
-            return;
         }
         const dbService = resolveDbService(c, this.defaultDbService);
         await dbService.initialize();
@@ -137,7 +130,6 @@ export class ToolsController {
         const toolExists = await db.select().from(tools).where(eq(tools.name, toolName)).limit(1);
         if (!toolExists.length) {
             return c.json({ error: 'tool not found', tool: toolName }, 404);
-            return;
         }
 
         // Validate all specs exist
@@ -146,7 +138,6 @@ export class ToolsController {
         for (const h of ordered_specs) {
             if (!specSet.has(h)) {
                 return c.json({ error: 'spec missing', spec: h, code: 'GRAPH_MISSING_NODE' }, 422);
-                return;
             }
         }
         // SP-013: Graph size & depth validation
@@ -159,13 +150,11 @@ export class ToolsController {
         const sizeErr = validateGraphSizeLimits(graphManifest);
         if (sizeErr) {
             return c.json({ error: sizeErr.message, code: sizeErr.code, details: sizeErr.details }, 422);
-            return;
         }
 
         const depthErr = validateGraphDepth(graphManifest);
         if (depthErr) {
             return c.json({ error: depthErr.message, code: depthErr.code, details: depthErr.details }, 422);
-            return;
         }
 
         // Structural validation via existing validator (maps cycles/missing). Use try/catch.
@@ -175,16 +164,13 @@ export class ToolsController {
             if (e instanceof GraphValidationError) {
                 const pub = mapGraphValidationToPublicError(e);
                 return c.json({ error: e.message, code: pub.code }, 422);
-                return;
             }
             return c.json({ error: 'validation failure', detail: e?.message }, 500);
-            return;
         }
         const { hash } = hashToolVersion({ ordered_specs, edges, entry_spec, tool_name: toolName });
         const existing = await db.select().from(toolVersions).where(eq(toolVersions.hash, hash)).limit(1);
         if (existing.length) {
             return c.json({ hash, tool: toolName, created: false });
-            return;
         }
         await db.insert(toolVersions).values({ hash, toolName, graphManifest: { ordered_specs, entry_spec, edges } } as any);
         return c.json({ hash, tool: toolName, created: true }, 201);

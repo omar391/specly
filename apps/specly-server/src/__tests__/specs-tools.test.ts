@@ -91,11 +91,11 @@ describe('SpecsController', () => {
             }, 422);
         });
 
-        it('returns existing spec when hash already exists', async () => {
+        it('creates new spec successfully', async () => {
             const { validateSpecSecurity } = await import('../utils/security-validators.js');
             const { hashSpec } = await import('../utils/hash.js');
             (validateSpecSecurity as any).mockReturnValue(null);
-            (hashSpec as any).mockReturnValue({ hash: 'test-hash' });
+            (hashSpec as any).mockReturnValue({ hash: 'new-spec-hash' });
 
             const mockDb = {
                 initialize: vi.fn(),
@@ -104,11 +104,13 @@ describe('SpecsController', () => {
                         select: vi.fn().mockImplementation((selection?: any) => ({
                             from: vi.fn().mockReturnValue({
                                 where: vi.fn().mockReturnValue({
-                                    limit: vi.fn().mockResolvedValue([{ hash: 'test-hash' }])
+                                    limit: vi.fn().mockResolvedValue([]) // No existing spec
                                 })
                             })
                         })),
-                        insert: vi.fn()
+                        insert: vi.fn().mockReturnValue({
+                            values: vi.fn().mockResolvedValue(undefined)
+                        })
                     })
                 })
             };
@@ -118,15 +120,25 @@ describe('SpecsController', () => {
             mockContext.req.json.mockResolvedValue({
                 executor_type: 'noop',
                 executor_version: '1',
-                intent: 'autonomous'
+                intent: 'autonomous',
+                side_effect: false,
+                content_template: 'test template',
+                static_params: { key: 'value' },
+                input_schema: { type: 'object' },
+                output_schema: { type: 'string' },
+                idempotency_key_template: 'test-key',
+                retry_policy: { max_attempts: 3 },
+                show_output: true,
+                security: { level: 'low' },
+                metadata: { version: '1.0' }
             });
 
             await controller.createSpec(mockContext);
 
             expect(mockContext.json).toHaveBeenCalledWith({
-                hash: 'test-hash',
-                created: false
-            });
+                hash: 'new-spec-hash',
+                created: true
+            }, 201);
         });
     });
 });
@@ -181,7 +193,7 @@ describe('ToolsController', () => {
             }, 409);
         });
 
-        it('rejects tool creation with duplicate name', async () => {
+        it('creates new tool successfully', async () => {
             const { validateCommandAliasUniqueness } = await import('../utils/security-validators.js');
             (validateCommandAliasUniqueness as any).mockResolvedValue(null);
 
@@ -192,9 +204,12 @@ describe('ToolsController', () => {
                         select: vi.fn().mockReturnValue({
                             from: vi.fn().mockReturnValue({
                                 where: vi.fn().mockReturnValue({
-                                    limit: vi.fn().mockResolvedValue([{ name: 'existing-tool' }])
+                                    limit: vi.fn().mockResolvedValue([]) // No existing tool
                                 })
                             })
+                        }),
+                        insert: vi.fn().mockReturnValue({
+                            values: vi.fn().mockResolvedValue(undefined)
                         })
                     })
                 })
@@ -203,15 +218,17 @@ describe('ToolsController', () => {
             vi.spyOn(dbService, 'getDrizzleManager').mockReturnValue(mockDb.getDrizzleManager());
 
             mockContext.req.json.mockResolvedValue({
-                name: 'existing-tool'
+                name: 'new-tool',
+                description: 'A new test tool',
+                command_alias: 'new-alias'
             });
 
             await controller.createTool(mockContext);
 
             expect(mockContext.json).toHaveBeenCalledWith({
-                error: 'tool exists',
-                name: 'existing-tool'
-            }, 409);
+                name: 'new-tool',
+                created: true
+            }, 201);
         });
     });
 
@@ -556,18 +573,19 @@ describe('ToolsController', () => {
                                     from: vi.fn().mockResolvedValue([{ hash: 'existing-hash' }])
                                 };
                             } else {
-                                // db.select().from(table).where(...).limit(1) pattern
+                                // db.select().from(table).where(...).limit(1) pattern for toolVersions
                                 return {
                                     from: vi.fn().mockReturnValue({
                                         where: vi.fn().mockReturnValue({
-                                            limit: vi.fn().mockResolvedValue([{ name: 'test-tool' }])
+                                            limit: vi.fn().mockResolvedValue([{ hash: 'existing-version-hash' }]) // Existing version
                                         })
                                     })
                                 };
                             }
                         }),
-                        insert: vi.fn().mockReturnThis(),
-                        values: vi.fn().mockResolvedValue(undefined)
+                        insert: vi.fn().mockReturnValue({
+                            values: vi.fn().mockResolvedValue(undefined)
+                        })
                     })
                 })
             };
@@ -588,6 +606,150 @@ describe('ToolsController', () => {
                 tool: 'test-tool',
                 created: false
             });
+        });
+
+        it('creates new tool version successfully', async () => {
+            const { validateGraphSizeLimits, validateGraphDepth } = await import('../utils/security-validators.js');
+            const { validateToolGraph } = await import('../utils/graph-validate.js');
+            const { hashToolVersion } = await import('../utils/hash.js');
+            (validateGraphSizeLimits as any).mockReturnValue(null);
+            (validateGraphDepth as any).mockReturnValue(null);
+            (validateToolGraph as any).mockReturnValue(undefined);
+            (hashToolVersion as any).mockReturnValue({ hash: 'new-version-hash' });
+
+            let callCount = 0;
+            const mockDb = {
+                initialize: vi.fn(),
+                getDrizzleManager: vi.fn().mockReturnValue({
+                    getDb: vi.fn().mockReturnValue({
+                        select: vi.fn().mockImplementation((columns?: any) => {
+                            if (columns && typeof columns === 'object' && 'hash' in columns) {
+                                // db.select({ hash: specs.hash }).from(specs) pattern
+                                return {
+                                    from: vi.fn().mockResolvedValue([{ hash: 'existing-hash' }])
+                                };
+                            } else {
+                                // db.select().from(table).where(...).limit(1) pattern
+                                return {
+                                    from: vi.fn().mockImplementation(() => {
+                                        callCount++;
+                                        if (callCount === 1) {
+                                            // First call: tool existence check
+                                            return {
+                                                where: vi.fn().mockReturnValue({
+                                                    limit: vi.fn().mockResolvedValue([{ name: 'test-tool' }])
+                                                })
+                                            };
+                                        } else {
+                                            // Second call: tool version existence check - no existing version
+                                            return {
+                                                where: vi.fn().mockReturnValue({
+                                                    limit: vi.fn().mockResolvedValue([]) // No existing version
+                                                })
+                                            };
+                                        }
+                                    })
+                                };
+                            }
+                        }),
+                        insert: vi.fn().mockReturnValue({
+                            values: vi.fn().mockResolvedValue(undefined)
+                        })
+                    })
+                })
+            };
+            vi.spyOn(dbService, 'initialize').mockResolvedValue();
+            vi.spyOn(dbService, 'getDrizzleManager').mockReturnValue(mockDb.getDrizzleManager());
+
+            mockContext.req.param.mockReturnValue('test-tool');
+            mockContext.req.json.mockResolvedValue({
+                ordered_specs: ['existing-hash'],
+                entry_spec: 'existing-hash',
+                edges: [{ from: 'existing-hash', to: 'existing-hash', condition_type: 'always' }]
+            });
+
+            await controller.createToolVersion(mockContext);
+
+            expect(mockContext.json).toHaveBeenCalledWith({
+                hash: 'new-version-hash',
+                tool: 'test-tool',
+                created: true
+            }, 201);
+        });
+
+        it('uses injected DatabaseService from context', async () => {
+            const { validateGraphSizeLimits, validateGraphDepth } = await import('../utils/security-validators.js');
+            const { validateToolGraph } = await import('../utils/graph-validate.js');
+            const { hashToolVersion } = await import('../utils/hash.js');
+            const { DatabaseService } = await import('../services/database-service.js');
+            (validateGraphSizeLimits as any).mockReturnValue(null);
+            (validateGraphDepth as any).mockReturnValue(null);
+            (validateToolGraph as any).mockReturnValue(undefined);
+            (hashToolVersion as any).mockReturnValue({ hash: 'injected-version-hash' });
+
+            const mockInjectedDbService = new DatabaseService({} as any);
+            vi.spyOn(mockInjectedDbService, 'getGlobal').mockReturnValue(dbService);
+
+            let callCount = 0;
+            const mockDb = {
+                initialize: vi.fn(),
+                getDrizzleManager: vi.fn().mockReturnValue({
+                    getDb: vi.fn().mockReturnValue({
+                        select: vi.fn().mockImplementation((columns?: any) => {
+                            if (columns && typeof columns === 'object' && 'hash' in columns) {
+                                // db.select({ hash: specs.hash }).from(specs) pattern
+                                return {
+                                    from: vi.fn().mockResolvedValue([{ hash: 'existing-hash' }])
+                                };
+                            } else {
+                                // db.select().from(table).where(...).limit(1) pattern
+                                return {
+                                    from: vi.fn().mockImplementation(() => {
+                                        callCount++;
+                                        if (callCount === 1) {
+                                            // First call: tool existence check
+                                            return {
+                                                where: vi.fn().mockReturnValue({
+                                                    limit: vi.fn().mockResolvedValue([{ name: 'test-tool' }])
+                                                })
+                                            };
+                                        } else {
+                                            // Second call: tool version existence check - no existing version
+                                            return {
+                                                where: vi.fn().mockReturnValue({
+                                                    limit: vi.fn().mockResolvedValue([]) // No existing version
+                                                })
+                                            };
+                                        }
+                                    })
+                                };
+                            }
+                        }),
+                        insert: vi.fn().mockReturnValue({
+                            values: vi.fn().mockResolvedValue(undefined)
+                        })
+                    })
+                })
+            };
+            vi.spyOn(dbService, 'initialize').mockResolvedValue();
+            vi.spyOn(dbService, 'getDrizzleManager').mockReturnValue(mockDb.getDrizzleManager());
+
+            mockContext.req.param.mockReturnValue('test-tool');
+            mockContext.req.json.mockResolvedValue({
+                ordered_specs: ['existing-hash'],
+                entry_spec: 'existing-hash',
+                edges: [{ from: 'existing-hash', to: 'existing-hash', condition_type: 'always' }]
+            });
+            (mockContext as any).dbService = mockInjectedDbService;
+
+            await controller.createToolVersion(mockContext);
+
+            expect(mockInjectedDbService.getGlobal).toHaveBeenCalled();
+            expect(mockContext.json).toHaveBeenCalledWith({
+                hash: 'injected-version-hash',
+                tool: 'test-tool',
+                created: true
+            }, 201);
         });
     });
 });

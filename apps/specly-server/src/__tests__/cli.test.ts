@@ -275,6 +275,45 @@ describe('CLI Tool Execution Tests', () => {
         }, 15000);
     });
 
+    describe('Main function argument validation', () => {
+        let exitSpy: any;
+        let originalArgv: string[];
+
+        beforeEach(() => {
+            exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as any);
+            originalArgv = process.argv;
+        });
+
+        afterEach(() => {
+            exitSpy.mockRestore();
+            process.argv = originalArgv;
+        });
+
+        it('should show usage and exit when no arguments provided', async () => {
+            // Mock process.argv to have no arguments
+            process.argv = ['node', 'cli.js'];
+
+            const { main } = await import('../cli.js');
+
+            await expect(main()).rejects.toThrow('process.exit called with code 1');
+
+            expect(consoleErrorSpy).toHaveBeenCalledWith('Usage: npm run test:tool -- <toolName> [arguments]');
+            expect(consoleErrorSpy).toHaveBeenCalledWith('Example: npm run test:tool -- specly_start \'{"workspace_path": "/tmp/test-workspace"}\'');
+            expect(consoleErrorSpy).toHaveBeenCalledWith('');
+            expect(consoleErrorSpy).toHaveBeenCalledWith('Available tools:');
+            expect(consoleErrorSpy).toHaveBeenCalledWith('  specly_init');
+            expect(consoleErrorSpy).toHaveBeenCalledWith('  specly_start');
+            expect(consoleErrorSpy).toHaveBeenCalledWith('  specly_add');
+            expect(consoleErrorSpy).toHaveBeenCalledWith('  specly_status');
+            expect(consoleErrorSpy).toHaveBeenCalledWith('  specly_update');
+            expect(consoleErrorSpy).toHaveBeenCalledWith('  specly_audit');
+            expect(consoleErrorSpy).toHaveBeenCalledWith('  specly_focus');
+            expect(consoleErrorSpy).toHaveBeenCalledWith('  specly_github');
+            expect(consoleErrorSpy).toHaveBeenCalledWith('  specly_rule_update');
+            expect(consoleErrorSpy).toHaveBeenCalledWith('  specly_remote_interface');
+        });
+    });
+
     describe('CLI Argument Edge Cases', () => {
         it('should handle empty string arguments', async () => {
             const args = {

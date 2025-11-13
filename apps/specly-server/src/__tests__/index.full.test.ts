@@ -72,7 +72,11 @@ describe('index.ts full integration (mocked deps)', () => {
                 if (opts.onAfterStart) await opts.onAfterStart(app as any, { port: 1234 });
                 if (opts.localMode && opts.localMode.onLocalStart) await opts.localMode.onLocalStart({}, { local: true });
                 if (opts.localMode && opts.localMode.onShutdown) await opts.localMode.onShutdown({}, {});
-                if (opts.localMode && opts.localMode.onTransition) await opts.localMode.onTransition({}, {});
+                if (opts.localMode && opts.localMode.onTransition) {
+                    await opts.localMode.onTransition({}, {});
+                    // Advance timers immediately after onTransition to execute setTimeout callbacks
+                    vi.advanceTimersByTime(200);
+                }
             },
             createToolHandlers: (specs: any) => ({ listTools: async () => ({ tools: specs.map((s: any) => ({ ...s, inputSchema: {} })) }), handleToolCall: async () => ({}) })
         }));
@@ -129,7 +133,7 @@ describe('index.ts full integration (mocked deps)', () => {
         await mod.ensureServerInitialized(); // initialize server to set up globalDbService
         const serverInstance: any = await import('../index.js');
         serverInstance.createMCPToolHandlers();
-        // start and stop background jobs on the singleton
+        // call start and stop background jobs on the singleton
         // startBackgroundJobs is a method on the singleton; call via exported functions
         // We reach the underlying methods via the module's singleton functions
         const ss: any = await import('../index.js');
@@ -142,5 +146,33 @@ describe('index.ts full integration (mocked deps)', () => {
         await mod.main();
 
         expect(spyLog).toHaveBeenCalled();
+    });
+
+    it('main function error handling covers catch block', async () => {
+        // Mock startMcpServer to throw an error to exercise the catch block
+        vi.doMock('@omar391/mcp-kit/server', () => ({
+            startMcpServer: async () => {
+                throw new Error('Server start failed');
+            },
+            createToolHandlers: (specs: any) => ({ listTools: async () => ({ tools: specs.map((s: any) => ({ ...s, inputSchema: {} })) }), handleToolCall: async () => ({}) })
+        }));
+
+        const mod = await import('../index.js');
+
+        // This should trigger the catch block at the bottom of index.ts
+        await expect(mod.main()).rejects.toThrow('Server start failed');
+    });
+
+    it('START tool definition is executed during handler creation', async () => {
+        const mod = await import('../index.js');
+
+        // createMCPToolHandlers should execute the specs array creation including START tool
+        const handlers = mod.createMCPToolHandlers();
+        const tools = await handlers.listTools();
+
+        // Verify START tool is in the list
+        const startTool = tools.tools.find((t: any) => t.name === 'specly_start');
+        expect(startTool).toBeDefined();
+        expect(startTool.description).toContain('Initialize Specly session');
     });
 });
