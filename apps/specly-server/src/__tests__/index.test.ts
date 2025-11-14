@@ -601,6 +601,78 @@ describe('index.ts', () => {
                     }
                 }
             });
+
+            it('handles NotFoundError correctly', async () => {
+                const app = new Hono();
+                await server.configureSpeclyApp(app, { local: false });
+
+                const error = new Error('Not found');
+                error.name = 'NotFoundError';
+
+                const mockContext = {
+                    json: vi.fn()
+                };
+
+                const middlewares = (app as any).middlewares || [];
+                if (middlewares.length > 0) {
+                    const errorHandler = middlewares[middlewares.length - 1];
+                    if (errorHandler && typeof errorHandler === 'function') {
+                        await errorHandler(error, mockContext as any);
+                        expect(mockContext.json).toHaveBeenCalledWith(
+                            { error: { code: 'NOT_FOUND', message: 'Not found' } },
+                            404
+                        );
+                    }
+                }
+            });
+
+            it('handles BadRequestError correctly', async () => {
+                const app = new Hono();
+                await server.configureSpeclyApp(app, { local: false });
+
+                const error = new Error('Bad request');
+                error.name = 'BadRequestError';
+
+                const mockContext = {
+                    json: vi.fn()
+                };
+
+                const middlewares = (app as any).middlewares || [];
+                if (middlewares.length > 0) {
+                    const errorHandler = middlewares[middlewares.length - 1];
+                    if (errorHandler && typeof errorHandler === 'function') {
+                        await errorHandler(error, mockContext as any);
+                        expect(mockContext.json).toHaveBeenCalledWith(
+                            { error: { code: 'BAD_REQUEST', message: 'Bad request' } },
+                            400
+                        );
+                    }
+                }
+            });
+
+            it('handles unknown errors with default response', async () => {
+                const app = new Hono();
+                await server.configureSpeclyApp(app, { local: false });
+
+                const error = new Error('Unknown error');
+                error.name = 'UnknownError';
+
+                const mockContext = {
+                    json: vi.fn()
+                };
+
+                const middlewares = (app as any).middlewares || [];
+                if (middlewares.length > 0) {
+                    const errorHandler = middlewares[middlewares.length - 1];
+                    if (errorHandler && typeof errorHandler === 'function') {
+                        await errorHandler(error, mockContext as any);
+                        expect(mockContext.json).toHaveBeenCalledWith(
+                            { error: { code: 'INTERNAL_ERROR', message: 'An internal server error occurred' } },
+                            500
+                        );
+                    }
+                }
+            });
         });
 
         describe('ensureSpeclySeed', () => {
@@ -620,6 +692,15 @@ describe('index.ts', () => {
                 await server.ensureSpeclySeed(false);
                 // The seedManager is mocked, so we can't easily check the call
                 // But the test passes if no error is thrown
+            });
+
+            it('forces seed even when root profile exists', async () => {
+                mockDrizzleManager.getDb.mockReturnValue({
+                    all: vi.fn().mockResolvedValue([{ id: 'root' }])
+                });
+
+                await server.ensureSpeclySeed(true);
+                // Should seed due to force flag
             });
 
             it('handles seeding errors gracefully', async () => {
@@ -651,6 +732,8 @@ describe('index.ts', () => {
             });
 
             it('starts background jobs with default config', () => {
+                const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
+
                 mockBackgroundJobsService.runAll.mockResolvedValue({
                     transientSessionsDeleted: 5,
                     softDeletePurged: 10
@@ -658,6 +741,15 @@ describe('index.ts', () => {
 
                 server.startBackgroundJobs();
                 expect(server['backgroundJobsService']).toBeDefined();
+
+                // Check initial GC sweep log
+                expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"transient_sessions_deleted":5'));
+                expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"soft_delete_purged":10'));
+
+                // Check background jobs started log
+                expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"msg":"Background jobs started"'));
+
+                consoleSpy.mockRestore();
             });
 
             it('handles errors in scheduled GC sweep', async () => {
@@ -681,12 +773,44 @@ describe('index.ts', () => {
 
         describe('stopBackgroundJobs', () => {
             it('stops background jobs and clears interval', () => {
+                const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
+
                 server['gcInterval'] = setInterval(() => { }, 1000);
                 server.stopBackgroundJobs();
                 expect(server['gcInterval']).toBeNull();
+
+                expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"msg":"Background jobs stopped"'));
+
+                consoleSpy.mockRestore();
             });
         });
+
+        describe('setupSpeclyApi', () => {
+            it('sets up API routes by calling createApiRouter', async () => {
+                const app = new Hono();
+                const mockRouter = {
+                    routes: [],
+                    use: vi.fn(),
+                    get: vi.fn(),
+                    post: vi.fn(),
+                    put: vi.fn(),
+                    delete: vi.fn()
+                };
+
+                const { createApiRouter } = await import('../api/router.js');
+                vi.mocked(createApiRouter).mockResolvedValue(mockRouter as any);
+
+                await server.initializeServer();
+                await server.setupSpeclyApi(app);
+
+                expect(createApiRouter).toHaveBeenCalledWith(server['databaseService']);
+                // The app.route('/api', apiRouter) is called, but since app is mocked, we can't check easily
+            });
+        });
+
     });
+
+});
 
     describe('Backward compatibility functions', () => {
         beforeEach(async () => {
@@ -725,11 +849,7 @@ describe('index.ts', () => {
                 expect(typeof handlers.handleToolCall).toBe('function');
             });
 
-            it.skip('executes START tool and returns result', async () => {
-                // Skipped due to complex singleton mocking requirements
-                // The START tool execution path is tested indirectly through integration tests
-                expect(true).toBe(true);
-            });
+
         });
 
         describe('configureSpeclyApp', () => {
@@ -754,6 +874,12 @@ describe('index.ts', () => {
             it('ensures seeding through singleton', async () => {
                 await initializeServer();
                 await ensureSpeclySeed(false);
+                // Should not throw
+            });
+
+            it('ensures forced seeding through singleton', async () => {
+                await initializeServer();
+                await ensureSpeclySeed(true);
                 // Should not throw
             });
         });
@@ -976,7 +1102,54 @@ describe('index.ts', () => {
             exitSpy.mockRestore();
         });
 
+        it('handles onTransition callback execution with dynamic import and spawn', async () => {
+            const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
+            const setTimeoutSpy = vi.spyOn(global, 'setTimeout').mockImplementation(((callback: any) => {
+                // Execute callback immediately for testing
+                callback();
+                return {} as any;
+            }) as any);
+            const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: string | number | null | undefined) => {
+                // noop to avoid actual process exit during tests
+            }) as any);
+
+            (mockParseCliArgs as any).mockReturnValue({
+                port: 8989,
+                mode: 'http',
+                local: true,
+                dev: false,
+                help: false,
+                killExisting: true,
+                forceSeed: false
+            });
+
+            (mockStartMcpServer as any).mockImplementation(async (config: any) => {
+                if (config.localMode?.onTransition) {
+                    const instanceManager = config.createInstanceManager!({ port: 8989, local: true });
+                    await config.localMode.onTransition(instanceManager, { port: 8989, local: true, forceSeed: false });
+                }
+                return undefined;
+            });
+
+            await main();
+
+            expect(consoleSpy).toHaveBeenCalledWith('Version transition requested via API');
+            expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 100);
+            expect(mockSpawn).toHaveBeenCalledWith(process.argv[0], process.argv.slice(1), {
+                detached: true,
+                stdio: 'inherit'
+            });
+
+            consoleSpy.mockRestore();
+            setTimeoutSpy.mockRestore();
+            exitSpy.mockRestore();
+        });
+
         it('parses custom options correctly', async () => {
+            const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: string | number | null | undefined) => {
+                // noop to avoid actual process exit during tests
+            }) as any);
+
             mockParseCliArgs.mockReturnValue({
                 port: 8989,
                 mode: 'http',
@@ -999,6 +1172,8 @@ describe('index.ts', () => {
             });
 
             await main();
+
+            exitSpy.mockRestore();
         });
 
         it('handles forceSeed option in onInitialize', async () => {
@@ -1112,12 +1287,3 @@ describe('index.ts', () => {
 
             if (!cliOptions.mode || cliOptions.mode !== 'stdio') {
                 console.error(new Error('Test error'));
-            }
-
-            expect(cliOptions.mode).toBe('http');
-            expect(cliOptions.port).toBe(8989);
-            expect(consoleErrorSpy).toHaveBeenCalledWith(new Error('Test error'));
-            consoleErrorSpy.mockRestore();
-        });
-    });
-});

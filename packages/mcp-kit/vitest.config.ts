@@ -2,7 +2,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    maxWorkers: 2,
+    maxWorkers: 4,
     globals: false,
     environment: 'node',
     testTimeout: 10000,

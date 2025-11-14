@@ -311,36 +311,47 @@ export async function ensureSpeclySeed(force: boolean) {
 }
 
 export async function main() {
-  await startMcpServer<ExtendedCliOptions>({
+  // Build options object separately so unit tests can import and exercise
+  // the lifecycle callbacks without starting the full server.
+  const options = buildStartOptions();
+  await startMcpServer<ExtendedCliOptions>(options as any);
+}
+
+// Exported helper to construct the start options object. Tests can import
+// `buildStartOptions()` to inspect or invoke callbacks (createInstanceManager,
+// onInitialize, configureApp, setupRoutes, localMode handlers) without
+// actually starting the server process.
+export function buildStartOptions() {
+  return {
     serverName: 'specly',
     serverVersion: SPECLY_VERSION,
-    toolHandlers: speclyServer.createMCPToolHandlers(),
+    toolHandlers: createMCPToolHandlers(),
     defaultPort: 8989,
-    createInstanceManager: (options) => {
+    createInstanceManager: (options: any) => {
       return new InstanceManager({
         lockPath: options.local ? path.join(os.tmpdir(), "specly-8989.lock") : undefined,
         port: options.port,
         getVersion: () => SPECLY_VERSION
       });
     },
-    onInitialize: async (options) => {
+    onInitialize: async (options: any) => {
       await speclyServer.ensureServerInitialized();
       await speclyServer.ensureSpeclySeed(!!(options as any).forceSeed);
     },
-    configureApp: async (app, options) => {
+    configureApp: async (app: any, options: any) => {
       await speclyServer.configureSpeclyApp(app, { local: options.local });
     },
-    setupRoutes: async (app, options) => {
+    setupRoutes: async (app: any, options: any) => {
       await speclyServer.setupSpeclyApi(app);
     },
-    onAfterStart: async (app, options) => {
+    onAfterStart: async (app: any, options: any) => {
       console.log(`Specly backend server running on http://localhost:${options.port}`);
     },
     localMode: {
-      onLocalStart: async (instanceManager, options) => {
+      onLocalStart: async (instanceManager: any, options: any) => {
         speclyServer.startBackgroundJobs();
       },
-      onShutdown: async (instanceManager, options) => {
+      onShutdown: async (instanceManager: any, options: any) => {
         console.log('Shutdown requested via API');
         speclyServer.stopBackgroundJobs();
         // Graceful shutdown
@@ -348,7 +359,7 @@ export async function main() {
           process.exit(0);
         }, 100);
       },
-      onTransition: async (instanceManager, options) => {
+      onTransition: async (instanceManager: any, options: any) => {
         console.log('Version transition requested via API');
         speclyServer.stopBackgroundJobs();
         // Start new instance
@@ -364,7 +375,7 @@ export async function main() {
     cliConfig: {
       appName: 'specly',
       appDescription: 'Specly MCP Server',
-      customOptionsParser: (args, options) => {
+      customOptionsParser: (args: string[], options: any) => {
         // Parse Specly-specific options
         const forceSeed = args.includes('--force-seed') || process.env.SPECLY_FORCE_SEED === '1';
         return { ...options, forceSeed };
@@ -380,7 +391,7 @@ HTTP MODE ENDPOINTS:
   - MCP via Server-Sent Events at http://localhost:<port>/mcp
 `
     },
-  });
+  };
 }
 
 /* istanbul ignore next */

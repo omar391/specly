@@ -14,7 +14,7 @@ import { eq } from 'drizzle-orm';
 export class SeedManager {
   private drizzleDb: ReturnType<DrizzleDatabaseManager['getDb']>;
 
-  constructor(private dbManager: DrizzleDatabaseManager) {
+  constructor(private dbManager: DrizzleDatabaseManager, private profileRepo?: ProfileRepository, private specRepo?: SpecRepositoryImpl, private toolVersionRepo?: ToolVersionRepositoryImpl) {
     this.drizzleDb = this.dbManager.getDb();
   }
 
@@ -41,9 +41,11 @@ export class SeedManager {
   async seedSpecly(): Promise<{
     specsCreated: number; toolVersionsCreated: number; profileCreated: boolean; profileVersionsCreated: number; toolsAttached: number; workspaceBindings: number; createdSpecHashes: string[]; createdToolVersionHashes: string[];
   }> {
-    const specRepo = new SpecRepositoryImpl({ getDrizzleManager: () => ({ getDb: () => this.drizzleDb }) } as any);
-    const toolVersionRepo = new ToolVersionRepositoryImpl({ getDrizzleManager: () => ({ getDb: () => this.drizzleDb }) } as any);
-    const profileRepo = new ProfileRepository(new GlobalDatabaseService(this.dbManager));
+    const specRepo = this.specRepo || new SpecRepositoryImpl({ getDrizzleManager: () => ({ getDb: () => this.drizzleDb }) } as any);
+    const toolVersionRepo = this.toolVersionRepo || new ToolVersionRepositoryImpl({ getDrizzleManager: () => ({ getDb: () => this.drizzleDb }) } as any);
+    const globalDbService = new GlobalDatabaseService(this.dbManager);
+    await globalDbService.initialize();
+    const profileRepo = this.profileRepo || new ProfileRepository(globalDbService);
 
     // 1. Batch create specs
     const specHashMap = new Map<string, string>();

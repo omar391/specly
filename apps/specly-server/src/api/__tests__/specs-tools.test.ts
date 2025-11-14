@@ -141,7 +141,9 @@ describe('SpecsController', () => {
             },
             json: vi.fn(),
         };
-        (ctx as any).dbService = mockDbService; // Inject GlobalDatabaseService
+        // Create actual instance of mocked GlobalDatabaseService
+        const injectedDbService = new GlobalDatabaseService(mockMgr);
+        (ctx as any).dbService = injectedDbService; // Inject GlobalDatabaseService
 
         const { hashSpec } = await import('../../utils/hash.js');
         (hashSpec as any).mockReturnValue({ hash: 'injectedhash' });
@@ -165,8 +167,10 @@ describe('SpecsController', () => {
             },
             json: vi.fn(),
         };
-        const mockDatabaseService = { getGlobal: () => mockDbService };
-        (ctx as any).dbService = mockDatabaseService; // Inject DatabaseService
+        // Create actual instance of mocked DatabaseService
+        const mockDatabaseServiceInstance = new DatabaseService();
+        mockDatabaseServiceInstance.getGlobal = vi.fn().mockReturnValue(mockDbService);
+        (ctx as any).dbService = mockDatabaseServiceInstance; // Inject DatabaseService
 
         const { hashSpec } = await import('../../utils/hash.js');
         (hashSpec as any).mockReturnValue({ hash: 'dbservicehash' });
@@ -177,6 +181,30 @@ describe('SpecsController', () => {
         await controller.createSpec(ctx);
 
         expect(ctx.json).toHaveBeenCalledWith({ hash: 'dbservicehash', created: true }, 201);
+    });
+
+    it('createSpec - uses fallback when no injection', async () => {
+        const ctx: any = {
+            req: {
+                json: vi.fn().mockResolvedValue({
+                    executor_type: 'test',
+                    executor_version: '1.0',
+                    intent: 'test intent'
+                })
+            },
+            json: vi.fn(),
+        };
+        // No dbService injected, should use fallback (controller default)
+
+        const { hashSpec } = await import('../../utils/hash.js');
+        (hashSpec as any).mockReturnValue({ hash: 'fallbackhash' });
+
+        const { validateSpecSecurity } = await import('../../utils/security-validators.js');
+        (validateSpecSecurity as any).mockReturnValue(null);
+
+        await controller.createSpec(ctx);
+
+        expect(ctx.json).toHaveBeenCalledWith({ hash: 'fallbackhash', created: true }, 201);
     });
 
     it('createSpec - fails on security validation error', async () => {
@@ -284,7 +312,36 @@ describe('ToolsController', () => {
             req: { json: vi.fn().mockResolvedValue({ name: 'testtool' }) },
             json: vi.fn(),
         };
-        (ctx as any).dbService = mockDbService; // Inject GlobalDatabaseService
+        // Create actual instance of mocked GlobalDatabaseService
+        const injectedDbService = new GlobalDatabaseService(mockMgr);
+        (ctx as any).dbService = injectedDbService; // Inject GlobalDatabaseService
+
+        await controller.createTool(ctx);
+
+        expect(ctx.json).toHaveBeenCalledWith({ name: 'testtool', created: true }, 201);
+    });
+
+    it('createTool - uses injected DatabaseService', async () => {
+        const ctx: any = {
+            req: { json: vi.fn().mockResolvedValue({ name: 'testtool' }) },
+            json: vi.fn(),
+        };
+        // Create actual instance of mocked DatabaseService
+        const mockDatabaseServiceInstance = new DatabaseService();
+        mockDatabaseServiceInstance.getGlobal = vi.fn().mockReturnValue(mockDbService);
+        (ctx as any).dbService = mockDatabaseServiceInstance; // Inject DatabaseService
+
+        await controller.createTool(ctx);
+
+        expect(ctx.json).toHaveBeenCalledWith({ name: 'testtool', created: true }, 201);
+    });
+
+    it('createTool - uses fallback when no injection', async () => {
+        const ctx: any = {
+            req: { json: vi.fn().mockResolvedValue({ name: 'testtool' }) },
+            json: vi.fn(),
+        };
+    // No dbService injected, should use fallback (controller default)
 
         await controller.createTool(ctx);
 
@@ -319,18 +376,90 @@ describe('ToolsController', () => {
         expect(ctx.json).toHaveBeenCalledWith({ error: 'alias exists', code: 'ALIAS_DUPLICATE', details: {} }, 409);
     });
 
-    it('createToolVersion - success with edges having conditions', async () => {
+    it('createToolVersion - uses injected GlobalDatabaseService', async () => {
         const ctx: any = {
             req: {
                 param: vi.fn().mockReturnValue('testtool'),
                 json: vi.fn().mockResolvedValue({
                     ordered_specs: ['hash1'],
                     entry_spec: 'hash1',
-                    edges: [{ from: 'hash1', to: 'hash1', condition_type: 'equals', condition_value: 'val', priority: 1 }]
+                    edges: []
                 })
             },
             json: vi.fn(),
         };
+        // Create actual instance of mocked GlobalDatabaseService
+        const injectedDbService = new GlobalDatabaseService(mockMgr);
+        (ctx as any).dbService = injectedDbService; // Inject GlobalDatabaseService
+
+        // Mock tool exists
+        mockDb.select().limit.mockResolvedValueOnce([{ name: 'testtool' }]);
+        // Mock specs exist - handled by mockImplementation
+
+        const { hashToolVersion } = await import('../../utils/hash.js');
+        (hashToolVersion as any).mockReturnValue({ hash: 'edgehash' });
+
+        const { validateGraphSizeLimits, validateGraphDepth } = await import('../../utils/security-validators.js');
+        (validateGraphSizeLimits as any).mockReturnValue(null);
+        (validateGraphDepth as any).mockReturnValue(null);
+
+        const { validateToolGraph } = await import('../../utils/graph-validate.js');
+        (validateToolGraph as any).mockImplementation(() => { });
+
+        await controller.createToolVersion(ctx);
+
+        expect(ctx.json).toHaveBeenCalledWith({ hash: 'edgehash', tool: 'testtool', created: true }, 201);
+    });
+
+    it('createToolVersion - uses injected DatabaseService', async () => {
+        const ctx: any = {
+            req: {
+                param: vi.fn().mockReturnValue('testtool'),
+                json: vi.fn().mockResolvedValue({
+                    ordered_specs: ['hash1'],
+                    entry_spec: 'hash1',
+                    edges: []
+                })
+            },
+            json: vi.fn(),
+        };
+        // Create actual instance of mocked DatabaseService
+        const mockDatabaseServiceInstance = new DatabaseService();
+        mockDatabaseServiceInstance.getGlobal = vi.fn().mockReturnValue(mockDbService);
+        (ctx as any).dbService = mockDatabaseServiceInstance; // Inject DatabaseService
+
+        // Mock tool exists
+        mockDb.select().limit.mockResolvedValueOnce([{ name: 'testtool' }]);
+        // Mock specs exist - handled by mockImplementation
+
+        const { hashToolVersion } = await import('../../utils/hash.js');
+        (hashToolVersion as any).mockReturnValue({ hash: 'edgehash' });
+
+        const { validateGraphSizeLimits, validateGraphDepth } = await import('../../utils/security-validators.js');
+        (validateGraphSizeLimits as any).mockReturnValue(null);
+        (validateGraphDepth as any).mockReturnValue(null);
+
+        const { validateToolGraph } = await import('../../utils/graph-validate.js');
+        (validateToolGraph as any).mockImplementation(() => { });
+
+        await controller.createToolVersion(ctx);
+
+        expect(ctx.json).toHaveBeenCalledWith({ hash: 'edgehash', tool: 'testtool', created: true }, 201);
+    });
+
+    it('createToolVersion - uses fallback when no injection', async () => {
+        const ctx: any = {
+            req: {
+                param: vi.fn().mockReturnValue('testtool'),
+                json: vi.fn().mockResolvedValue({
+                    ordered_specs: ['hash1'],
+                    entry_spec: 'hash1',
+                    edges: []
+                })
+            },
+            json: vi.fn(),
+        };
+        // No dbService injected, should use fallback (controller default)
 
         // Mock tool exists
         mockDb.select().limit.mockResolvedValueOnce([{ name: 'testtool' }]);

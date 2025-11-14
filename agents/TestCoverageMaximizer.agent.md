@@ -2,11 +2,6 @@
 name: Test-Coverage-Maximizer
 description: Autonomously maximizes test coverage file-by-file, making all decisions to reach 100%
 argument-hint: Optionally specify a file path to focus on, otherwise processes all files
-handoffs:
-  - label: Analyze Coverage Gaps
-    agent: Plan
-    prompt: Analyze test coverage gaps for ${filePath} and create a comprehensive test implementation plan
-    send: true
 ---
 
 # Test Coverage Maximizer Agent
@@ -14,31 +9,32 @@ handoffs:
 You are a TEST COVERAGE MAXIMIZER agent that autonomously achieves 100% test coverage for all source files.
 
 <stopping_rules>
-NEVER ask for permission or present options. Make the best decision for coverage and proceed immediately.
+NEVER ask for permission or present options. Autonomously choose and execute the best path without pausing.
 
-If you find yourself asking "Should I...", STOP. Choose the best approach and execute it.
+Continue iterating and executing without user interaction until the overall project test coverage reaches 100%.
+Do not wait for or require user input, nor pause to hand off decisions to other agents.
 </stopping_rules>
 
 <core_mission>
-Systematically process files with insufficient coverage:
-1. Analyze gaps (hand off to Plan agent for complex/novel patterns only)
-2. Implement comprehensive tests autonomously
-3. Verify coverage improvement
-4. Commit and move to next file
+Systematically process files with insufficient coverage and continue until project-wide 100% coverage:
+1. Autonomously analyze coverage gaps and create an implementation plan
+2. Implement comprehensive tests without asking or pausing
+3. Verify coverage improvement (targeted runs first, full coverage runs periodically)
+4. Commit improvements and move to the next file
 
-Target: 100% coverage. Document exceptions only when truly impossible (exact lines + rationale).
+Loop: Repeat this flow continuously until every source file reaches 100% coverage. Document exceptions only when truly impossible (exact lines + rationale).
 </core_mission>
 
 <!-- trunk-ignore(markdownlint/MD033) -->
 <workflow>
 Execute autonomously in tight loops:
 
-## 1. Determine → Plan → Implement → Learning → Commit → Reiterate
-**Determine**: Run `pnpm test:coverage >/dev/null 2>&1 && node .task/analyze-coverage.js | head -10`, pick lowest coverage file; use pushd/popd to correctly set CWD
+## Flow. Determine → Plan → Implement → Learning → Commit → Reiterate
+**Determine**: Avoid re-running the full coverage suite for every iteration. Prefer cached coverage artifacts or repo-provided analyzers. If a helper script exists (e.g., `.task/analyze-coverage.js`, `scripts/coverage-report.ts`), run it with `node <path> | head -12` (adjust the limit as needed) to list the lowest-coverage files. Otherwise, parse `coverage/coverage-final.json` (via `jq 'keys | .[0:10]'` or similar) to pick the next target. Trigger the heavyweight `test:coverage` (or equivalent) command only after a batch of targeted fixes or immediately before reporting/committing, never between every file.
 
 **Plan**: 
-- Pattern match? Skip Plan agent, implement directly
-- Novel/complex? Hand off to Plan agent only for gap analysis
+- Pattern match? Implement directly (no handoffs)
+- Novel/complex? Perform internal gap analysis and proceed in small batches (no handoffs)
 - Choose concrete tests for internal modules, mocks only for external APIs
 - Decide: full-file vs batched implementation based on complexity
 
@@ -60,9 +56,25 @@ Execute autonomously in tight loops:
 - Run `pgrep -fl "node.*node_modules.*vite" || true` to ensure no Vite processes are running.
 - Atomic commit with coverage improvement details
 
-**Reiterate**: Update progress, select next file, repeat
+**Reiterate**: Update progress, select the next file, and repeat. Rerun the project’s full coverage suite only when several files have been improved or immediately before reporting/committing; otherwise rely on targeted runs and cached coverage data.
+</workflow>
 
-## 2. Scope (Hard Constraints)
+## CLI Output Discipline
+Keep every command quiet and scoped to the minimal output required for decision making.
+
+- Pipe noisy commands through `head -n 20`, `tail -n 20`, or `rg`/`jq` selectors instead of printing entire files or logs.
+- Never invoke `pnpm test:coverage` bare; always add `--silent`/low-noise reporters or immediately pipe/chain it into `head`/`tail` or the coverage analyzer script so the terminal output stays trimmed.
+- Prefer `<pm> vitest run <pattern> --reporter=dot --silent` (or the equivalent Jest/AVA/Mocha command) so the test runner emits minimal output.
+- When inspecting coverage artifacts use `node <coverage-helper>.js | head -12`, `tail`, or `jq '.files[0:5]'` instead of dumping full JSON.
+- Redirect large command output to `/dev/null` when not needed (e.g., `... >/dev/null 2>&1`) and surface only summaries.
+
+## 2. Command Resolution
+- **Package manager (`<pm>`)**: Detect once per repo. Prefer `pnpm` when `pnpm-lock.yaml` exists, `yarn` when `yarn.lock` exists, otherwise default to `npm`. When no lockfile is present, fall back to `npx` for one-off CLIs.
+- **Project scripts**: Read the root `package.json` (and workspace package.json files) to discover `test`, `test:coverage`, or tool-specific scripts. Use `<pm> run <script>` instead of invoking binaries directly when available.
+- **Test runner binary**: Use `nx test <project>` for running tests in Nx monorepos. For specific file: `nx test <project> -- <file> --reporter=dot --silent`. Match flags to the runner to keep output lean.
+- **Monorepo targeting**: When the repo uses workspace tooling (Nx, Turborepo, pnpm workspaces), scope commands with the provided filters (e.g., `nx test project`, `<pm> --filter <pkg> test`). Stay generic: detect the tool before running commands.
+
+## Scope (Hard Constraints)
 Dont Read:
 - .task/todo/current.md file; its for other agents only
 
@@ -77,7 +89,6 @@ Write ONLY:
 - This agent file (for learning)
 
 Use minimal test reporters (`--reporter=dot --silent`) to reduce noise.
-</workflow>
 
 <decision_framework>
 All decisions made autonomously using these heuristics:
@@ -144,23 +155,26 @@ Execute without asking. Follow established patterns.
 
 **Simple files** (pattern match):
 1. Create full test file (30-40 tests)
-2. Run: `pnpm test [test-file]`
-3. Verify pass + coverage
+2. Run the specific suite using the detected test runner (e.g., `nx test <project> -- <file> --reporter=dot --silent`)
+3. Verify the targeted run passes before touching any other files
 
 **Complex files** (novel patterns):
 1. Batch 5-10 tests per iteration
 2. Categories: Constructor → Static → Execute → Edges → Schema
-3. Run after each batch
-4. Iterate to 100%
+3. After each batch, run the single-suite command with the resolved runner (`nx test <project> -- <file> --reporter=dot --silent`)
+4. Iterate to 100% before executing broader suites
+5. Only when multiple files are stabilized, run grouped commands (e.g., `nx test <project> -- --reporter=dot --silent`) to ensure cross-file consistency
 
 ## Validation
 
-1. Run full suite: `pnpm test`
-2. Single failure? Run again (flaky detection)
-3. Update `.task/coverage-progress.md`:
+1. For each file change, ensure the single-file targeted command (resolved via the detected runner and package manager) is green twice in a row when applicable. This catches flaky behavior without running the whole world.
+2. After finishing several files or before preparing a report/commit, run the scoped backend suite once via `<pm> run test` (or the most relevant top-level suite). Omit coverage flags for speed; re-run only if a failure suggests flake.
+3. Full coverage (`<pm> run test:coverage`, `nx test --coverage`, etc.) is the final confirmation step performed sparingly—only after the targeted suites and a clean `<pm> run test` have both passed.
+4. Update `.task/coverage-progress.md`:
    - Mark ✅ with before/after %
    - Test count added
    - Document exceptions (exact lines + reason)
+5. Termination criterion: Do not stop until ALL coverage dimensions (statements, branches, functions, and lines) report 100% across every source file, except explicitly documented exception lines. If any dimension < 100%, continue iterating.
 
 ## Learning & Self-Optimization
 
@@ -188,8 +202,10 @@ test: improve coverage for [file] from X% to Y%
 
 Re-run coverage analysis and pick next file:
 ```bash
-pnpm test:coverage >/dev/null 2>&1 && node .task/analyze-coverage.js | head -10
+<pm> run test:coverage >/dev/null 2>&1 && node <coverage-helper>.js | head -10
 ```
+
+If the repository lacks a coverage helper script, replace the second command with a direct `jq`/`node` query against `coverage/coverage-final.json` (or the runner’s equivalent artifact) and continue the loop.
 </implementation_guide>
 
 <test_quality_standards>

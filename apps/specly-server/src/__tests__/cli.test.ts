@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { executeToolCall, main } from '../cli.js';
+import { executeToolCall, main, runCli } from '../cli.js';
 import { setTestDatabaseInstances, resetDatabaseInstances } from '../test-utils/database-test-helpers.js';
 import { DrizzleDatabaseManager, DatabaseType } from '../database/drizzle-connection.js';
 import { GlobalDatabaseService } from '../database/global-queries.js';
@@ -206,6 +206,60 @@ describe('CLI Tool Execution Tests', () => {
             const args = { workspace_path: testWorkspacePath };
             const result = await executeToolCall('specly_status', args);
             expect(result).toBeDefined();
+        });
+
+        it('should initialize in-memory database when NODE_ENV=test', async () => {
+            // Clear any injected instances
+            resetDatabaseInstances();
+
+            // Mock environment
+            const originalEnv = process.env.NODE_ENV;
+            process.env.NODE_ENV = 'test';
+
+            try {
+                const args = { workspace_path: testWorkspacePath };
+                const result = await executeToolCall('specly_status', args);
+                expect(result).toBeDefined();
+            } finally {
+                process.env.NODE_ENV = originalEnv;
+            }
+        });
+
+        it('should initialize in-memory database when VITEST=true', async () => {
+            // Clear any injected instances
+            resetDatabaseInstances();
+
+            // Mock environment
+            const originalEnv = process.env.VITEST;
+            process.env.VITEST = 'true';
+
+            try {
+                const args = { workspace_path: testWorkspacePath };
+                const result = await executeToolCall('specly_status', args);
+                expect(result).toBeDefined();
+            } finally {
+                process.env.VITEST = originalEnv;
+            }
+        });
+
+        it('should use production database initialization when not in test environment', async () => {
+            // Clear any injected instances
+            resetDatabaseInstances();
+
+            // Mock environment
+            const originalEnv = { ...process.env };
+            delete process.env.NODE_ENV;
+            delete process.env.VITEST;
+
+            try {
+                const args = { workspace_path: testWorkspacePath };
+                // This might fail in test environment due to missing global DB, but should exercise the code path
+                const result = await executeToolCall('specly_status', args);
+                expect(result).toBeDefined();
+                expect(result.isError).toBe(true);
+            } finally {
+                process.env = originalEnv;
+            }
         });
     });
 
@@ -481,6 +535,32 @@ describe('CLI main function', () => {
         process.argv = ['node', 'cli.js', 'specly_init', '{"invalid": "args"}'];
 
         await expect(main()).rejects.toThrow('process.exit called with code 1');
-        expect(consoleLogSpy).toHaveBeenCalledWith('💥 Tool call failed (0ms)');
+        expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringMatching(/^💥 Tool call failed \(\d+ms\)$/));
+    });
+
+    it('should handle tool that returns error result', async () => {
+        const mockExec = vi.fn().mockResolvedValue({
+            isError: true,
+            content: [{ type: 'text', text: 'Tool error message' }]
+        });
+
+        process.argv = ['node', 'cli.js', 'specly_start', '{"workspace_path": "/tmp"}'];
+
+        await expect(runCli('specly_start', { workspace_path: '/tmp' }, { executeOverride: mockExec })).rejects.toThrow('process.exit called with code 1');
+        expect(consoleLogSpy).toHaveBeenCalledWith('⚠️  Tool returned error result:');
+        expect(consoleLogSpy).toHaveBeenCalledWith('Tool error message');
+
+        mockExec.mockRestore?.();
+    });
+
+    it('should handle CLI test failure with non-Error exception', async () => {
+        const mockExec = vi.fn().mockRejectedValue('String error');
+
+        process.argv = ['node', 'cli.js', 'specly_start', '{"workspace_path": "/tmp"}'];
+
+        await expect(runCli('specly_start', { workspace_path: '/tmp' }, { executeOverride: mockExec })).rejects.toThrow('process.exit called with code 1');
+        expect(consoleErrorSpy).toHaveBeenCalledWith('Error:', 'String error');
+
+        mockExec.mockRestore?.();
     });
 });

@@ -1,19 +1,101 @@
-import { describe, it, expect, beforeAll, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import crypto from 'crypto';
 import { SeedManager } from '../services/seed-manager.js';
-import { profiles, profileVersions, workspaces, workspaceProfileVersions, mcpServerMappings } from '../database/schema/global-schema.js';
+import { profiles, profileVersions, workspaces, workspaceProfileVersions, mcpServerMappings, specs, toolVersions, profileVersionTools, tools } from '../database/schema/global-schema.js';
 import { DrizzleDatabaseManager, DatabaseType } from '../database/drizzle-connection.js';
 import { SPECLY_SEED_SPECS, SPECLY_SEED_TOOLS, MCP_SERVER_MAPPINGS_SEED } from '../data/embedded-seed-data.js';
-import { eq } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
+import { GlobalDatabaseService } from '../database/global-queries.js';
+import { ProfileRepository } from '../repositories/profile-repository.js';
+
+const overrideInsertError = (manager: SeedManager, table: unknown, errorMessage: string) => {
+    const originalDb = (manager as any).drizzleDb;
+    const proxy = new Proxy(originalDb, {
+        get(target, prop) {
+            if (prop === 'insert') {
+                return (tableName: unknown) => {
+                    if (tableName === table) {
+                        return {
+                            values: () => Promise.reject(new Error(errorMessage))
+                        };
+                    }
+                    return target.insert(tableName);
+                };
+            }
+            const value = Reflect.get(target, prop);
+            if (typeof value === 'function') {
+                return value.bind(target);
+            }
+            return value;
+        }
+    });
+    (manager as any).drizzleDb = proxy;
+    return () => {
+        (manager as any).drizzleDb = originalDb;
+    };
+};
 
 describe('SeedManager Specly seeding (SP-004)', () => {
+    let drizzleDb: DrizzleDatabaseManager;
     let seedManager: SeedManager;
-    let db: any;
-    beforeAll(async () => {
-        // Use an isolated in-memory GLOBAL database so other test files don't pre-seed it
-        const isolated = new DrizzleDatabaseManager(':memory:', DatabaseType.GLOBAL);
-        await isolated.initialize();
-        db = isolated.getDb();
-        seedManager = new SeedManager(isolated as any);
+
+    beforeEach(async () => {
+        // Reset module imports/mocks so test runs are isolated (some other tests mock
+        // the ProfileRepository module) — this prevents leaking module mocks.
+        vi.resetModules();
+        // Use concrete in-memory database for reliable testing
+        drizzleDb = new DrizzleDatabaseManager(':memory:', DatabaseType.GLOBAL);
+        await drizzleDb.initialize();
+
+        // Initialize global database service to set up schema
+        const globalDbService = new GlobalDatabaseService(drizzleDb);
+        await globalDbService.initialize();
+
+        // Provide an in-test ProfileRepository-like object that uses the real DB
+        // underneath; this avoids depending on the module import which other
+        // tests may mock.
+        const profileRepo = {
+            createProfile: async (input: any) => {
+                const db = drizzleDb.getDb();
+                const existing = await db.select().from(profiles).where(eq(profiles.name, input.name)).limit(1);
+                if (existing.length > 0) return { profile: existing[0], created: false } as any;
+                const id = crypto.randomUUID();
+                const [row] = await db.insert(profiles).values({ id, name: input.name, description: input.description ?? null, parentProfileId: input.parentProfileId ?? null }).returning();
+                return { profile: row, created: true } as any;
+            },
+            createProfileVersion: async (input: any) => {
+                const db = drizzleDb.getDb();
+                const rows = await db.select().from(profileVersions).where(eq(profileVersions.profileId, input.profileId)).orderBy(desc(profileVersions.version)).limit(1);
+                const nextVersion = rows.length === 0 ? 1 : (rows[0].version as number) + 1;
+                const id = crypto.randomUUID();
+                const [row] = await db.insert(profileVersions).values({ id, profileId: input.profileId, parentProfileVersionId: input.parentProfileVersionId ?? null, version: nextVersion }).returning();
+                return { id: row.id, version: row.version, created: true } as any;
+            },
+            attachToolToProfileVersion: async (input: any) => {
+                const db = drizzleDb.getDb();
+                const id = crypto.randomUUID();
+                const [row] = await db.insert(profileVersionTools).values({ id, profileVersionId: input.profileVersionId, toolName: input.toolName, toolVersionHash: input.toolVersionHash, commandAlias: input.commandAlias ?? null }).returning();
+                return { id: row.id, created: true } as any;
+            },
+            bindWorkspaceProfile: async (workspaceId: string, profileVersionId: string) => {
+                const db = drizzleDb.getDb();
+                await db.delete(workspaceProfileVersions).where(eq(workspaceProfileVersions.workspaceId, workspaceId));
+                const [row] = await db.insert(workspaceProfileVersions).values({ workspaceId, profileVersionId }).returning();
+                return row as any;
+            },
+            getProfileByName: async (name: string) => {
+                const db = drizzleDb.getDb();
+                const [row] = await db.select().from(profiles).where(eq(profiles.name, name)).limit(1);
+                return row || null;
+            },
+            listProfileVersions: async (profileId: string) => {
+                const db = drizzleDb.getDb();
+                return db.select().from(profileVersions).where(eq(profileVersions.profileId, profileId)).orderBy(desc(profileVersions.version));
+            }
+        } as any;
+
+        // Create seed manager with concrete database + in-test repo
+        seedManager = new SeedManager(drizzleDb, profileRepo);
     });
 
     it('initializes global MCP server mappings', async () => {
@@ -21,6 +103,7 @@ describe('SeedManager Specly seeding (SP-004)', () => {
 
         await seedManager.initializeGlobalData();
 
+        const db = drizzleDb.getDb();
         const mappings = await db.select().from(mcpServerMappings);
         expect(mappings.length).toBe(MCP_SERVER_MAPPINGS_SEED.length);
 
@@ -30,17 +113,17 @@ describe('SeedManager Specly seeding (SP-004)', () => {
     it('handles initialization errors gracefully', async () => {
         const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
 
-        // Mock the db to throw an error
-        const originalDb = seedManager['drizzleDb'];
-        seedManager['drizzleDb'] = {
+        // Mock the db to throw an error; the SeedManager stores the db instance at
+        // construction time, so override the private property directly here.
+        const originalDb = drizzleDb.getDb();
+        const fakeDb = {
             ...originalDb,
             delete: vi.fn().mockRejectedValue(new Error('DB error')),
-        };
+        } as any;
+        // directly replace the private drizzle db instance on the manager
+        (seedManager as any).drizzleDb = fakeDb;
 
         await expect(seedManager.initializeGlobalData()).rejects.toThrow('DB error');
-
-        // Restore
-        seedManager['drizzleDb'] = originalDb;
         consoleSpy.mockRestore();
     });
 
@@ -60,8 +143,11 @@ describe('SeedManager Specly seeding (SP-004)', () => {
     });
 
     it('creates root profile version and binds workspaces (if any)', async () => {
-        // Run seeding at least once (idempotent if already run by previous test)
+        // Run seeding
         await seedManager.seedSpecly();
+
+        // Check that profile was created
+        const db = drizzleDb.getDb();
         const profileRows = await db.select().from(profiles).where(eq(profiles.name, 'root-profile'));
         expect(profileRows.length).toBe(1);
         const versions = await db.select().from(profileVersions).where(eq(profileVersions.profileId, profileRows[0].id));
@@ -70,11 +156,226 @@ describe('SeedManager Specly seeding (SP-004)', () => {
 
     it('binds newly created workspace to existing root profile version on first seed after workspace creation', async () => {
         // Create a workspace AFTER initial seed so binding path is exercised separately
+        const globalDbService = new GlobalDatabaseService(drizzleDb);
         const wsId = 'ws-test-1';
-        await db.insert(workspaces).values({ id: wsId, path: '/tmp/ws-test-1', name: 'WS Test 1' });
+        await globalDbService.createWorkspace({ id: wsId, path: '/tmp/ws-test-1', name: 'WS Test 1' } as any);
+
         // Run seed again (should not recreate specs but should bind workspace if profile already exists)
         await seedManager.seedSpecly();
+        const db = drizzleDb.getDb();
         const bindings = await db.select().from(workspaceProfileVersions).where(eq(workspaceProfileVersions.workspaceId, wsId));
         expect(bindings.length).toBe(1);
+    });
+
+    it('handles database errors during spec seeding', async () => {
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+        // Mock the database operations to fail during spec seeding
+        const originalDb = drizzleDb.getDb();
+        const fakeDb = {
+            ...originalDb,
+            insert: vi.fn().mockImplementation((table) => {
+                if (table === specs) {
+                    return {
+                        values: vi.fn().mockRejectedValue(new Error('Spec insert error'))
+                    };
+                }
+                return {
+                    values: vi.fn().mockResolvedValue(undefined)
+                };
+            }),
+            select: vi.fn().mockReturnValue({
+                from: vi.fn().mockReturnValue([])
+            }),
+            delete: vi.fn().mockResolvedValue(undefined)
+        } as any;
+
+        // Use the fake db directly on the instance (SeedManager caches the db reference)
+        (seedManager as any).drizzleDb = fakeDb;
+
+        await expect(seedManager.seedSpecly()).rejects.toThrow('Spec insert error');
+        consoleSpy.mockRestore();
+    });
+
+    it('handles database errors during tool creation', async () => {
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+        // Mock the database operations to fail during tool creation
+        const originalDb = drizzleDb.getDb();
+        const fakeDb = {
+            ...originalDb,
+            insert: vi.fn().mockImplementation((table) => {
+                if (table === toolVersions) {
+                    return {
+                        values: vi.fn().mockRejectedValue(new Error('Tool creation error'))
+                    };
+                }
+                return {
+                    values: vi.fn().mockResolvedValue(undefined)
+                };
+            }),
+            select: vi.fn().mockReturnValue({
+                from: vi.fn().mockReturnValue([])
+            }),
+            delete: vi.fn().mockResolvedValue(undefined)
+        } as any;
+
+        (seedManager as any).drizzleDb = fakeDb;
+
+        await expect(seedManager.seedSpecly()).rejects.toThrow('Tool creation error');
+        consoleSpy.mockRestore();
+    });
+
+    it('handles database errors during profile creation', async () => {
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+        // Provide a mocked ProfileRepository implementation directly; avoid mocking the
+        // module to prevent mocking leaks across tests.
+        const mockProfileRepo = {
+            createProfile: vi.fn().mockRejectedValue(new Error('Profile creation error')),
+            createProfileVersion: vi.fn(),
+            attachToolToProfileVersion: vi.fn(),
+            bindWorkspaceProfile: vi.fn(),
+            getProfileByName: vi.fn(),
+            listProfileVersions: vi.fn()
+        } as any;
+
+        // Create a new seedManager instance with mocked ProfileRepository
+        const newSeedManager = new SeedManager(drizzleDb, mockProfileRepo);
+
+        await expect(newSeedManager.seedSpecly()).rejects.toThrow('Profile creation error');
+
+        consoleSpy.mockRestore();
+        // No module mock to restore since we pass a mocked repo directly
+    });
+
+    it('handles empty workspace list gracefully', async () => {
+        // Clear all workspaces
+        const db = drizzleDb.getDb();
+        await db.delete(workspaces);
+
+        const result = await seedManager.seedSpecly();
+        expect(result.workspaceBindings).toBe(0);
+        expect(result.specsCreated).toBe(SPECLY_SEED_SPECS.length);
+        expect(result.toolVersionsCreated).toBe(SPECLY_SEED_TOOLS.length);
+    });
+
+    it('handles profile version creation errors', async () => {
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+        // Provide a mocked ProfileRepository implementation directly; avoid mocking the
+        // module to prevent mocking leaks across tests.
+        const mockProfileRepo = {
+            createProfile: vi.fn().mockResolvedValue({
+                profile: { id: 'test-profile-id', name: 'root-profile', description: null, parentProfileId: null, createdAt: null },
+                created: true
+            }),
+            createProfileVersion: vi.fn().mockRejectedValue(new Error('Profile version creation error')),
+            attachToolToProfileVersion: vi.fn(),
+            bindWorkspaceProfile: vi.fn(),
+            getProfileByName: vi.fn(),
+            listProfileVersions: vi.fn()
+        };
+        const newSeedManager = new SeedManager(drizzleDb, mockProfileRepo);
+
+        await expect(newSeedManager.seedSpecly()).rejects.toThrow('Profile version creation error');
+
+        consoleSpy.mockRestore();
+        // No module mock to restore since we pass a mocked repo directly
+    });
+
+    it('handles tool attachment errors', async () => {
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+        // Mock the ProfileRepository
+        vi.mock('../repositories/profile-repository.js', () => {
+            const mockProfileRepository = vi.fn();
+            return {
+                ProfileRepository: mockProfileRepository
+            };
+        });
+        const { ProfileRepository } = await import('../repositories/profile-repository.js');
+
+        const mockProfileRepo = {
+            createProfile: vi.fn().mockResolvedValue({
+                profile: { id: 'test-profile-id', name: 'root-profile', description: null, parentProfileId: null, createdAt: null },
+                created: true
+            }),
+            createProfileVersion: vi.fn().mockResolvedValue({
+                id: 'test-profile-version-id',
+                version: 1,
+                created: true
+            }),
+            attachToolToProfileVersion: vi.fn().mockRejectedValue(new Error('Tool attachment error')),
+            bindWorkspaceProfile: vi.fn(),
+            getProfileByName: vi.fn().mockResolvedValue(null),
+            listProfileVersions: vi.fn().mockResolvedValue([])
+        };
+
+        const MockProfileRepository = vi.mocked(ProfileRepository);
+        MockProfileRepository.mockImplementation(() => mockProfileRepo);
+
+        // Create a new seedManager instance with mocked ProfileRepository
+        const newSeedManager = new SeedManager(drizzleDb, mockProfileRepo, undefined, {
+            listByTool: vi.fn((toolName: string) => {
+                return [{ hash: 'test-hash', toolName, graphManifest: '{}' }];
+            })
+        });
+
+        const restoreDb = overrideInsertError(newSeedManager, profileVersionTools, 'Tool attachment error');
+        try {
+            await expect(newSeedManager.seedSpecly()).rejects.toThrow('Tool attachment error');
+        } finally {
+            restoreDb();
+        }
+
+        consoleSpy.mockRestore();
+        // No module mock to restore since we pass a mocked repo directly
+    });
+
+    it('handles workspace binding errors', async () => {
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+        // Create a workspace to trigger binding
+        const globalDbService = new GlobalDatabaseService(drizzleDb);
+        await globalDbService.createWorkspace({ id: 'test-workspace', path: '/test', name: 'Test Workspace' } as any);
+
+        // Provide a mocked ProfileRepository implementation directly; avoid mocking the
+        // module to prevent mocking leaks across tests.
+        const mockProfileRepo = {
+            createProfile: vi.fn().mockResolvedValue({
+                profile: { id: 'test-profile-id', name: 'root-profile', description: null, parentProfileId: null, createdAt: null },
+                created: true
+            }),
+            createProfileVersion: vi.fn().mockResolvedValue({
+                id: 'test-profile-version-id',
+                version: 1,
+                created: true
+            }),
+            attachToolToProfileVersion: vi.fn().mockResolvedValue({
+                id: 'test-attachment-id',
+                created: true
+            }),
+            bindWorkspaceProfile: vi.fn().mockRejectedValue(new Error('Workspace binding error')),
+            getProfileByName: vi.fn().mockResolvedValue(null),
+            listProfileVersions: vi.fn().mockResolvedValue([])
+        };
+        const newSeedManager = new SeedManager(drizzleDb, mockProfileRepo, undefined, {
+            listByTool: vi.fn((toolName: string) => {
+                return [{ hash: 'test-hash', toolName, graphManifest: '{}' }];
+            })
+        });
+
+        // Replace db on manager to throw on workspace binding insert
+        const originalDb = drizzleDb.getDb();
+        const restoreDb = overrideInsertError(newSeedManager, workspaceProfileVersions, 'Workspace binding error');
+        try {
+            await expect(newSeedManager.seedSpecly()).rejects.toThrow('Workspace binding error');
+        } finally {
+            restoreDb();
+        }
+
+        consoleSpy.mockRestore();
+        // No module mock to restore since we pass a mocked repo directly
     });
 });

@@ -48,8 +48,8 @@ export class ProfilesController {
   /** POST /api/profiles/:profile/versions */
   async createProfileVersion(c: Context) {
     const profileName = c.req.param('profile');
-    const { parent_profile_version_id } = await c.req.json();
     if (!profileName) return c.json({ error: 'profile param required' }, 400);
+    const { parent_profile_version_id } = await c.req.json();
     const db = resolveDbService(c, this.defaultDb);
     await db.initialize();
     const repo = new ProfileRepository(db);

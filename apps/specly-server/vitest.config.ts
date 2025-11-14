@@ -7,7 +7,7 @@ if (typeof process !== 'undefined' && process.versions?.bun) {
 
 export default defineConfig({
     test: {
-        maxWorkers: 2,
+        maxWorkers: 3,
         globals: true,
         environment: 'node',
         include: ['src/**/*.test.ts'],

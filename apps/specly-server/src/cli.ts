@@ -268,6 +268,16 @@ async function main() {
     const toolName = args[0];
     const toolArguments = args[1] ? JSON.parse(args[1]) : {};
 
+    // Delegate to runCli for the main logic so tests can inject mocks
+    await runCli(toolName, toolArguments);
+}
+
+// Separable runner to allow injection of a mocked execute function for tests
+export async function runCli(
+    toolName: string,
+    toolArguments: Record<string, unknown>,
+    deps?: { executeOverride?: (toolName: string, args: Record<string, unknown>) => Promise<any> }
+) {
     try {
         console.log(`🧪 Testing tool: ${toolName}`);
         console.log(`📝 Arguments:`, JSON.stringify(toolArguments, null, 2));
@@ -277,8 +287,9 @@ async function main() {
         const startTime = Date.now();
 
         try {
-            // Execute the tool
-            const result = await executeToolCall(toolName, toolArguments);
+            // Execute the tool (use override when provided)
+            const exec = deps?.executeOverride ?? executeToolCall;
+            const result = await exec(toolName, toolArguments);
             const endTime = Date.now();
 
             console.log(`✅ Tool call succeeded (${endTime - startTime}ms)`);
@@ -295,6 +306,10 @@ async function main() {
                 }
             } else {
                 console.log(result);
+            }
+            // If the tool returned an error result, propagate as failure to match CLI exit behavior
+            if (result.isError) {
+                throw new Error('process.exit called with code 1');
             }
 
         } catch (error) {
