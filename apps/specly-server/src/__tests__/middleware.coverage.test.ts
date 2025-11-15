@@ -5,7 +5,7 @@ import {
   validateWorkspaceId,
   validateTaskId,
   rateLimit,
-  __test_rateLimitStore,
+    rateLimitStore,
   ValidationError,
   NotFoundError,
   BadRequestError
@@ -155,14 +155,14 @@ describe('rateLimit middleware', () => {
 
     const clientIp = '10.10.10.10';
     // pre-populate an expired entry for this client
-    __test_rateLimitStore.set(clientIp, { count: 2, resetTime: Date.now() - 1000 });
+      rateLimitStore.set(clientIp, { count: 2, resetTime: Date.now() - 1000 });
 
     // call the exported helper directly to explicitly exercise reset-window logic
     // import from module directly
     // @ts-ignore
-    const { __test_forceResetWindowForClient } = await import('../api/middleware.js');
+      const { forceResetWindowForClient } = await import('../api/middleware.js');
     // ensure helper resets and returns true (we set an expired entry above)
-    expect(__test_forceResetWindowForClient(clientIp, Date.now(), 1000)).toBe(true);
+      expect(forceResetWindowForClient(clientIp, Date.now(), 1000)).toBe(true);
 
     const rl = rateLimit(5, 1000);
     const ctx = makeCtx({ 'x-forwarded-for': clientIp });
@@ -178,7 +178,7 @@ describe('rateLimit middleware', () => {
     delete process.env.VITEST;
 
     // insert an expired entry
-    __test_rateLimitStore.set('9.9.9.9', { count: 1, resetTime: Date.now() - 1000 });
+      rateLimitStore.set('9.9.9.9', { count: 1, resetTime: Date.now() - 1000 });
 
     const rl = rateLimit(1, 1000);
     const ctx = makeCtx({ 'x-forwarded-for': '1.1.1.2' });
@@ -186,7 +186,7 @@ describe('rateLimit middleware', () => {
     await rl(ctx as any, next as any);
 
     // expired key should be removed by cleanup loop
-    expect(__test_rateLimitStore.has('9.9.9.9')).toBe(false);
+      expect(rateLimitStore.has('9.9.9.9')).toBe(false);
   });
 });
 

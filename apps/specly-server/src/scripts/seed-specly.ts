@@ -14,6 +14,7 @@
  */
 import { initializeGlobalDatabaseService } from '../database/global-queries.js';
 import { SeedManager } from '../services/seed-manager.js';
+import { exitProcess } from './exit-helper.js';
 
 interface SeedSummaryLog {
     event: 'specly_seed_summary';
@@ -57,11 +58,27 @@ export async function main() {
     }
 }
 
+// Exported helper so tests can invoke the CLI guard behavior without relying
+// on import-time side effects. Accepts an optional argv1 to simulate the
+// calling script path.
+export async function runIfMainSeed(argv1?: string) {
+    const arg = argv1 ?? process.argv[1];
+    if (import.meta.url === `file://${arg}` || arg.endsWith('seed-specly.ts') || arg.endsWith('seed-specly.js')) {
+        /* istanbul ignore next: main() internally catches errors; this catch is defensive and hard to trigger in tests */
+        return main().catch(err => {
+            console.error('Seed failed', err);
+            process.exit(1);
+        });
+    }
+    return Promise.resolve();
+}
+
 // Keep CLI behavior: run when executed directly
 /* istanbul ignore next */
 if (import.meta.url === `file://${process.argv[1]}` || process.argv[1].endsWith('seed-specly.ts') || process.argv[1].endsWith('seed-specly.js')) {
+    /* istanbul ignore next: top-level guard calls main().catch defensively; unreachable in test harness */
     main().catch(err => {
         console.error('Seed failed', err);
-        process.exit(1);
+        exitProcess(1);
     });
 }

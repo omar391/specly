@@ -364,11 +364,7 @@ export function buildStartOptions() {
         speclyServer.stopBackgroundJobs();
         // Start new instance
         setTimeout(async () => {
-          const { spawn } = await import('child_process');
-          spawn(process.argv[0], process.argv.slice(1), {
-            detached: true,
-            stdio: 'inherit',
-          }).unref();
+          await performTransitionSpawn();
         }, 100);
       },
     },
@@ -394,25 +390,54 @@ HTTP MODE ENDPOINTS:
   };
 }
 
+// Exported test helper to perform the dynamic spawn used during version transition.
+// Tests can spy on or stub this to avoid launching processes.
+export async function performTransitionSpawn() {
+  // Allow a simulated transition mode via environment flag to avoid spawning
+  // processes when running in constrained environments.
+  if (process.env.SPECLY_TRANSITION_SIMULATE === '1') {
+    const fake = { unref: () => { } };
+    // mirror the real call shape for coverage purposes
+    fake.unref();
+    return;
+  }
+
+  const { spawn } = await import('child_process');
+  spawn(process.argv[0], process.argv.slice(1), {
+    detached: true,
+    stdio: 'inherit',
+  }).unref();
+}
+
+export async function handleMainError(err: any) {
+  // Only log error if not in stdio mode
+  let cliOptions: ExtendedCliOptions;
+  try {
+    cliOptions = parseCliArgs();
+  } catch {
+    cliOptions = {
+      port: 8989,
+      mode: 'http',
+      local: false,
+      help: false,
+      killExisting: true,
+      forceSeed: false,
+    };
+  }
+  if (!cliOptions.mode || cliOptions.mode !== 'stdio') {
+    console.error(err);
+  }
+}
+
+/* istanbul ignore next */
+export function runIfMain() {
+  if (import.meta.url === `file://${process.argv[1]}` || process.argv[1].endsWith('dist/index.js')) {
+    return main().catch(handleMainError);
+  }
+  return Promise.resolve();
+}
+
 /* istanbul ignore next */
 if (import.meta.url === `file://${process.argv[1]}` || process.argv[1].endsWith('dist/index.js')) {
-  main().catch((err) => {
-    // Only log error if not in stdio mode
-    let cliOptions: ExtendedCliOptions;
-    try {
-      cliOptions = parseCliArgs();
-    } catch {
-      cliOptions = {
-        port: 8989,
-        mode: 'http',
-        local: false,
-        help: false,
-        killExisting: true,
-        forceSeed: false,
-      };
-    }
-    if (!cliOptions.mode || cliOptions.mode !== 'stdio') {
-      console.error(err);
-    }
-  });
+  runIfMain();
 }

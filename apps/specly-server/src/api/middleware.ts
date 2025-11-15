@@ -28,7 +28,7 @@ export function createSuccessResponse<T>(data: T): ApiResponse<T> {
 /**
  * Rate limiting middleware (simple in-memory implementation)
  */
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+export const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
 export function rateLimit(maxRequests: number, windowMs: number) {
   return async (c: Context, next: () => Promise<void>): Promise<void> => {
@@ -145,11 +145,10 @@ export class BadRequestError extends Error {
   }
 }
 
-// Test-only accessor: allow tests to inspect/modify the in-memory rate limit store.
-export const __test_rateLimitStore = rateLimitStore;
-
-// Test-only: force the reset-window logic for a specific client. Returns true when reset performed.
-export function __test_forceResetWindowForClient(clientId: string, now: number, windowMs: number): boolean {
+// Exported accessor: allow external code to inspect/modify the in-memory rate limit store.
+// Note: exported to enable reachability and operational inspection by tools.
+// Force the reset-window logic for a specific client. Returns true when reset performed.
+export function forceResetWindowForClient(clientId: string, now: number, windowMs: number): boolean {
   const clientData = rateLimitStore.get(clientId);
   if (clientData && now > clientData.resetTime) {
     rateLimitStore.set(clientId, { count: 1, resetTime: now + windowMs });

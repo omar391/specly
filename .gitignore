@@ -31,3 +31,4 @@ Thumbs.db
 AGENTS.md
 .nx/
 **/tsconfig.tsbuildinfo
+**/coverage-report.json

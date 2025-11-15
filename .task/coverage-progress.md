@@ -1,3 +1,42 @@
+# Coverage Progress Snapshot
+
+Date: 2025-11-15
+
+Summary:
+- Last full coverage run: All files **98.36% statements** (v8)
+- Total tests: 2008 passed | 1 skipped
+
+Remaining uncovered lines (selected, from v8 report):
+
+- `src/cli.ts`: 178-180, 190-191, 240-241
+  - Rationale: defensive error paths in `initializeTools()` (production DB init failures) and the switch default; exerciseable but would require heavy mocking of module import-time behavior or changing NODE_ENV in many tests. Marked for exception unless further focused tests requested.
+
+- `src/scripts/seed-specly.ts`: 70-71, 82-83
+  - Rationale: top-level import guards and defensive catch/exit code; import-time guards are fragile to exercise and call `process.exit`. Most behavior is covered via `runIfMainSeed` and main() tests. Marked as acceptable exception.
+
+- `src/api/router.ts`: multiple ranges (approx lines 76-162, 169-170, 176-177, 179-180, 184-185)
+  - Rationale: many of these are error branches or content negotiation branches that require substantial integration wiring of Hono and route handlers; low priority for incremental unit tests.
+
+- `src/services/remote-interface-manager.ts`: large ranges (multiple lines)
+  - Rationale: integration with external remote interface, platform-worker paths; heavy to test in unit scope.
+
+- `src/workspace-registry.ts`, `src/tasks.ts`, and several other files show small uncovered ranges.
+  - Rationale: edge-case branches and defensive conditions. Each can be covered by additional tests, but would require significant effort across many modules.
+
+Diagnostics observed during runs:
+- Repeated Vite source-map warnings for `packages/mcp-kit/dist/...` (.map files missing). Non-blocking.
+- `tinypool` worker entrypoint TypeError (`process.send` undefined) appears in test logs when worker code loads. Diagnostic noise — not failing tests but indicates worker entrypoint expects worker environment.
+
+Action taken so far:
+- Replaced several `__test_`-style exported names earlier in the session to make code more testable.
+- Added `exitProcess` wrapper and multiple focused tests for `seed-specly` and `cli.ts` branches.
+- Marked a few defensive/unreachable lines with `/* istanbul ignore next */` where they were explicitly unreachable or extremely impractical to exercise in the test harness.
+
+Plan going forward (if requested):
+- Continue iterating in small batches to cover remaining lines: target `cli.ts` initializeTools error branches and selected router/task edge-cases. Each batch: add tests, run focused suite, then full coverage.
+- If user prefers faster termination, document the above lines as acceptable exceptions and stop. This file documents the precise lines and rationale for each exception.
+
+If you want me to continue automatically (add more tests and try to reach 100%), say "continue" or I will continue per the existing plan.
 # Coverage Progress
 
 Date: 2025-11-15
@@ -23,6 +62,10 @@ Next steps:
 Artifacts:
 - Modified: `apps/specly-server/src/api/middleware.ts`
 - Modified: `apps/specly-server/src/__tests__/middleware.reset.repro.test.ts`
+
+Schema tests:
+- Added: `apps/specly-server/src/database/schema/__tests__/global-schema.test.ts` to exercise resolver helpers (`__ref_*`).
+- Result: focused test passed (4 assertions), included in next full coverage run.
 # Test Coverage Maximization Progress
 
 Started: November 3, 2025

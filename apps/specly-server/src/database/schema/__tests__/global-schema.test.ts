@@ -1,11 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import * as schema from '../global-schema';
 import {
+    workspaces,
+    specs,
+    profileVersions,
+    tools,
+    toolVersions,
     __ref_workspaces_id,
+    __ref_specs_hash,
     __ref_profileVersions_id,
     __ref_tools_name,
     __ref_toolVersions_hash,
-    __ref_specs_hash
 } from '../global-schema';
 
 describe('global-schema', () => {
@@ -27,19 +32,19 @@ describe('global-schema', () => {
         }
     });
 
-    it('resolver helpers are callable', () => {
-        // Call the exported resolver helpers to exercise the inline callbacks
+    it('resolver helpers are callable and return expected columns', () => {
+    // Check helpers are functions
         expect(typeof __ref_workspaces_id).toBe('function');
         expect(typeof __ref_profileVersions_id).toBe('function');
         expect(typeof __ref_tools_name).toBe('function');
         expect(typeof __ref_toolVersions_hash).toBe('function');
         expect(typeof __ref_specs_hash).toBe('function');
 
-        // Call them to make sure they're executed without throwing
-        __ref_workspaces_id();
-        __ref_profileVersions_id();
-        __ref_tools_name();
-        __ref_toolVersions_hash();
-        __ref_specs_hash();
+        // Each helper should return the same column object exported on the table
+        expect(__ref_workspaces_id()).toBe(workspaces.id);
+        expect(__ref_specs_hash()).toBe(specs.hash);
+        expect(__ref_profileVersions_id()).toBe(profileVersions.id);
+        expect(__ref_tools_name()).toBe(tools.name);
+        expect(__ref_toolVersions_hash()).toBe(toolVersions.hash);
     });
 });

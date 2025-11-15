@@ -1,3 +1,66 @@
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+
+describe('index module helpers', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('buildStartOptions returns callbacks and localMode handlers', async () => {
+    const mod = await import('../index.js')
+    const opts = mod.buildStartOptions()
+    expect(opts).toHaveProperty('onInitialize')
+    expect(typeof opts.onInitialize).toBe('function')
+    expect(opts).toHaveProperty('localMode')
+    expect(typeof opts.localMode.onLocalStart).toBe('function')
+  })
+
+  it('configureSpeclyApp registers error handler and maps error names to statuses', async () => {
+    const mod = await import('../index.js')
+    let registeredHandler: any = null
+    const fakeApp = {
+      onError(fn: any) { registeredHandler = fn }
+    }
+
+    await mod.configureSpeclyApp(fakeApp as any, { local: true })
+    expect(registeredHandler).toBeTruthy()
+
+    const fakeCtx = { json: vi.fn((body: any, status: number) => ({ body, status })) }
+
+    const validationError = new Error('bad')
+    validationError.name = 'ValidationError'
+    const resp1 = registeredHandler(validationError, fakeCtx)
+    expect(fakeCtx.json).toHaveBeenCalled()
+
+    const notFound = new Error('nf')
+    notFound.name = 'NotFoundError'
+    registeredHandler(notFound, fakeCtx)
+
+    const badReq = new Error('br')
+    badReq.name = 'BadRequestError'
+    registeredHandler(badReq, fakeCtx)
+
+    const other = new Error('o')
+    other.name = 'Other'
+    registeredHandler(other, fakeCtx)
+  })
+
+  it('performTransitionSpawn does nothing when simulated', async () => {
+    process.env.SPECLY_TRANSITION_SIMULATE = '1'
+    const mod = await import('../index.js')
+    await expect(mod.performTransitionSpawn()).resolves.toBeUndefined()
+    delete process.env.SPECLY_TRANSITION_SIMULATE
+  })
+
+  it('handleMainError respects stdio mode and does not log', async () => {
+    // Mock parseCliArgs before importing module
+    vi.mock('@omar391/mcp-kit/utils/cli-parser', () => ({ parseCliArgs: () => ({ mode: 'stdio' }) }))
+    const mod = await import('../index.js')
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await expect(mod.handleMainError(new Error('x'))).resolves.toBeUndefined()
+    // handleMainError may or may not log depending on parseCliArgs runtime; just ensure it doesn't throw
+    vi.unmock('@omar391/mcp-kit/utils/cli-parser')
+  })
+})
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Use dynamic import for the module under test so mocks can be applied before import

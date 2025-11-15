@@ -237,8 +237,13 @@ async function executeToolCall(toolName: string, toolArguments: Record<string, u
             return await tools.specly_remote_interface.execute(args);
         }
         default:
-            throw new Error(`Unhandled tool: ${toolName}`);
+            return throwUnhandledTool(toolName);
     }
+}
+
+// Exported helper so tests can exercise the unhandled-tool branch deterministically
+export function throwUnhandledTool(toolName: string): never {
+    throw new Error(`Unhandled tool: ${toolName}`);
 }
 
 // Export for testing
