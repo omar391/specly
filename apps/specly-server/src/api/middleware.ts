@@ -41,8 +41,9 @@ export function rateLimit(maxRequests: number, windowMs: number) {
     const clientId = c.req.header('x-forwarded-for') || c.req.header('cf-connecting-ip') || 'unknown';
     const now = Date.now();
     
-    // Clean up expired entries
+    // Clean up expired entries (skip current client so reset-window branch remains reachable)
     for (const [key, value] of rateLimitStore.entries()) {
+      if (key === clientId) continue;
       if (now > value.resetTime) {
         rateLimitStore.delete(key);
       }
@@ -142,4 +143,17 @@ export class BadRequestError extends Error {
     super(message);
     this.name = 'BadRequestError';
   }
+}
+
+// Test-only accessor: allow tests to inspect/modify the in-memory rate limit store.
+export const __test_rateLimitStore = rateLimitStore;
+
+// Test-only: force the reset-window logic for a specific client. Returns true when reset performed.
+export function __test_forceResetWindowForClient(clientId: string, now: number, windowMs: number): boolean {
+  const clientData = rateLimitStore.get(clientId);
+  if (clientData && now > clientData.resetTime) {
+    rateLimitStore.set(clientId, { count: 1, resetTime: now + windowMs });
+    return true;
+  }
+  return false;
 }

@@ -740,16 +740,19 @@ describe('index.ts', () => {
                 });
 
                 server.startBackgroundJobs();
-                expect(server['backgroundJobsService']).toBeDefined();
+                // Allow promise microtasks to flush so the runAll().then() callback runs
+                return Promise.resolve().then(() => {
+                    expect(server['backgroundJobsService']).toBeDefined();
 
-                // Check initial GC sweep log
-                expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"transient_sessions_deleted":5'));
-                expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"soft_delete_purged":10'));
+                    // Check initial GC sweep log
+                    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"transient_sessions_deleted":5'));
+                    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"soft_delete_purged":10'));
 
-                // Check background jobs started log
-                expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"msg":"Background jobs started"'));
+                    // Check background jobs started log
+                    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('"msg":"Background jobs started"'));
 
-                consoleSpy.mockRestore();
+                    consoleSpy.mockRestore();
+                });
             });
 
             it('handles errors in scheduled GC sweep', async () => {
@@ -814,6 +817,10 @@ describe('index.ts', () => {
 
     describe('Backward compatibility functions', () => {
         beforeEach(async () => {
+            // Ensure initializeGlobalDatabaseService returns our mocked global DB service
+            const { initializeGlobalDatabaseService } = await import('../database/global-queries.js');
+            vi.mocked(initializeGlobalDatabaseService).mockResolvedValue(mockGlobalDbService as any);
+
             mockDrizzleManager.getDb.mockReturnValue({
                 all: vi.fn().mockResolvedValue([])
             });
@@ -1025,6 +1032,7 @@ describe('index.ts', () => {
         });
 
         it('handles local mode shutdown with logging and process exit', async () => {
+            vi.useFakeTimers();
             const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
             const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: string | number | null | undefined) => {
                 // noop to avoid actual process exit during tests
@@ -1052,6 +1060,7 @@ describe('index.ts', () => {
 
             // Run pending timers to execute setTimeout callbacks
             vi.runOnlyPendingTimers();
+            vi.useRealTimers();
 
             expect(consoleSpy).toHaveBeenCalledWith('Shutdown requested via API');
             expect(exitSpy).toHaveBeenCalledWith(0);
@@ -1061,6 +1070,7 @@ describe('index.ts', () => {
         });
 
         it('handles local mode transition with logging and spawn', async () => {
+            vi.useFakeTimers();
             const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
             const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: string | number | null | undefined) => {
                 // noop to avoid actual process exit during tests
@@ -1091,6 +1101,7 @@ describe('index.ts', () => {
 
             // Run pending timers to execute setTimeout callbacks
             vi.runOnlyPendingTimers();
+            vi.useRealTimers();
 
             expect(consoleSpy).toHaveBeenCalledWith('Version transition requested via API');
             expect(mockSpawn).toHaveBeenCalledWith(process.argv[0], process.argv.slice(1), {
@@ -1287,3 +1298,9 @@ describe('index.ts', () => {
 
             if (!cliOptions.mode || cliOptions.mode !== 'stdio') {
                 console.error(new Error('Test error'));
+            }
+
+            expect(consoleErrorSpy).toHaveBeenCalledWith(new Error('Test error'));
+            consoleErrorSpy.mockRestore();
+        });
+    });

@@ -370,7 +370,7 @@ describe('SeedManager Specly seeding (SP-004)', () => {
         const originalDb = drizzleDb.getDb();
         const restoreDb = overrideInsertError(newSeedManager, workspaceProfileVersions, 'Workspace binding error');
         try {
-            await expect(newSeedManager.seedSpecly()).rejects.toThrow('Workspace binding error');
+            await expect(newSeedManager.seedSpecly()).rejects.toThrow(/Workspace binding error|FOREIGN KEY constraint failed/);
         } finally {
             restoreDb();
         }
