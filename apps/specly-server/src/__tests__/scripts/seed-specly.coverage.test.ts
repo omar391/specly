@@ -92,6 +92,19 @@ describe('seed-specly runIfMainSeed', () => {
         }
     });
 
+    it('main() throws error when exitOnError is false', async () => {
+        vi.resetModules();
+        vi.unmock('../../database/global-queries.js');
+        // Mock DB initializer to throw immediately
+        vi.mock('../../database/global-queries.js', () => ({
+            initializeGlobalDatabaseService: async () => { throw new Error('test-error'); }
+        }));
+
+        const { main } = await import('../../scripts/seed-specly.js');
+        // With exitOnError: false, main should throw instead of calling process.exit
+        await expect(main({ exitOnError: false })).rejects.toThrow('test-error');
+    });
+
     it('main() catch path logs and exits when initializeGlobalDatabaseService throws', async () => {
         vi.resetModules();
         vi.unmock('../../database/global-queries.js');
@@ -100,11 +113,13 @@ describe('seed-specly runIfMainSeed', () => {
             initializeGlobalDatabaseService: async () => { throw new Error('init-fail'); }
         }));
 
-        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number | string | null) => { /* noop */ }) as unknown as never);
-        const errSpy = vi.spyOn(console, 'error').mockImplementation(() => { /* noop */ });
+        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number | string | null) => { 
+            throw new Error('EXIT_CALLED'); 
+        }) as unknown as never);
+        const errSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
         try {
             const { main } = await import('../../scripts/seed-specly.js');
-            await expect(main()).resolves.toBeUndefined();
+            await expect(main()).rejects.toThrow('EXIT_CALLED');
         } finally {
             exitSpy.mockRestore();
             errSpy.mockRestore();
@@ -115,21 +130,16 @@ describe('seed-specly runIfMainSeed', () => {
         vi.resetModules();
         vi.unmock('../../database/global-queries.js');
         vi.mock('../../database/global-queries.js', () => ({
-            initializeGlobalDatabaseService: async () => ({ getDrizzleManager: () => ({}) })
-        }));
-        vi.mock('../../services/seed-manager.js', () => ({
-            SeedManager: class {
-                constructor() { }
-                async initializeGlobalData() { return; }
-                async seedSpecly() { throw new Error('boom'); }
-            }
+            initializeGlobalDatabaseService: async () => { throw new Error('db-fail'); }
         }));
 
-        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number | string | null) => { /* noop */ }) as unknown as never);
+        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number | string | null) => { 
+            throw new Error('EXIT_CALLED'); 
+        }) as unknown as never);
         try {
             const { runIfMainSeed } = await import('../../scripts/seed-specly.js');
-            // ensure runIfMainSeed invokes main and completes (it handles exit internally)
-            await expect(runIfMainSeed('/tmp/seed-specly.ts')).resolves.toBeUndefined();
+            // runIfMainSeed should call main, which should throw due to process.exit mock
+            await expect(runIfMainSeed('/tmp/seed-specly.ts')).rejects.toThrow('EXIT_CALLED');
         } finally {
             exitSpy.mockRestore();
         }
@@ -141,20 +151,15 @@ describe('seed-specly runIfMainSeed', () => {
         vi.resetModules();
         vi.unmock('../../database/global-queries.js');
         vi.mock('../../database/global-queries.js', () => ({
-            initializeGlobalDatabaseService: async () => ({ getDrizzleManager: () => ({}) })
-        }));
-        vi.mock('../../services/seed-manager.js', () => ({
-            SeedManager: class {
-                constructor() { }
-                async initializeGlobalData() { return; }
-                async seedSpecly() { throw new Error('boom'); }
-            }
+            initializeGlobalDatabaseService: async () => { throw new Error('import-fail'); }
         }));
 
-        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number | string | null) => { /* noop */ }) as unknown as never);
+        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number | string | null) => { 
+            throw new Error('EXIT_CALLED'); 
+        }) as unknown as never);
         try {
-            // Importing the module will run the top-level guard; ensure import completes
-            await import('../../scripts/seed-specly.js');
+            // Importing the module will run the top-level guard; expect it to throw due to process.exit
+            await expect(import('../../scripts/seed-specly.js')).rejects.toThrow('EXIT_CALLED');
         } finally {
             exitSpy.mockRestore();
             process.argv[1] = origArgv1;
@@ -164,28 +169,21 @@ describe('seed-specly runIfMainSeed', () => {
     it('runIfMainSeed catch path', async () => {
         vi.resetModules();
         vi.mock('../../database/global-queries.js', () => ({
-            initializeGlobalDatabaseService: async () => ({ getDrizzleManager: () => ({}) })
-        }));
-        vi.mock('../../services/seed-manager.js', () => ({
-            SeedManager: class {
-                constructor() { }
-                async initializeGlobalData() { return; }
-                async seedSpecly() { throw new Error('test'); }
-            }
+            initializeGlobalDatabaseService: async () => { throw new Error('test-fail'); }
         }));
 
         const origArgv1 = process.argv[1];
         process.argv[1] = 'other.js'; // prevent top-level guard
-        const exitSpy = vi.spyOn(process, 'exit').mockImplementation((code?: number | string | null) => { /* noop */ });
+        const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number | string | null) => { 
+            throw new Error('EXIT_CALLED'); 
+        }) as unknown as never);
         const errSpy = vi.spyOn(console, 'error');
         const module = await import('../../scripts/seed-specly.js');
         process.argv[1] = origArgv1;
         try {
             // Use the correct path that matches import.meta.url
             const targetPath = new URL('../../scripts/seed-specly.js', import.meta.url).pathname;
-            await module.runIfMainSeed(targetPath);
-            // expect(console.error).toHaveBeenCalledWith('Seed failed', expect.any(Error)); // FIXME: spy not working
-            // expect(process.exit).toHaveBeenCalledWith(1); // FIXME: spy not working
+            await expect(module.runIfMainSeed(targetPath)).rejects.toThrow('EXIT_CALLED');
         } finally {
             exitSpy.mockRestore();
             errSpy.mockRestore();

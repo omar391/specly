@@ -28,7 +28,8 @@ interface SeedSummaryLog {
     createdToolVersionHashes: string[];
 }
 
-export async function main() {
+export async function main(options: { exitOnError?: boolean } = {}) {
+    const { exitOnError = true } = options;
     try {
         const pretty = process.argv.includes('--pretty');
         const globalDb = await initializeGlobalDatabaseService();
@@ -53,19 +54,27 @@ export async function main() {
         }
     } catch (err) {
         console.error('Seed failed', err);
-        process.exit(1);
+        if (exitOnError) {
+            process.exit(1);
+        } else {
+            throw err;
+        }
     }
 }
 
 // Exported helper so tests can invoke the CLI guard behavior without relying
 // on import-time side effects. Accepts an optional argv1 to simulate the
 // calling script path.
-export async function runIfMainSeed(argv1?: string) {
+export async function runIfMainSeed(argv1?: string, options: { exitOnError?: boolean } = {}) {
     const arg = argv1 ?? process.argv[1];
     if (import.meta.url === `file://${arg}` || arg.endsWith('seed-specly.ts') || arg.endsWith('seed-specly.js')) {
-        return main().catch(err => {
+        return main(options).catch(err => {
             console.error('Seed failed', err);
-            process.exit(1);
+            if (options.exitOnError !== false) {
+                process.exit(1);
+            } else {
+                throw err;
+            }
         });
     }
     return Promise.resolve();
