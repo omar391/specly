@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { DrizzleDatabaseManager, DatabaseType } from '../database/drizzle-connection.js';
-import { GlobalDatabaseService, initializeGlobalDatabaseService } from '../database/global-queries.js';
+import { GlobalDatabaseService, initializeGlobalDatabaseService, getGlobalDatabaseService } from '../database/global-queries.js';
 import * as GlobalQueriesModule from '../database/global-queries.js';
 
 // Simple id helper
@@ -51,6 +51,11 @@ describe('GlobalDatabaseService (concrete GLOBAL DB)', () => {
       expect(Object.keys(specsMap).sort()).toEqual([specHash1, specHash2].sort());
       expect(specsMap[specHash1]?.executorType).toBe('local');
       expect(specsMap[specHash2]?.intent).toBe('autonomous');
+    });
+
+    it('getToolVersion returns null for non-existent hash', async () => {
+      const result = await svc.getToolVersion('non-existent-hash');
+      expect(result).toBeNull();
     });
   });
 
@@ -139,6 +144,26 @@ describe('GlobalDatabaseService (concrete GLOBAL DB)', () => {
       // deleting again should be false
       expect(await svc.deleteWorkspace(w1.id)).toBe(false);
     });
+
+    it('getWorkspace returns null for non-existent id', async () => {
+      const result = await svc.getWorkspace('non-existent-id');
+      expect(result).toBeNull();
+    });
+
+    it('getWorkspaceByPath returns null for non-existent path', async () => {
+      const result = await svc.getWorkspaceByPath('/non/existent/path');
+      expect(result).toBeNull();
+    });
+
+    it('updateWorkspace returns null for non-existent id', async () => {
+      const result = await svc.updateWorkspace('non-existent-id', { name: 'test' });
+      expect(result).toBeNull();
+    });
+
+    it('deleteWorkspace returns false for non-existent id', async () => {
+      const result = await svc.deleteWorkspace('non-existent-id');
+      expect(result).toBe(false);
+    });
   });
 
   describe('Session operations', () => {
@@ -172,6 +197,12 @@ describe('GlobalDatabaseService (concrete GLOBAL DB)', () => {
       const inactiveOnly = await svc.getAllSessions({ workspaceId: w.id, isActive: false });
       expect(inactiveOnly.length).toBe(1);
       expect(inactiveOnly[0].id).toBe(s2.id);
+    });
+
+    it('getActiveSession returns null when no active session exists', async () => {
+      const w = await svc.createWorkspace({ id: id('w'), path: '/tmp/no-active', name: 'WS', status: 'idle' });
+      const result = await svc.getActiveSession(w.id);
+      expect(result).toBeNull();
     });
   });
 
@@ -210,6 +241,21 @@ describe('GlobalDatabaseService (concrete GLOBAL DB)', () => {
     it('setDefaultMcpServerMapping throws for missing id', async () => {
       await expect(svc.setDefaultMcpServerMapping('does-not-exist')).rejects.toThrow('MCP server mapping not found');
     });
+
+    it('getDefaultMcpServerMapping returns null when no default exists', async () => {
+      const result = await svc.getDefaultMcpServerMapping('non-existent-type');
+      expect(result).toBeNull();
+    });
+
+    it('updateMcpServerMapping returns null for non-existent id', async () => {
+      const result = await svc.updateMcpServerMapping('non-existent-id', { description: 'test' });
+      expect(result).toBeNull();
+    });
+
+    it('deleteMcpServerMapping returns false for non-existent id', async () => {
+      const result = await svc.deleteMcpServerMapping('non-existent-id');
+      expect(result).toBe(false);
+    });
   });
 });
 
@@ -220,5 +266,17 @@ describe('initializeGlobalDatabaseService (singleton + error path)', () => {
     // Not closing here; it uses global ~/.specly/global.db; harmless for tests
   });
 
+  it('re-throws errors from service initialization', async () => {
+    const service = getGlobalDatabaseService();
+    expect(service).toBeDefined();
 
+    // Spy on the service's initialize method to make it throw
+    const initializeSpy = vi.spyOn(service!, 'initialize').mockRejectedValueOnce(new Error('Mock initialization error'));
+
+    // Expect the function to throw
+    await expect(initializeGlobalDatabaseService()).rejects.toThrow('Mock initialization error');
+
+    // Restore the spy
+    initializeSpy.mockRestore();
+  });
 });
