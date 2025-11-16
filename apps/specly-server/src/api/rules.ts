@@ -118,11 +118,13 @@ export class RulesController {
       // Apply ordering: confidence desc, then lastReinforcedAt desc (recency)
       rules = rules.sort((a, b) => {
         const confDiff = (b.confidence || 0) - (a.confidence || 0);
-        if (confDiff !== 0) return confDiff;
-
-        const aTime = a.lastReinforcedAt || a.createdAt || '';
-        const bTime = b.lastReinforcedAt || b.createdAt || '';
-        return bTime.localeCompare(aTime);
+        if (confDiff !== 0) {
+          return confDiff;
+        } else {
+          const aTime = a.lastReinforcedAt || a.createdAt || '';
+          const bTime = b.lastReinforcedAt || b.createdAt || '';
+          return bTime.localeCompare(aTime);
+        }
       });
 
       return c.json({ rules }, 200);
