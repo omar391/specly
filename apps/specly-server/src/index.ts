@@ -443,7 +443,6 @@ export async function handleMainError(err: any) {
   }
 }
 
-/* istanbul ignore next */
 export function runIfMain() {
   if (import.meta.url === `file://${process.argv[1]}` || process.argv[1].endsWith('dist/index.js')) {
     return main().catch(handleMainError);
@@ -451,7 +450,6 @@ export function runIfMain() {
   return Promise.resolve();
 }
 
-/* istanbul ignore next */
 if (import.meta.url === `file://${process.argv[1]}` || process.argv[1].endsWith('dist/index.js')) {
   runIfMain();
 }

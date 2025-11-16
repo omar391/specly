@@ -26,8 +26,11 @@ describe('index.ts import run-if-main guard', () => {
     }));
 
     try {
-      // Act: dynamic import; module top-level code will run the guard and call startMcpServer (mocked)
-      await import('../index.ts');
+      // Import runIfMain and call it directly
+      const { runIfMain } = await import('../index.ts');
+
+      // Act: call runIfMain directly; it will run the guard and call startMcpServer (mocked)
+      await runIfMain();
 
       // Assert: our mocked startMcpServer was invoked
       expect(startMock).toHaveBeenCalled();
