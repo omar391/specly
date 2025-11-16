@@ -400,4 +400,79 @@ describe('Repository Enhancements (SP-021)', () => {
     expect(parsedManifest.edges).toBeDefined();
     expect(parsedManifest.edges.length).toBe(2);
   });
+
+  it('should cover ternary branches for showOutput and sideEffect', async () => {
+    const repo = new SpecRepositoryImpl(globalDb);
+
+    // Test showOutput: false (covers the === false branch)
+    const inputWithShowOutputFalse = {
+      executorType: 'test-executor',
+      executorVersion: '1.0.0',
+      intent: 'human' as const,
+      sideEffect: true, // covers sideEffect truthy branch
+      showOutput: false, // covers showOutput === false branch
+      contentTemplate: 'Test template',
+      staticParams: { key: 'value' },
+      inputSchema: { type: 'object' },
+      outputSchema: { type: 'string' },
+      retryPolicy: { maxAttempts: 5 },
+      security: { allow: ['*'] },
+      metadata: { ternary_test: crypto.randomUUID() }
+    };
+
+    const result = await repo.createOrGet(inputWithShowOutputFalse);
+    expect(result.created).toBe(true);
+
+    const retrieved = await repo.get(result.hash);
+    expect(retrieved).toBeDefined();
+    expect(retrieved?.sideEffect).toBe(true); // sideEffect true -> true (boolean)
+    expect(retrieved?.showOutput).toBe(false); // showOutput false -> false (boolean)
+  });
+
+  it('should cover null branches for optional fields', async () => {
+    const repo = new SpecRepositoryImpl(globalDb);
+
+    // Test with minimal inputs to cover null branches in JSON.stringify ternaries
+    const minimalInput = {
+      executorType: 'minimal-executor',
+      executorVersion: '1.0.0',
+      intent: 'autonomous' as const,
+      // No sideEffect (undefined -> false)
+      // No contentTemplate (null)
+      // No staticParams (empty object)
+      // No inputSchema (null)
+      // No outputSchema (null)
+      // No idempotencyKeyTemplate (null)
+      // No retryPolicy (null)
+      // No showOutput (undefined -> true)
+      // No security (null)
+      // No metadata (empty object)
+      metadata: { minimal_test: crypto.randomUUID() }
+    };
+
+    const result = await repo.createOrGet(minimalInput);
+    expect(result.created).toBe(true);
+
+    const retrieved = await repo.get(result.hash);
+    expect(retrieved).toBeDefined();
+    expect(retrieved?.sideEffect).toBe(false); // no sideEffect -> false
+    expect(retrieved?.showOutput).toBe(true); // no showOutput -> true
+    expect(retrieved?.contentTemplate).toBeNull();
+    expect(retrieved?.inputSchema).toBeNull();
+    expect(retrieved?.outputSchema).toBeNull();
+    expect(retrieved?.retryPolicy).toBeNull();
+    expect(retrieved?.security).toBeNull();
+  });
+
+  it('should return null when getting non-existent spec', async () => {
+    const repo = new SpecRepositoryImpl(globalDb);
+    const result = await repo.get('non-existent-hash');
+    expect(result).toBeNull();
+  });
+
+  it('should return null when getting non-existent tool version', async () => {
+    const toolRepo = new ToolVersionRepositoryImpl(globalDb);
+    const result = await toolRepo.get('non-existent-hash');
+    expect(result).toBeNull();
+  });
 });

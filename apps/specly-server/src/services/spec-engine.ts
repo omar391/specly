@@ -220,8 +220,22 @@ export class SpecEngine {
         } catch (vErr: any) {
             if (vErr instanceof GraphValidationError) {
                 let code: SpecEngineErrorCode | undefined;
-        if (vErr.code === 'ERR_UNDECLARED_SPEC') code = SpecEngineErrorCode.GRAPH_MISSING_NODE;
-        if (vErr.code === 'ERR_CYCLE' || vErr.code === 'ERR_SELF_LOOP') code = SpecEngineErrorCode.GRAPH_CYCLE;
+                switch (vErr.code) {
+                    case 'ERR_UNDECLARED_SPEC':
+                    case 'ERR_ENTRY_NOT_DECLARED':
+                    case 'ERR_UNREACHABLE':
+                        code = SpecEngineErrorCode.GRAPH_MISSING_NODE;
+                        break;
+                    case 'ERR_CYCLE':
+                    case 'ERR_SELF_LOOP':
+                        code = SpecEngineErrorCode.GRAPH_CYCLE;
+                        break;
+                    case 'ERR_PRIORITY_INVALID':
+                        code = SpecEngineErrorCode.GRAPH_MISSING_NODE;
+                        break;
+                    default:
+                        throw vErr;
+                }
                 return { status: 'error', executed: [], results: {}, warnings: [], error: { message: vErr.message }, errorCode: code };
             }
             throw vErr;

@@ -53,21 +53,37 @@ export async function main(options: { exitOnError?: boolean } = {}) {
             console.log('\n' + JSON.stringify({ ok: true, ...result }, null, 2));
         }
     } catch (err) {
-        console.error('Seed failed', err);
         if (exitOnError) {
-            process.exit(1);
+            handleMainError(err);
         } else {
+            console.error('Seed failed', err);
             throw err;
         }
     }
 }
 
+// Extracted to a named function to make the top-level CLI behavior
+// testable without relying on import-time side effects.
+export function handleMainError(err: unknown) {
+    console.error('Seed failed', err);
+    process.exit(1);
+}
+
 // Exported helper so tests can invoke the CLI guard behavior without relying
 // on import-time side effects. Accepts an optional argv1 to simulate the
 // calling script path.
-export async function runIfMainSeed(argv1?: string, options: { exitOnError?: boolean } = {}) {
-    const arg = argv1 ?? process.argv[1];
-    if (import.meta.url === `file://${arg}` || arg.endsWith('seed-specly.ts') || arg.endsWith('seed-specly.js')) {
+export function isSeedScriptArg(arg: string = process.argv[1]) {
+    const candidate = arg;
+    return (
+        import.meta.url === `file://${candidate}` ||
+        candidate.endsWith('seed-specly.ts') ||
+        candidate.endsWith('seed-specly.js')
+    );
+}
+
+export async function runIfMainSeed(argv1: string = process.argv[1], options: { exitOnError?: boolean } = {}) {
+    const arg = argv1;
+    if (isSeedScriptArg(arg)) {
         return main(options).catch(err => {
             console.error('Seed failed', err);
             if (options.exitOnError !== false) {
@@ -82,8 +98,20 @@ export async function runIfMainSeed(argv1?: string, options: { exitOnError?: boo
 
 // Keep CLI behavior: run when executed directly
 if (import.meta.url === `file://${process.argv[1]}` || process.argv[1].endsWith('seed-specly.ts') || process.argv[1].endsWith('seed-specly.js')) {
-    main().catch(err => {
-        console.error('Seed failed', err);
-        process.exit(1);
+    runCliMainGuard();
+}
+
+// Exported helper so tests can directly exercise the CLI guard behavior.
+export function runCliMainGuard() {
+    // Delegate to the options-aware helper for a single, testable path.
+    runCliMainGuardWithOptions();
+}
+
+// Variant that accepts `main` options. Useful for tests that need to
+// cause `main` to reject (for example `exitOnError: false`) so that the
+// outer promise rejection handler in this module is exercised.
+export function runCliMainGuardWithOptions(options: { exitOnError?: boolean } = {}) {
+    main(options).catch((err) => {
+        handleMainError(err);
     });
 }

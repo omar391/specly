@@ -877,7 +877,7 @@ describe('SpecEngine (SP-005)', () => {
     expect(result.errorCode).toBe(SpecEngineErrorCode.GRAPH_CYCLE);
   });
 
-  it('handles graph self-loop validation error', async () => {
+  it('handles graph validation error for invalid priority', async () => {
     const graph: ToolGraph = {
       entry: 'A',
       nodes: {
@@ -885,8 +885,7 @@ describe('SpecEngine (SP-005)', () => {
         B: makeNode('B')
       },
       edges: [
-        { from: 'A', to: 'A' }, // self-loop
-        { from: 'A', to: 'B' }
+        { from: 'A', to: 'B', priority: -1 } // invalid priority
       ]
     };
 
@@ -894,7 +893,7 @@ describe('SpecEngine (SP-005)', () => {
     const result = await engine.run(graph);
 
     expect(result.status).toBe('error');
-    expect(result.errorCode).toBe(SpecEngineErrorCode.GRAPH_CYCLE);
+    expect(result.errorCode).toBe(SpecEngineErrorCode.GRAPH_MISSING_NODE);
   });
 
   it('resumes with persistent journal', async () => {

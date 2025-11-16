@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { existsSync, rmSync } from 'fs';
+import { dirname } from 'path';
 
 // For the initialization test we need to control schema loading. Mock fs.readFileSync
 vi.mock('fs', async () => {
@@ -6,9 +8,15 @@ vi.mock('fs', async () => {
   return {
     ...actual,
     readFileSync: (path: string, enc?: string) => {
+      if ((global as any).fsReadFail) {
+        throw new Error('File read failed');
+      }
       // Return a minimal schema that will create a test table
       return 'CREATE TABLE IF NOT EXISTS __test_table (id TEXT PRIMARY KEY);';
-    }
+    },
+    // Don't mock mkdirSync and existsSync for directory creation test
+    // mkdirSync: vi.fn(),
+    // existsSync: vi.fn(() => true)
   };
 });
 
@@ -21,10 +29,25 @@ vi.mock('sqlite3', async () => {
       private inTransaction = false;
       private pendingInserts: any[] = [];
       constructor(public path: string, cb?: (err: Error | null) => void) {
+        // Check if we should fail
+        if ((global as any).sqliteFail) {
+          if (cb) cb(new Error('Connection failed'));
+          return;
+        }
         // immediate success
         if (cb) cb(null);
       }
       run(sql: string, paramsOrCb?: any[] | ((err: Error | null) => void), cb?: (err: Error | null, res?: any) => void) {
+        // Check if we should fail
+        if ((global as any).sqliteRunFail) {
+          const err = new Error('Run failed');
+          if (typeof paramsOrCb === 'function') {
+            (paramsOrCb as Function)(err);
+          } else if (cb) {
+            cb(err);
+          }
+          return;
+        }
         const sqlUpper = sql.toUpperCase().trim();
 
         if (sqlUpper === 'BEGIN' || sqlUpper === 'BEGIN TRANSACTION') {
@@ -133,6 +156,11 @@ vi.mock('sqlite3', async () => {
         }
       }
       exec(sql: string, cb?: (err: Error | null) => void) {
+        // Check if we should fail
+        if ((global as any).sqliteExecFail) {
+          if (cb) cb(new Error('Exec failed'));
+          return;
+        }
         if (cb) cb(null);
       }
       close(cb?: (err?: Error | null) => void) {
@@ -192,6 +220,25 @@ CREATE TABLE common(id TEXT);
     const filtered = (m as any).filterSchemaByType(schema);
     expect(filtered).toContain('CREATE TABLE w1');
     expect(filtered).toContain('CREATE TABLE common');
+    expect(filtered).not.toContain('CREATE TABLE g1');
+  });
+
+  it('filterSchemaByType handles all comment types and continues', () => {
+    const schema = `-- @global-only
+CREATE TABLE g1(id TEXT);
+-- @end
+-- @workspace-only
+CREATE TABLE w1(id TEXT);
+-- @end
+-- Some other comment
+CREATE TABLE common(id TEXT);
+`;
+
+    const m = new DatabaseManager(':memory:', DatabaseType.WORKSPACE);
+    const filtered = (m as any).filterSchemaByType(schema);
+    expect(filtered).toContain('CREATE TABLE w1');
+    expect(filtered).toContain('CREATE TABLE common');
+    expect(filtered).toContain('-- Some other comment');
     expect(filtered).not.toContain('CREATE TABLE g1');
   });
 
@@ -262,6 +309,49 @@ CREATE TABLE common(id TEXT);
     expect(mgr.isReady()).toBe(false);
     expect(() => mgr!.getDb()).toThrow('Database not initialized');
   });
+
+  it('initialize throws error when SQLite connection fails', async () => {
+    (global as any).sqliteFail = true;
+    mgr = new DatabaseManager(':memory:', DatabaseType.WORKSPACE);
+    await expect(mgr.initialize()).rejects.toThrow('Connection failed');
+    (global as any).sqliteFail = false;
+  });
+
+  it('initialize throws error when schema execution fails', async () => {
+    (global as any).sqliteExecFail = true;
+    mgr = new DatabaseManager(':memory:', DatabaseType.WORKSPACE);
+    await expect(mgr.initialize()).rejects.toThrow('Exec failed');
+    (global as any).sqliteExecFail = false;
+  });
+
+  it('initialize throws error when schema read fails', async () => {
+    (global as any).fsReadFail = true;
+    mgr = new DatabaseManager(':memory:', DatabaseType.WORKSPACE);
+    await expect(mgr.initialize()).rejects.toThrow('File read failed');
+    (global as any).fsReadFail = false;
+  });
+
+  it('initialize creates directory for file-based databases', async () => {
+    // Use a path that requires directory creation - ensure it doesn't exist
+    const testDbPath = '/tmp/nonexistent-specly-dir-' + Date.now() + '/test.db';
+    const testDbDir = dirname(testDbPath);
+    
+    // Ensure directory doesn't exist
+    if (existsSync(testDbDir)) {
+      rmSync(testDbDir, { recursive: true, force: true });
+    }
+    
+    mgr = new DatabaseManager(testDbPath, DatabaseType.WORKSPACE);
+    await mgr.initialize();
+    expect(mgr.isReady()).toBe(true);
+    // Verify directory was created
+    expect(existsSync(testDbDir)).toBe(true);
+    // Clean up
+    await mgr.close();
+    if (existsSync(testDbDir)) {
+      rmSync(testDbDir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('Global Database Functions', () => {
@@ -309,18 +399,6 @@ describe('Global Database Functions', () => {
   });
 });
 
-describe.skip('Legacy Functions (deprecated)', () => {
-  const originalHome = process.env.HOME;
-  let consoleWarnSpy: any;
-
-  beforeEach(() => {
-    process.env.HOME = '/tmp/test-home';
-    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
-  });
-
-  afterEach(() => {
-    process.env.HOME = originalHome;
-    consoleWarnSpy.mockRestore();
-    vi.doUnmock('../database/connection.js');
-  });
-});
+// Legacy functions block was intentionally left empty in upstream tests.
+// It previously used `describe.skip`. Removed the empty suite to avoid
+// failing the runner with "No test found in suite".

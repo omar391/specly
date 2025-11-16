@@ -32,3 +32,4 @@ AGENTS.md
 .nx/
 **/tsconfig.tsbuildinfo
 **/coverage-report.json
+apps/specly-server/coverage-final.json

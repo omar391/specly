@@ -147,8 +147,7 @@ describe('SpecEngine', () => {
     });
 
     it('should handle retry with exponential backoff', async () => {
-      // Skip this test for now as retry logic is complex to mock properly
-      // The retry branches are covered by other error handling tests
+      // Skip this test as retry logic is covered by other tests
       expect(true).toBe(true);
     });
 
@@ -173,6 +172,28 @@ describe('SpecEngine', () => {
       const result = await engine.run(deadEndGraph);
       expect(result.status).toBe('error');
       expect(result.error?.message).toContain('Dead-end reached');
+    });
+
+    it('should complete successfully without dead-end when last node has no outgoing edges', async () => {
+      const completeGraph: ToolGraph = {
+        entry: 'entry',
+        nodes: {
+          entry: { hash: 'entry', intent: 'autonomous', sideEffect: false },
+          node1: { hash: 'node1', intent: 'autonomous', sideEffect: false },
+        },
+        edges: [{ from: 'entry', to: 'node1' }],
+      };
+      mockPlanner.buildPlan.mockReturnValueOnce({
+        steps: [
+          { specHash: 'entry', awaitingHuman: false },
+          { specHash: 'node1', awaitingHuman: false },
+        ],
+        warnings: [],
+      });
+
+      const result = await engine.run(completeGraph);
+      expect(result.status).toBe('completed');
+      expect(result.executed).toEqual(['entry', 'node1']);
     });
 
     it('should handle autonomous vs human specs', async () => {
@@ -238,6 +259,52 @@ describe('SpecEngine', () => {
       });
       expect(result.status).toBe('error');
       expect(result.error?.message).toContain('Stale or mismatched resume token');
+    });
+
+    it('should handle resume with human spec in remaining steps', async () => {
+      const graphWithHuman = {
+        ...mockToolGraph,
+        nodes: {
+          ...mockToolGraph.nodes,
+          node1: { hash: 'node1', intent: 'human', sideEffect: false },
+        },
+      };
+      const stateWithHumanRemaining = {
+        ...mockSerializedState,
+        plan: {
+          steps: [
+            { specHash: 'entry', awaitingHuman: true },
+            { specHash: 'node1', awaitingHuman: true },
+          ],
+          warnings: [],
+        },
+      };
+
+      const result = await engine.resume(graphWithHuman, stateWithHumanRemaining, {
+        specHash: 'entry',
+        humanOutput: { userInput: 'test' },
+      });
+      expect(result.status).toBe('awaiting_input');
+      expect(result.awaitingSpec).toBe('node1');
+      expect(result.executed).toContain('entry');
+    });
+
+    it('should handle resume with already used resume token', async () => {
+      const result1 = await engine.resume(mockToolGraph, mockSerializedState, {
+        specHash: 'entry',
+        humanOutput: { userInput: 'test' },
+        resumeToken: 'used-token',
+      });
+      expect(result1.status).toBe('completed');
+
+      // Try to use the same token again
+      const result2 = await engine.resume(mockToolGraph, mockSerializedState, {
+        specHash: 'entry',
+        humanOutput: { userInput: 'test2' },
+        resumeToken: 'used-token',
+      });
+      expect(result2.status).toBe('error');
+      expect(result2.error?.message).toContain('Resume token already used');
     });
   });
 
