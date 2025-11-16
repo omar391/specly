@@ -378,4 +378,355 @@ describe('SeedManager Specly seeding (SP-004)', () => {
         consoleSpy.mockRestore();
         // No module mock to restore since we pass a mocked repo directly
     });
+
+    it('covers branches when specs already exist', async () => {
+        // First run to create specs
+        await seedManager.seedSpecly();
+
+        // Second run should skip existing specs (testing the existingSpecHashes.has(hash) branch)
+        const result = await seedManager.seedSpecly();
+
+        // Verify no new specs were created
+        expect(result.specsCreated).toBe(0);
+        expect(result.createdSpecHashes).toEqual([]);
+    });
+
+    it('covers branches when tool versions already exist', async () => {
+        // First run to create tool versions
+        await seedManager.seedSpecly();
+
+        // Second run should skip existing tool versions (testing the existingToolVersionHashes.has(hash) branch)
+        const result = await seedManager.seedSpecly();
+
+        // Verify no new tool versions were created
+        expect(result.toolVersionsCreated).toBe(0);
+        expect(result.createdToolVersionHashes).toEqual([]);
+    });
+
+    it('covers branches when tools already exist', async () => {
+        // First run to create tools
+        await seedManager.seedSpecly();
+
+        // Second run should skip existing tools (testing the existingToolNames.has(name) branch)
+        const result = await seedManager.seedSpecly();
+
+        // Verify no new tools were created (this is implicit in the tool versions creation being 0)
+        expect(result.toolVersionsCreated).toBe(0);
+    });
+
+    it('covers profile version retrieval when profile already exists', async () => {
+        // First run to create profile
+        await seedManager.seedSpecly();
+
+        // Create a new workspace to trigger binding
+        const globalDbService = new GlobalDatabaseService(drizzleDb);
+        await globalDbService.createWorkspace({ id: 'test-workspace-2', path: '/test2', name: 'Test Workspace 2' } as any);
+
+        // Second run should find existing profile and bind new workspace
+        const result = await seedManager.seedSpecly();
+
+        // Verify profile was not created again
+        expect(result.profileCreated).toBe(false);
+        expect(result.profileVersionsCreated).toBe(0);
+
+        // Verify workspace was bound
+        const db = drizzleDb.getDb();
+        const bindings = await db.select().from(workspaceProfileVersions).where(eq(workspaceProfileVersions.workspaceId, 'test-workspace-2'));
+        expect(bindings.length).toBe(1);
+    });
+
+    it('covers tool attachment deduplication', async () => {
+        // First run to create profile and attach tools
+        await seedManager.seedSpecly();
+
+        // Second run should skip duplicate tool attachments
+        const result = await seedManager.seedSpecly();
+
+        // Verify no new profile version was created
+        expect(result.profileVersionsCreated).toBe(0);
+        expect(result.toolsAttached).toBe(0);
+    });
+
+    it('covers workspace binding deduplication', async () => {
+        // Create a workspace
+        const globalDbService = new GlobalDatabaseService(drizzleDb);
+        await globalDbService.createWorkspace({ id: 'test-workspace-3', path: '/test3', name: 'Test Workspace 3' } as any);
+
+        // First run to bind workspace
+        await seedManager.seedSpecly();
+
+        // Second run should skip duplicate workspace bindings
+        const result = await seedManager.seedSpecly();
+
+        // Verify no new workspace bindings
+        expect(result.workspaceBindings).toBe(0);
+    });
+
+    it('covers error handling in tool version creation when specs fail', async () => {
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+        // Mock database to fail on spec insertion
+        const originalDb = drizzleDb.getDb();
+        const fakeDb = {
+            ...originalDb,
+            insert: vi.fn().mockImplementation((table) => {
+                if (table === specs) {
+                    return {
+                        values: vi.fn().mockRejectedValue(new Error('Spec creation failed'))
+                    };
+                }
+                return originalDb.insert(table);
+            }),
+            select: originalDb.select,
+            delete: originalDb.delete
+        } as any;
+
+        (seedManager as any).drizzleDb = fakeDb;
+
+        await expect(seedManager.seedSpecly()).rejects.toThrow('Spec creation failed');
+
+        consoleSpy.mockRestore();
+    });
+
+    it('covers error handling in tool insertion', async () => {
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+        // Mock database to fail on tool insertion
+        const originalDb = drizzleDb.getDb();
+        const fakeDb = {
+            ...originalDb,
+            insert: vi.fn().mockImplementation((table) => {
+                if (table === tools) {
+                    return {
+                        values: vi.fn().mockRejectedValue(new Error('Tool creation failed'))
+                    };
+                }
+                return originalDb.insert(table);
+            }),
+            select: originalDb.select,
+            delete: originalDb.delete
+        } as any;
+
+        (seedManager as any).drizzleDb = fakeDb;
+
+        await expect(seedManager.seedSpecly()).rejects.toThrow('Tool creation failed');
+
+        consoleSpy.mockRestore();
+    });
+
+    it('covers error handling in tool version insertion', async () => {
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+        // Mock database to fail on tool version insertion
+        const originalDb = drizzleDb.getDb();
+        const fakeDb = {
+            ...originalDb,
+            insert: vi.fn().mockImplementation((table) => {
+                if (table === toolVersions) {
+                    return {
+                        values: vi.fn().mockRejectedValue(new Error('Tool version creation failed'))
+                    };
+                }
+                return originalDb.insert(table);
+            }),
+            select: originalDb.select,
+            delete: originalDb.delete
+        } as any;
+
+        (seedManager as any).drizzleDb = fakeDb;
+
+        await expect(seedManager.seedSpecly()).rejects.toThrow('Tool version creation failed');
+
+        consoleSpy.mockRestore();
+    });
+
+    it('covers error handling in workspace profile version insertion', async () => {
+        const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+        // Create a workspace first
+        const globalDbService = new GlobalDatabaseService(drizzleDb);
+        await globalDbService.createWorkspace({ id: 'test-workspace-4', path: '/test4', name: 'Test Workspace 4' } as any);
+
+        // Mock database to fail on workspace profile version insertion
+        const originalDb = drizzleDb.getDb();
+        const fakeDb = {
+            ...originalDb,
+            insert: vi.fn().mockImplementation((table) => {
+                if (table === workspaceProfileVersions) {
+                    return {
+                        values: vi.fn().mockRejectedValue(new Error('Workspace binding failed'))
+                    };
+                }
+                return originalDb.insert(table);
+            }),
+            select: originalDb.select,
+            delete: originalDb.delete
+        } as any;
+
+        (seedManager as any).drizzleDb = fakeDb;
+
+        await expect(seedManager.seedSpecly()).rejects.toThrow('Workspace binding failed');
+
+        consoleSpy.mockRestore();
+    });
+
+    it('covers stdio mode logging suppression', async () => {
+        // Mock isStdioMode to return true
+        vi.mock('@omar391/mcp-kit/utils/cli-parser', () => ({
+            isStdioMode: vi.fn().mockReturnValue(true)
+        }));
+
+        const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
+
+        await seedManager.initializeGlobalData();
+
+        // Verify no console.log was called
+        expect(consoleSpy).not.toHaveBeenCalled();
+
+        consoleSpy.mockRestore();
+
+        // Restore the mock
+        vi.restoreAllMocks();
+    });
+
+    it('covers successful tool version creation with all branches', async () => {
+        const result = await seedManager.seedSpecly();
+
+        // Verify all expected items were created
+        expect(result.specsCreated).toBeGreaterThan(0);
+        expect(result.toolVersionsCreated).toBeGreaterThan(0);
+        expect(result.profileCreated).toBe(true);
+        expect(result.toolsAttached).toBeGreaterThan(0);
+
+        // Verify database state
+        const db = drizzleDb.getDb();
+        const dbSpecs = await db.select().from(specs);
+        const dbToolVersions = await db.select().from(toolVersions);
+        const dbTools = await db.select().from(tools);
+
+        expect(dbSpecs.length).toBe(result.specsCreated);
+        expect(dbToolVersions.length).toBe(result.toolVersionsCreated);
+        expect(dbTools.length).toBeGreaterThan(0);
+    });
+
+    it('covers profile version creation when profile exists but no versions', async () => {
+        // Create profile manually without versions
+        const db = drizzleDb.getDb();
+        const profileId = crypto.randomUUID();
+        await db.insert(profiles).values({
+            id: profileId,
+            name: 'root-profile',
+            description: 'Test profile',
+            parentProfileId: null
+        });
+
+        // Mock profile repo to return existing profile
+        const mockProfileRepo = {
+            createProfile: vi.fn().mockResolvedValue({
+                profile: { id: profileId, name: 'root-profile' },
+                created: false
+            }),
+            createProfileVersion: vi.fn().mockResolvedValue({
+                id: crypto.randomUUID(),
+                version: 1,
+                created: true
+            }),
+            attachToolToProfileVersion: vi.fn().mockResolvedValue({
+                id: crypto.randomUUID(),
+                created: true
+            }),
+            bindWorkspaceProfile: vi.fn(),
+            getProfileByName: vi.fn().mockResolvedValue({ id: profileId, name: 'root-profile' }),
+            listProfileVersions: vi.fn().mockResolvedValue([]) // No existing versions
+        };
+
+        const newSeedManager = new SeedManager(drizzleDb, mockProfileRepo, undefined, {
+            listByTool: vi.fn().mockReturnValue([{ hash: 'test-hash', toolName: 'test-tool', graphManifest: '{}' }])
+        });
+
+        const result = await newSeedManager.seedSpecly();
+
+        // When profile exists but has no versions, no new profile version is created
+        // The logic only creates a profile version when the profile itself is newly created
+        expect(result.profileCreated).toBe(false);
+        expect(result.profileVersionsCreated).toBe(0); // Should not create version for existing profile
+    });
+
+    it('covers workspace binding when no profile version exists', async () => {
+        // Create a workspace
+        const globalDbService = new GlobalDatabaseService(drizzleDb);
+        await globalDbService.createWorkspace({ id: 'test-workspace-5', path: '/test5', name: 'Test Workspace 5' } as any);
+
+        // Create a profile version manually
+        const db = drizzleDb.getDb();
+        const profileId = crypto.randomUUID();
+        const profileVersionId = crypto.randomUUID();
+        await db.insert(profiles).values({
+            id: profileId,
+            name: 'root-profile',
+            description: 'Test profile',
+            parentProfileId: null
+        });
+        await db.insert(profileVersions).values({
+            id: profileVersionId,
+            profileId: profileId,
+            parentProfileVersionId: null,
+            version: 1
+        });
+
+        const mockProfileRepo = {
+            createProfile: vi.fn().mockResolvedValue({
+                profile: { id: profileId, name: 'root-profile' },
+                created: false // Profile already exists
+            }),
+            createProfileVersion: vi.fn(), // Won't be called
+            attachToolToProfileVersion: vi.fn(), // Won't be called
+            bindWorkspaceProfile: vi.fn(),
+            getProfileByName: vi.fn().mockResolvedValue({ id: profileId, name: 'root-profile' }),
+            listProfileVersions: vi.fn().mockResolvedValue([{ id: profileVersionId, version: 1 }])
+        };
+
+        const newSeedManager = new SeedManager(drizzleDb, mockProfileRepo, undefined, {
+            listByTool: vi.fn().mockReturnValue([]) // No tool versions, so no attachments
+        });
+
+        const result = await newSeedManager.seedSpecly();
+
+        expect(result.workspaceBindings).toBe(1); // Should bind workspace to existing profile version
+        expect(result.profileCreated).toBe(false); // Profile already existed
+        expect(result.profileVersionsCreated).toBe(0); // No new profile version created
+    });
+
+    it('covers tool attachment when no tool versions exist', async () => {
+        const mockProfileRepo = {
+            createProfile: vi.fn().mockResolvedValue({
+                profile: { id: 'test-profile-id', name: 'root-profile' },
+                created: true
+            }),
+            createProfileVersion: vi.fn().mockResolvedValue({
+                id: 'test-version-id',
+                version: 1,
+                created: true
+            }),
+            attachToolToProfileVersion: vi.fn().mockResolvedValue({
+                id: crypto.randomUUID(),
+                created: true
+            }),
+            bindWorkspaceProfile: vi.fn(),
+            getProfileByName: vi.fn(),
+            listProfileVersions: vi.fn()
+        };
+
+        const mockToolVersionRepo = {
+            listByTool: vi.fn().mockReturnValue([]) // No tool versions available
+        };
+
+        const newSeedManager = new SeedManager(drizzleDb, mockProfileRepo, undefined, mockToolVersionRepo);
+
+        const result = await newSeedManager.seedSpecly();
+
+        // Should create profile version but no tools attached
+        expect(result.profileVersionsCreated).toBe(1);
+        expect(result.toolsAttached).toBe(0);
+    });
 });

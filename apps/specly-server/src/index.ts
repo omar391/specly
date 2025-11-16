@@ -115,23 +115,37 @@ export class SpeclyServer {
   }
 
   createMCPToolHandlers(): MCPToolHandlers {
+    // Capture tool instances in closures to ensure proper binding
+    const initTool = this.initTool;
+    const startTool = this.startTool;
+    const addTool = this.addTool;
+    const statusTool = this.statusTool;
+    const updateTool = this.updateTool;
+    const auditTool = this.auditTool;
+    const focusTool = this.focusTool;
+    const githubTool = this.githubTool;
+    const ruleUpdateTool = this.ruleUpdateTool;
+    const remoteInterfaceTool = this.remoteInterfaceTool;
+    const updateResourcesTool = this.updateResourcesTool;
+    const updateStepsTool = this.updateStepsTool;
+
     const specs = [
-      { name: ToolNames.INIT, description: "Initialize a Specly workspace with .task folder structure and configuration", schema: initToolSchema, exec: async (input: any) => await this.initTool.execute(input) },
+      { name: ToolNames.INIT, description: "Initialize a Specly workspace with .task folder structure and configuration", schema: initToolSchema, exec: async (input: any) => await initTool.execute(input) },
       {
         name: ToolNames.START, description: "Initialize Specly session for a workspace and provide comprehensive project context", schema: startToolSchema, exec: async (input: any) => {
-          const result = await this.startTool.execute(input); return result;
+          const result = await startTool.execute(input); return result;
         }
       },
-      { name: ToolNames.ADD, description: "Orchestrate task creation workflow with analytical validation", schema: addToolSchema, exec: async (input: any) => await this.addTool.execute(input) },
-      { name: ToolNames.STATUS, description: "Generate comprehensive project status report with analysis and recommendations", schema: statusToolSchema, exec: async (input: any) => await this.statusTool.execute(input) },
-      { name: ToolNames.UPDATE, description: "Update task properties with audit trail and validation", schema: updateToolSchema, exec: async (input: any) => await this.updateTool.execute(input) },
-      { name: ToolNames.AUDIT, description: "Perform comprehensive project audit with health checking and cleanup recommendations", schema: auditToolSchema, exec: async (input: any) => await this.auditTool.execute(input as any) },
-      { name: ToolNames.FOCUS, description: "Focus on a specific task and provide comprehensive implementation context", schema: focusToolSchema, exec: async (input: any) => await this.focusTool.execute(input) },
-      { name: ToolNames.GITHUB, description: "Integrate with GitHub for issue creation, PR management, and task synchronization", schema: githubToolSchema, exec: async (input: any) => await this.githubTool.execute(input) },
-      { name: ToolNames.RULE_UPDATE, description: "Manage workspace-specific rules and guidelines", schema: ruleUpdateToolSchema, exec: async (input: any) => await this.ruleUpdateTool.execute(input) },
-      { name: ToolNames.REMOTE_INTERFACE, description: "Manage connections to external systems for task synchronization", schema: remoteInterfaceToolSchema, exec: async (input: any) => await this.remoteInterfaceTool.execute(input) },
-      { name: ToolNames.UPDATE_RESOURCES, description: "Update project documentation resources like project.md and design.md", schema: updateResourcesToolSchema, exec: async (input: any) => await this.updateResourcesTool.execute(input) },
-      { name: ToolNames.UPDATE_STEPS, description: "Update workspace-specific feedback steps and validation rules", schema: updateStepsToolSchema, exec: async (input: any) => await this.updateStepsTool.execute(input) },
+      { name: ToolNames.ADD, description: "Orchestrate task creation workflow with analytical validation", schema: addToolSchema, exec: async (input: any) => await addTool.execute(input) },
+      { name: ToolNames.STATUS, description: "Generate comprehensive project status report with analysis and recommendations", schema: statusToolSchema, exec: async (input: any) => await statusTool.execute(input) },
+      { name: ToolNames.UPDATE, description: "Update task properties with audit trail and validation", schema: updateToolSchema, exec: async (input: any) => await updateTool.execute(input) },
+      { name: ToolNames.AUDIT, description: "Perform comprehensive project audit with health checking and cleanup recommendations", schema: auditToolSchema, exec: async (input: any) => await auditTool.execute(input as any) },
+      { name: ToolNames.FOCUS, description: "Focus on a specific task and provide comprehensive implementation context", schema: focusToolSchema, exec: async (input: any) => await focusTool.execute(input) },
+      { name: ToolNames.GITHUB, description: "Integrate with GitHub for issue creation, PR management, and task synchronization", schema: githubToolSchema, exec: async (input: any) => await githubTool.execute(input) },
+      { name: ToolNames.RULE_UPDATE, description: "Manage workspace-specific rules and guidelines", schema: ruleUpdateToolSchema, exec: async (input: any) => await ruleUpdateTool.execute(input) },
+      { name: ToolNames.REMOTE_INTERFACE, description: "Manage connections to external systems for task synchronization", schema: remoteInterfaceToolSchema, exec: async (input: any) => await remoteInterfaceTool.execute(input) },
+      { name: ToolNames.UPDATE_RESOURCES, description: "Update project documentation resources like project.md and design.md", schema: updateResourcesToolSchema, exec: async (input: any) => await updateResourcesTool.execute(input) },
+      { name: ToolNames.UPDATE_STEPS, description: "Update workspace-specific feedback steps and validation rules", schema: updateStepsToolSchema, exec: async (input: any) => await updateStepsTool.execute(input) },
     ];
 
     const handlers = createToolHandlers(specs);

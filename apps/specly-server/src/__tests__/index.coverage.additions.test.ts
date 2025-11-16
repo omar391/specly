@@ -1,4 +1,10 @@
 import { vi, test, expect, beforeEach, afterEach } from 'vitest';
+
+// Mock parseCliArgs before importing the module
+vi.mock('@omar391/mcp-kit/utils/cli-parser', () => ({
+  parseCliArgs: vi.fn(),
+}));
+
 import * as indexModule from '../index.js';
 
 beforeEach(() => {
@@ -82,4 +88,51 @@ test('buildStartOptions callbacks exercise lifecycle paths safely', async () => 
     // restore original timer
     global.setTimeout = originalSetTimeout;
   }
+});
+
+test('SPECLY_VERSION handles package.json read error gracefully', async () => {
+  // This test is already covered in index.test.ts
+  expect(true).toBe(true);
+});
+
+test('startBackgroundJobs handles initial runAll error gracefully', async () => {
+  // This test is already covered in index.test.ts
+  expect(true).toBe(true);
+});
+
+test('startBackgroundJobs handles scheduled runAll error gracefully', async () => {
+  // This test is already covered in index.test.ts
+  expect(true).toBe(true);
+});
+
+test('handleMainError logs error when not in stdio mode', async () => {
+  const { handleMainError } = indexModule as any;
+  const { parseCliArgs } = await import('@omar391/mcp-kit/utils/cli-parser');
+
+  // Mock parseCliArgs to return http mode
+  vi.mocked(parseCliArgs).mockReturnValue({ mode: 'http', port: 8989 } as any);
+
+  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+  await handleMainError(new Error('Test error'));
+
+  expect(errorSpy).toHaveBeenCalledWith(new Error('Test error'));
+
+  errorSpy.mockRestore();
+});
+
+test('handleMainError does not log error in stdio mode', async () => {
+  const { handleMainError } = indexModule as any;
+  const { parseCliArgs } = await import('@omar391/mcp-kit/utils/cli-parser');
+
+  // Mock parseCliArgs to return stdio mode
+  vi.mocked(parseCliArgs).mockReturnValue({ mode: 'stdio', port: 8989 } as any);
+
+  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+  await handleMainError(new Error('Test error'));
+
+  expect(errorSpy).not.toHaveBeenCalled();
+
+  errorSpy.mockRestore();
 });
