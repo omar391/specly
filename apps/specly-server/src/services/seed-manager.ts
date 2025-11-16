@@ -19,6 +19,20 @@ export class SeedManager {
   }
 
   /**
+   * Create default spec repository when not provided
+   */
+  private createDefaultSpecRepo(): SpecRepositoryImpl {
+    return new SpecRepositoryImpl({ getDrizzleManager: () => ({ getDb: () => this.drizzleDb }) });
+  }
+
+  /**
+   * Create default tool version repository when not provided
+   */
+  private createDefaultToolVersionRepo(): ToolVersionRepositoryImpl {
+    return new ToolVersionRepositoryImpl({ getDrizzleManager: () => ({ getDb: () => this.drizzleDb }) });
+  }
+
+  /**
    * Initialize global seed data using pure Drizzle ORM operations
    */
   async initializeGlobalData(): Promise<void> {
@@ -41,8 +55,8 @@ export class SeedManager {
   async seedSpecly(): Promise<{
     specsCreated: number; toolVersionsCreated: number; profileCreated: boolean; profileVersionsCreated: number; toolsAttached: number; workspaceBindings: number; createdSpecHashes: string[]; createdToolVersionHashes: string[];
   }> {
-    const specRepo = this.specRepo || new SpecRepositoryImpl({ getDrizzleManager: () => ({ getDb: () => this.drizzleDb }) } as any);
-    const toolVersionRepo = this.toolVersionRepo || new ToolVersionRepositoryImpl({ getDrizzleManager: () => ({ getDb: () => this.drizzleDb }) } as any);
+    const specRepo = this.specRepo || this.createDefaultSpecRepo();
+    const toolVersionRepo = this.toolVersionRepo || this.createDefaultToolVersionRepo();
     const globalDbService = new GlobalDatabaseService(this.dbManager);
     await globalDbService.initialize();
     const profileRepo = this.profileRepo || new ProfileRepository(globalDbService);

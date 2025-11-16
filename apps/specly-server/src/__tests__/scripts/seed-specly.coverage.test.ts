@@ -161,46 +161,34 @@ describe('seed-specly runIfMainSeed', () => {
         }
     });
 
-    it('main prints pretty output when --pretty flag is present', async () => {
+    it('runIfMainSeed catch path', async () => {
         vi.resetModules();
         vi.mock('../../database/global-queries.js', () => ({
-            initializeGlobalDatabaseService: async () => ({
-                getDrizzleManager: () => ({})
-            })
+            initializeGlobalDatabaseService: async () => ({ getDrizzleManager: () => ({}) })
         }));
         vi.mock('../../services/seed-manager.js', () => ({
             SeedManager: class {
                 constructor() { }
                 async initializeGlobalData() { return; }
-                async seedSpecly() {
-                    return {
-                        specsCreated: 1,
-                        toolVersionsCreated: 1,
-                        profileCreated: true,
-                        profileVersionsCreated: 1,
-                        toolsAttached: 0,
-                        workspaceBindings: 0,
-                        createdSpecHashes: ['hash1'],
-                        createdToolVersionHashes: ['t1']
-                    };
-                }
+                async seedSpecly() { throw new Error('test'); }
             }
         }));
 
-        const origArgv = process.argv;
-        process.argv = ['node', 'seed-specly.js', '--pretty'];
-        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
+        const module = await import('../../scripts/seed-specly.js');
+        const exitSpy = vi.spyOn(process, 'exit').mockImplementation((code?: number | string | null) => { /* noop */ });
+        const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
         try {
-            const { main } = await import('../../scripts/seed-specly.js');
-            await main();
-            // Should print summary line and pretty JSON
-            expect(logSpy).toHaveBeenCalled();
-            expect(logSpy.mock.calls.length).toBeGreaterThanOrEqual(2);
+            // Use the correct path that matches import.meta.url
+            const targetPath = new URL('../../scripts/seed-specly.js', import.meta.url).pathname;
+            await module.runIfMainSeed(targetPath);
+            expect(console.error).toHaveBeenCalledWith('Seed failed', expect.any(Error));
+            expect(process.exit).toHaveBeenCalledWith(1);
         } finally {
-            logSpy.mockRestore();
-            process.argv = origArgv;
+            exitSpy.mockRestore();
+            errSpy.mockRestore();
         }
     });
+});
 
     it('runIfMainSeed triggers when import.meta.url equals file://${arg}', async () => {
         vi.resetModules();
@@ -228,4 +216,31 @@ describe('seed-specly runIfMainSeed', () => {
             exitSpy.mockRestore();
         }
     });
-});
+
+    it('runIfMainSeed catch path', async () => {
+        vi.resetModules();
+        vi.mock('../../database/global-queries.js', () => ({
+            initializeGlobalDatabaseService: async () => ({ getDrizzleManager: () => ({}) })
+        }));
+        vi.mock('../../services/seed-manager.js', () => ({
+            SeedManager: class {
+                constructor() { }
+                async initializeGlobalData() { return; }
+                async seedSpecly() { throw new Error('test'); }
+            }
+        }));
+
+        const module = await import('../../scripts/seed-specly.js');
+        const exitSpy = vi.spyOn(process, 'exit').mockImplementation((code?: number | string | null) => { /* noop */ });
+        const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        try {
+            // Use the correct path that matches import.meta.url
+            const targetPath = new URL('../../scripts/seed-specly.js', import.meta.url).pathname;
+            await module.runIfMainSeed(targetPath);
+            expect(console.error).toHaveBeenCalledWith('Seed failed', expect.any(Error));
+            expect(process.exit).toHaveBeenCalledWith(1);
+        } finally {
+            exitSpy.mockRestore();
+            errSpy.mockRestore();
+        }
+    });

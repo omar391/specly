@@ -71,6 +71,16 @@ describe('SeedManager', () => {
             initialize: vi.fn().mockResolvedValue(undefined)
         } as any;
 
+        // Mock constructors to execute the arrow functions
+        (SpecRepositoryImpl as any).mockImplementation((arg) => {
+            if (arg && arg.getDrizzleManager) arg.getDrizzleManager();
+            return mockSpecRepo;
+        });
+        (ToolVersionRepositoryImpl as any).mockImplementation((arg) => {
+            if (arg && arg.getDrizzleManager) arg.getDrizzleManager();
+            return mockToolVersionRepo;
+        });
+
         seedManager = new SeedManager(mockDbManager, mockProfileRepo, mockSpecRepo, mockToolVersionRepo);
     });
 
@@ -146,6 +156,21 @@ describe('SeedManager', () => {
         });
 
         it('should seed specs, tools, and profile when none exist', async () => {
+            // Modify seed data to cover ?? null branches
+            const originalContentTemplate = SPECLY_SEED_SPECS[0].spec.contentTemplate;
+            const originalStaticParams = SPECLY_SEED_SPECS[0].spec.staticParams;
+            const originalOutputSchema = SPECLY_SEED_SPECS[0].spec.outputSchema;
+            const originalSecurity = SPECLY_SEED_SPECS[0].spec.security;
+            const originalMetadata = SPECLY_SEED_SPECS[0].spec.metadata;
+            const originalEdges = SPECLY_SEED_TOOLS[0].edges;
+
+            (SPECLY_SEED_SPECS[0].spec as any).contentTemplate = undefined;
+            (SPECLY_SEED_SPECS[0].spec as any).staticParams = undefined;
+            (SPECLY_SEED_SPECS[0].spec as any).outputSchema = undefined;
+            (SPECLY_SEED_SPECS[0].spec as any).security = undefined;
+            (SPECLY_SEED_SPECS[0].spec as any).metadata = undefined;
+            (SPECLY_SEED_TOOLS[0] as any).edges = undefined;
+
             // Mock empty existing data - already set in beforeEach
             mockToolVersionRepo.listByTool.mockResolvedValue([{ hash: 'tool-hash' }]);
 
@@ -156,6 +181,14 @@ describe('SeedManager', () => {
             expect(result.profileCreated).toBe(true);
             expect(result.toolsAttached).toBe(SPECLY_ROOT_PROFILE.toolNames.length);
             expect(result.workspaceBindings).toBe(0); // No workspaces
+
+            // Restore
+            (SPECLY_SEED_SPECS[0].spec as any).contentTemplate = originalContentTemplate;
+            (SPECLY_SEED_SPECS[0].spec as any).staticParams = originalStaticParams;
+            (SPECLY_SEED_SPECS[0].spec as any).outputSchema = originalOutputSchema;
+            (SPECLY_SEED_SPECS[0].spec as any).security = originalSecurity;
+            (SPECLY_SEED_SPECS[0].spec as any).metadata = originalMetadata;
+            (SPECLY_SEED_TOOLS[0] as any).edges = originalEdges;
         });
 
         it('should be idempotent when data already exists', async () => {
@@ -354,6 +387,20 @@ describe('SeedManager', () => {
         expect(result.specsCreated).toBe(SPECLY_SEED_SPECS.length);
         expect(result.toolVersionsCreated).toBe(SPECLY_SEED_TOOLS.length);
         expect(result.profileCreated).toBe(true);
+    });
+  });
+
+  describe('private methods', () => {
+    it('should create default spec repo', () => {
+      const manager = new SeedManager(mockDbManager);
+      const repo = (manager as any).createDefaultSpecRepo();
+      expect(repo).toHaveProperty('create');
+    });
+
+    it('should create default tool version repo', () => {
+      const manager = new SeedManager(mockDbManager);
+      const repo = (manager as any).createDefaultToolVersionRepo();
+      expect(repo).toHaveProperty('create');
     });
   });
 });
