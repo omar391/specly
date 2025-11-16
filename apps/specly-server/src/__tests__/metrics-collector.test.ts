@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { InMemoryMetricsCollector, withLatencyTracking } from '../services/metrics-collector.js';
+import { InMemoryMetricsCollector, withLatencyTracking, instrumentExecution } from '../services/metrics-collector.js';
 
 describe('InMemoryMetricsCollector (SP-012)', () => {
   let collector: InMemoryMetricsCollector;
@@ -51,6 +51,20 @@ describe('InMemoryMetricsCollector (SP-012)', () => {
     expect(bucket500?.count).toBe(3); // all three
   });
 
+  it('should record histogram observations with labels', () => {
+    collector.observe('specly_execution_duration_ms', 100, { method: 'get', status: '200' });
+    collector.observe('specly_execution_duration_ms', 200, { method: 'post', status: '201' });
+
+    const snapshot = collector.snapshot();
+    const hist1 = snapshot.histograms['specly_execution_duration_ms{method="get",status="200"}'];
+    const hist2 = snapshot.histograms['specly_execution_duration_ms{method="post",status="201"}'];
+    
+    expect(hist1.count).toBe(1);
+    expect(hist1.sum).toBe(100);
+    expect(hist2.count).toBe(1);
+    expect(hist2.sum).toBe(200);
+  });
+
   it('should set and read gauges', () => {
     collector.set('specly_hash_cache_hit_rate', 0.85);
     collector.set('specly_profile_inheritance_depth', 3);
@@ -77,6 +91,21 @@ describe('InMemoryMetricsCollector (SP-012)', () => {
     const hist = snapshot.histograms['test_operation_duration_ms'];
     expect(hist.count).toBe(1);
     expect(hist.min).toBeGreaterThanOrEqual(9); // allow timer variance
+  });
+
+  it('should instrument execution with latency tracking', async () => {
+    const work = async () => {
+      await new Promise(resolve => setTimeout(resolve, 10));
+      return 'done';
+    };
+
+    const result = await instrumentExecution(collector, 'test_op', work);
+    expect(result).toBe('done');
+
+    const snapshot = collector.snapshot();
+    const hist = snapshot.histograms['specly_test_op_duration_ms'];
+    expect(hist.count).toBe(1);
+    expect(hist.min).toBeGreaterThanOrEqual(9);
   });
 
   it('should reset all metrics', () => {
