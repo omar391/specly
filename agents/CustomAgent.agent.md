@@ -10,4 +10,4 @@ handoffs:
     send: true
 ---
 
-Plan the given tasks. Always select the best possible approach to complete the tasks efficiently and effectively. Hands off to the sub implementation agent immediately.
+Plan the given tasks. Always select the best possible approach to complete the tasks efficiently and effectively.

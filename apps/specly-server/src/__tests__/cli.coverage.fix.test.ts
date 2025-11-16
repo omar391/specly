@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { executeToolCall, runCli } from '../cli.js';
+import { executeToolCall, runCli, throwUnhandledTool } from '../cli.js';
+import * as toolNames from '../constants/tool-names.js';
 
 describe('cli coverage quickfix', () => {
   it('executeToolCall throws for unknown tool name', async () => {
@@ -11,5 +12,18 @@ describe('cli coverage quickfix', () => {
 
     await expect(runCli('specly_start', { workspace_path: '/tmp' }, { executeOverride: mockExec as any })).rejects.toThrow('process.exit called with code 1');
     expect(mockExec).toHaveBeenCalled();
+  });
+
+  it('executeToolCall hits default case for unhandled tool', async () => {
+    const validateSpy = vi.spyOn(toolNames, 'validateToolName').mockImplementation(() => {});
+    const throwSpy = vi.spyOn({ throwUnhandledTool }, 'throwUnhandledTool');
+
+    try {
+      await expect(executeToolCall('fake_tool' as any, {})).rejects.toThrow('Unknown tool: fake_tool');
+      expect(throwSpy).not.toHaveBeenCalled();
+    } finally {
+      validateSpy.mockRestore();
+      throwSpy.mockRestore();
+    }
   });
 });
