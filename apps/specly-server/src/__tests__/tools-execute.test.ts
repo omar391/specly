@@ -427,6 +427,23 @@ describe('ToolsExecuteController', () => {
       }, 500);
     });
 
+    it('should return 404 for resume token invalid', async () => {
+      const c = {
+        req: {
+          query: vi.fn().mockReturnValue(undefined),
+          json: vi.fn().mockResolvedValue({ resumeToken: 'token-bad', human_input: { specHash: 's1', output: 'input' }, graph: { entry: 's1', nodes: { s1: { hash: 's1', intent: 'autonomous', sideEffect: false } }, edges: [] } })
+        },
+        json: vi.fn()
+      } as any as Context;
+
+      (mockStore.get as any).mockResolvedValue({ plan: { steps: [] as any[], warnings: [] }, currentIndex: 0, executed: [], results: {}, warnings: [], awaitingSpec: 's1', sessionContext: {} });
+      (mockEngine.resume as any).mockResolvedValue({ status: 'error', executed: [], results: {}, warnings: [], error: { message: 'Resume token invalid' }, errorCode: 'RESUME_TOKEN_INVALID' });
+
+      await controller.execute(c);
+
+      expect(c.json).toHaveBeenCalledWith({ status: 'error', executed: [], results: {}, awaitingSpec: undefined, resumeToken: undefined, warnings: [], error: { message: 'Resume token invalid', code: 'RESUME_TOKEN_INVALID' } }, 404);
+    });
+
     it('should return 500 for database error during tool_version_id resolution', async () => {
       const toolVersionId = '123e4567-e89b-12d3-a456-426614174000';
       const c = {

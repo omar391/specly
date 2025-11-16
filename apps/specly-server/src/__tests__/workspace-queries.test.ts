@@ -154,6 +154,25 @@ describe('WorkspaceDatabaseService', () => {
         expect(mockQueryBuilder.values).toHaveBeenCalledWith(fullTask);
         expect(result).toBeDefined();
       });
+
+      it('should fall back to selecting row when returning() throws', async () => {
+        const newTask: NewTask = {
+          id: 'task-3',
+          title: 'Fallback Task',
+          status: 'queued',
+          priority: 'low',
+          progress: 0
+        };
+        // Make returning() throw on the first call, to force the fallback path
+        mockQueryBuilder.returning.mockImplementationOnce(() => { throw new Error('returning not supported'); });
+        // Emulate that the second insert (fallback path) succeeded; the select should return the created row
+        mockQueryBuilder.limit.mockResolvedValue([{ id: 'task-3', title: 'Fallback Task', status: 'queued', priority: 'low', progress: 0, description: undefined, notes: undefined, assets: [], externalReferences: [], metadata: {}, tags: [], profileVersionId: null, blockedReason: null, deletedAt: null, createdAt: '2024-01-01', updatedAt: '2024-01-01', completedAt: null } as any]);
+
+        const result = await service.createTask(newTask);
+
+        expect(result).toBeDefined();
+        expect(result.id).toBe('task-3');
+      });
     });
 
     describe('getTask', () => {

@@ -211,28 +211,42 @@ describe('ProfileRepository', () => {
         name: `deep-cycle-profile-${crypto.randomUUID()}`
       });
 
-      // Create a chain of 100 versions to test the cycle detection logic
-      let currentVersionId: string = '';
-      for (let i = 0; i < 100; i++) {
-        const version = await profileRepo.createProfileVersion({
-          profileId: profile.profile.id,
-          parentProfileVersionId: i === 0 ? undefined : currentVersionId
-        });
-        currentVersionId = version.id;
-      }
+      // We will mock the underlying DB to simulate a very deep parent chain > 10000
+      const fakeDb = (() => {
+        let parentCallCount = 0;
+        const profileId = profile.profile.id;
+        return {
+          select: (sel?: any) => ({
+            from: () => ({
+              where: (_q: any) => ({
+                orderBy: () => ({
+                  limit: async () => [] as any[],
+                }),
+                limit: async () => {
+                  parentCallCount++;
+                  // parent metadata selection: return full parent row for the initial parent lookup
+                  if (sel && (sel as any).profileId) {
+                    return [{ id: 'parent-start', profileId, parentId: 'parent-gen-1' }];
+                  }
+                  // parentId-only selection used during loop: return unique parent ids for chain
+                  if (sel && (sel as any).parentId) {
+                    return [{ parentId: `parent-gen-${parentCallCount}` }];
+                  }
+                  // fallback for other selects
+                  return [] as any[];
+                }
+              })
+            })
+          }),
+          insert: () => ({ values: () => ({ returning: async () => [{ id: 'new-id', version: 2 }] }) })
+        } as any;
+      })();
 
-      // Mock the max depth to 100 for this test to avoid creating 10000 versions
-      const originalMaxDepth = 10000;
-      // We can't easily modify constants in tests, so we'll test the logic differently
-      // This test ensures the cycle detection code path exists and is exercised
+      const fakeManager = { getDb: () => fakeDb } as any;
+      const fakeGlobalDb = { getDrizzleManager: () => fakeManager } as any;
+      const repo = new ProfileRepository(fakeGlobalDb as any);
 
-      // Verify that creating one more version succeeds (since we're under the limit)
-      const additionalVersion = await profileRepo.createProfileVersion({
-        profileId: profile.profile.id,
-        parentProfileVersionId: currentVersionId
-      });
-      expect(additionalVersion.created).toBe(true);
-      expect(additionalVersion.version).toBe(101);
+      await expect(repo.createProfileVersion({ profileId: profile.profile.id, parentProfileVersionId: 'parent-start' })).rejects.toThrow('Cycle detection exceeded max depth');
     });
   });
 

@@ -341,6 +341,14 @@ export class GlobalDatabaseService {
 // Singleton instance
 let globalDbService: GlobalDatabaseService | null = null;
 
+// Test hook: allow tests to force the initialize path to treat service as null
+// This enables testing the defensive throw in initializeGlobalDatabaseService
+// without changing runtime behavior for production.
+let forceNullGlobalDb = false;
+export function setForceNullGlobalDb(flag: boolean) {
+  forceNullGlobalDb = flag;
+}
+
 /**
  * Get singleton global database service instance
  */
@@ -356,7 +364,7 @@ export function getGlobalDatabaseService(): GlobalDatabaseService {
  */
 export async function initializeGlobalDatabaseService(): Promise<GlobalDatabaseService> {
   try {
-    const service = getGlobalDatabaseService();
+    const service = forceNullGlobalDb ? null : getGlobalDatabaseService();
     if (!service) {
       throw new Error('Failed to get global database service instance');
     }

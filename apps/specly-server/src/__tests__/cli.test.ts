@@ -1,3 +1,23 @@
+import { describe, it, expect } from 'vitest';
+import { runCli, main, executeToolCall } from '../cli.js';
+
+describe('CLI tests', () => {
+    it('executeToolCall throws for unknown tool', async () => {
+        await expect(executeToolCall('non-existent-tool', {})).rejects.toThrow('Unknown tool');
+    });
+
+  it('main throws when no args provided', async () => {
+    // Temporarily set process.argv to simulate no arguments
+    const oldArgv = process.argv;
+    try {
+      process.argv = [oldArgv[0], oldArgv[1]];
+      await expect(main()).rejects.toThrow('process.exit called with code 1');
+    } finally {
+      process.argv = oldArgv;
+    }
+  });
+});
+
 /**
  * Unit Tests for CLI.ts
  * 

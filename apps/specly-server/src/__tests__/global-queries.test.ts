@@ -279,4 +279,15 @@ describe('initializeGlobalDatabaseService (singleton + error path)', () => {
     // Restore the spy
     initializeSpy.mockRestore();
   });
+
+  it('throws when getGlobalDatabaseService returns null', async () => {
+    vi.resetModules();
+    const { setForceNullGlobalDb, initializeGlobalDatabaseService: init } = await import('../database/global-queries.js');
+    try {
+      setForceNullGlobalDb(true);
+      await expect(init()).rejects.toThrow('Failed to get global database service instance');
+    } finally {
+      setForceNullGlobalDb(false);
+    }
+  });
 });
