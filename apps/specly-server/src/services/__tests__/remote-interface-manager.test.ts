@@ -42,6 +42,20 @@ describe('RemoteInterfaceManager', () => {
         expect(workspaceDb.createRemoteInterface).toHaveBeenCalled();
     });
 
+    it('registerInterface uses defaults when options not provided', async () => {
+        const res = await manager.registerInterface('ws1', 'github', 'GitHub', 'https://api.github.com', 'token');
+
+        expect(res.sync_enabled).toBe(true);
+        expect(res.sync_direction).toBe('bidirectional');
+        expect(res.mcp_server_name).toBe('github-mcp');
+        expect(Array.isArray(JSON.parse(res.field_mappings))).toBe(true);
+        expect(workspaceDb.createRemoteInterface).toHaveBeenCalledWith(expect.objectContaining({
+            syncEnabled: true,
+            syncDirection: 'bidirectional',
+            mcpServerName: 'github-mcp'
+        }));
+    });
+
     it('getWorkspaceInterfaces converts db rows to RemoteInterface', async () => {
         const dbRows = [
             { id: 'r1', interfaceType: 'github', name: 'g', baseUrl: 'u', apiToken: 't', projectId: null, syncEnabled: true, syncDirection: 'bidirectional', fieldMappings: [{ specly_field: 'title', remote_field: 'title' }], lastSync: null, createdAt: 'c', updatedAt: 'u' }
@@ -54,6 +68,28 @@ describe('RemoteInterfaceManager', () => {
         expect(typeof out[0].field_mappings).toBe('string');
     });
 
+    it('getWorkspaceInterfaces handles null sync values and string fieldMappings', async () => {
+        const dbRows = [
+            { id: 'r2', interfaceType: 'jira', name: 'j', baseUrl: 'u', apiToken: 't', projectId: null, syncEnabled: null, syncDirection: null, fieldMappings: '{"mappings": "string"}', lastSync: null, createdAt: 'c', updatedAt: 'u' }
+        ];
+        workspaceDb.getAllRemoteInterfaces.mockResolvedValue(dbRows);
+
+        const out = await manager.getWorkspaceInterfaces('ws1');
+        expect(out[0].sync_enabled).toBe(false);
+        expect(out[0].sync_direction).toBe('bidirectional');
+        expect(out[0].field_mappings).toBe('{"mappings": "string"}');
+    });
+
+    it('getWorkspaceInterfaces handles null fieldMappings', async () => {
+        const dbRows = [
+            { id: 'r3', interfaceType: 'linear', name: 'l', baseUrl: 'u', apiToken: 't', projectId: null, syncEnabled: true, syncDirection: 'bidirectional', fieldMappings: null, lastSync: null, createdAt: 'c', updatedAt: 'u' }
+        ];
+        workspaceDb.getAllRemoteInterfaces.mockResolvedValue(dbRows);
+
+        const out = await manager.getWorkspaceInterfaces('ws1');
+        expect(out[0].field_mappings).toBe('{}');
+    });
+
     it('getInterface returns null when not found and maps when present', async () => {
         workspaceDb.getRemoteInterface.mockResolvedValue(null);
         const notFound = await manager.getInterface('ws1', 'nope');
@@ -64,6 +100,22 @@ describe('RemoteInterfaceManager', () => {
         const found = await manager.getInterface('ws1', 'r2');
         expect(found?.id).toBe('r2');
         expect(found?.sync_enabled).toBe(false);
+    });
+
+    it('getInterface handles null sync values and string fieldMappings', async () => {
+        const row = { id: 'r3', interfaceType: 'asana', name: 'a', baseUrl: 'u', apiToken: 't', projectId: null, syncEnabled: null, syncDirection: null, fieldMappings: '{"field": "value"}', lastSync: null, createdAt: 'c', updatedAt: 'u' };
+        workspaceDb.getRemoteInterface.mockResolvedValue(row);
+        const found = await manager.getInterface('ws1', 'r3');
+        expect(found?.sync_enabled).toBe(false);
+        expect(found?.sync_direction).toBe('bidirectional');
+        expect(found?.field_mappings).toBe('{"field": "value"}');
+    });
+
+    it('getInterface handles null fieldMappings', async () => {
+        const row = { id: 'r4', interfaceType: 'trello', name: 't', baseUrl: 'u', apiToken: 't', projectId: null, syncEnabled: true, syncDirection: 'bidirectional', fieldMappings: null, lastSync: null, createdAt: 'c', updatedAt: 'u' };
+        workspaceDb.getRemoteInterface.mockResolvedValue(row);
+        const found = await manager.getInterface('ws1', 'r4');
+        expect(found?.field_mappings).toBe('{}');
     });
 
     it('updateInterface and deleteInterface call workspace DB methods', async () => {
