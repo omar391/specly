@@ -50,9 +50,7 @@ export class FocusToolNew extends BaseTool {
       const workspace = workspaceValidation.workspace;
 
       const query = input.query || 'focus';
-      return {
-        content: [{ type: 'text', text: `Focus captured: ${query}` }]
-      };
+      return this.createSuccessResult(`Focus captured: ${query}`);
 
     } catch (error) {
       const errorMessage = `Error in specly_focus: ${error instanceof Error ? error.message : String(error)}`;
