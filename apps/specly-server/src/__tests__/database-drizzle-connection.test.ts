@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { DrizzleDatabaseManager, DatabaseType, getGlobalDatabase, getWorkspaceDatabase, clearWorkspaceDatabaseCache, initializeGlobalDatabase, initializeWorkspaceDatabase, initializeBothDatabases } from '../database/drizzle-connection.js';
+import { DrizzleDatabaseManager, DatabaseType, getGlobalDatabase, getWorkspaceDatabase, clearGlobalDatabaseInstance, initializeGlobalDatabase, initializeWorkspaceDatabase, initializeBothDatabases } from '../database/drizzle-connection';
+import { clearWorkspaceDatabaseCache } from '../database/drizzle-connection.ts';
 import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import Database from 'better-sqlite3';
@@ -169,6 +170,12 @@ describe('DrizzleDatabaseManager', () => {
       expect(mockSqlite.exec).toHaveBeenCalledWith(expect.stringContaining('CREATE TABLE IF NOT EXISTS workspaces'));
     });
 
+    it('throws error when SQLite connection not available', async () => {
+      manager = new DrizzleDatabaseManager(':memory:', DatabaseType.WORKSPACE);
+      // Call runProgrammaticMigrations without initializing (sqlite is null)
+      await expect((manager as any).runProgrammaticMigrations()).rejects.toThrow('SQLite connection not available');
+    });
+
     it('handles legacy table migration', async () => {
       manager = new DrizzleDatabaseManager(':memory:', DatabaseType.WORKSPACE);
       mockSqlite.prepare.mockReturnValue({
@@ -300,6 +307,19 @@ describe('Global Database Functions', () => {
       const db1 = getGlobalDatabase();
       const db2 = getGlobalDatabase();
       expect(db1).toBe(db2);
+    });
+
+    it('uses fallback path when HOME is undefined', () => {
+      // Clear the cached instance
+      clearGlobalDatabaseInstance();
+      const originalHome = process.env.HOME;
+      process.env.HOME = undefined;
+      
+      const db = getGlobalDatabase();
+      expect(db).toBeInstanceOf(DrizzleDatabaseManager);
+      
+      // Restore
+      process.env.HOME = originalHome;
     });
   });
 

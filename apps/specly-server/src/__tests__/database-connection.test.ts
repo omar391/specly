@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { existsSync, rmSync } from 'fs';
+import { existsSync, rmSync, mkdirSync } from 'fs';
 import { dirname } from 'path';
 
 // For the initialization test we need to control schema loading. Mock fs.readFileSync
@@ -172,7 +172,7 @@ vi.mock('sqlite3', async () => {
 });
 
 // Import after mocking
-const { DatabaseManager, DatabaseType, getGlobalDatabase, getWorkspaceDatabase, initializeGlobalDatabase, initializeWorkspaceDatabase, initializeBothDatabases } = await import('../database/connection.js');
+const { DatabaseManager, DatabaseType, getGlobalDatabase, getWorkspaceDatabase, initializeGlobalDatabase, initializeWorkspaceDatabase, initializeBothDatabases, resetGlobalInstances } = await import('../database/connection.js');
 
 describe('DatabaseManager', () => {
   let mgr: InstanceType<typeof DatabaseManager> | null = null;
@@ -240,6 +240,13 @@ CREATE TABLE common(id TEXT);
     expect(filtered).toContain('CREATE TABLE common');
     expect(filtered).toContain('-- Some other comment');
     expect(filtered).not.toContain('CREATE TABLE g1');
+  });
+
+  it('filterSchemaByType includes all lines when no comments', () => {
+    const schema = 'CREATE TABLE test(id TEXT);';
+    const m = new DatabaseManager(':memory:', DatabaseType.GLOBAL);
+    const filtered = (m as any).filterSchemaByType(schema);
+    expect(filtered).toContain('CREATE TABLE test(id TEXT);');
   });
 
   it('getDb throws when not initialized', () => {
@@ -331,26 +338,31 @@ CREATE TABLE common(id TEXT);
     (global as any).fsReadFail = false;
   });
 
-  it('initialize creates directory for file-based databases', async () => {
-    // Use a path that requires directory creation - ensure it doesn't exist
-    const testDbPath = '/tmp/nonexistent-specly-dir-' + Date.now() + '/test.db';
+  it('initialize skips when already initialized', async () => {
+    mgr = new DatabaseManager(':memory:', DatabaseType.WORKSPACE);
+    await mgr.initialize();
+    expect(mgr.isReady()).toBe(true);
+    
+    // Call initialize again - should skip
+    await mgr.initialize();
+    expect(mgr.isReady()).toBe(true);
+  });
+
+  it('initialize skips directory creation when directory exists', async () => {
+    const testDbPath = '/tmp/existing-specly-dir-' + Date.now() + '/test.db';
     const testDbDir = dirname(testDbPath);
     
-    // Ensure directory doesn't exist
-    if (existsSync(testDbDir)) {
-      rmSync(testDbDir, { recursive: true, force: true });
-    }
+    // Create directory first
+    mkdirSync(testDbDir, { recursive: true });
     
     mgr = new DatabaseManager(testDbPath, DatabaseType.WORKSPACE);
     await mgr.initialize();
     expect(mgr.isReady()).toBe(true);
-    // Verify directory was created
+    // Directory should still exist
     expect(existsSync(testDbDir)).toBe(true);
     // Clean up
     await mgr.close();
-    if (existsSync(testDbDir)) {
-      rmSync(testDbDir, { recursive: true, force: true });
-    }
+    rmSync(testDbDir, { recursive: true, force: true });
   });
 });
 
@@ -359,11 +371,13 @@ describe('Global Database Functions', () => {
   const originalHome = process.env.HOME;
   beforeEach(() => {
     process.env.HOME = '/tmp/test-home';
+    // Reset global instances before each test
+    resetGlobalInstances();
   });
   afterEach(() => {
     process.env.HOME = originalHome;
     // Reset global instances between tests
-    vi.doUnmock('../database/connection.js');
+    resetGlobalInstances();
   });
 
   it('getGlobalDatabase returns a GLOBAL type manager', () => {
@@ -372,10 +386,22 @@ describe('Global Database Functions', () => {
     expect((db as any).dbType).toBe(DatabaseType.GLOBAL);
   });
 
+  it('getGlobalDatabase returns same instance on multiple calls', () => {
+    const db1 = getGlobalDatabase();
+    const db2 = getGlobalDatabase();
+    expect(db1).toBe(db2);
+  });
+
   it('getWorkspaceDatabase returns a WORKSPACE type manager', () => {
     const db = getWorkspaceDatabase('/tmp/test-workspace');
     expect(db).toBeInstanceOf(DatabaseManager);
     expect((db as any).dbType).toBe(DatabaseType.WORKSPACE);
+  });
+
+  it('getWorkspaceDatabase returns same instance on multiple calls', () => {
+    const db1 = getWorkspaceDatabase('/tmp/test-workspace');
+    const db2 = getWorkspaceDatabase('/tmp/test-workspace');
+    expect(db1).toBe(db2);
   });
 
   it('initializeGlobalDatabase initializes and returns the global instance', async () => {

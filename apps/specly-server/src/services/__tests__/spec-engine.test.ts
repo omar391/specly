@@ -97,6 +97,7 @@ describe('SpecEngine', () => {
       const result = await engine.run(invalidGraph);
       expect(result.status).toBe('error');
       expect(result.error?.message).toContain('ordered_specs must be a non-empty array');
+      expect(result.errorCode).toBe(SpecEngineErrorCode.GRAPH_MISSING_NODE);
     });
 
     it('should handle lease acquisition failure', async () => {
@@ -104,6 +105,7 @@ describe('SpecEngine', () => {
       const result = await engine.run(mockToolGraph, { sessionId: 'session', clientId: 'client' });
       expect(result.status).toBe('error');
       expect(result.error?.message).toContain('Lease acquisition failed');
+      expect(result.errorCode).toBe(SpecEngineErrorCode.LEASE_ACQUIRE_FAILED);
     });
 
     it('should handle lease renewal failure', async () => {
@@ -136,6 +138,7 @@ describe('SpecEngine', () => {
       const result = await engine.run(longPlanGraph, { sessionId: 'session', clientId: 'client' });
       expect(result.status).toBe('error');
       expect(result.error?.message).toContain('Lease renewal failed');
+      expect(result.errorCode).toBe(SpecEngineErrorCode.LEASE_RENEW_FAILED);
     });
 
     it('should handle missing node in execution', async () => {
@@ -146,6 +149,7 @@ describe('SpecEngine', () => {
       const result = await engine.run(mockToolGraph);
       expect(result.status).toBe('error');
       expect(result.error?.message).toContain('Missing node during execution');
+      expect(result.errorCode).toBe(SpecEngineErrorCode.GRAPH_MISSING_NODE);
     });
 
     it('should handle metrics recording failure gracefully', async () => {
@@ -181,6 +185,7 @@ describe('SpecEngine', () => {
       const result = await engine.run(deadEndGraph);
       expect(result.status).toBe('error');
       expect(result.error?.message).toContain('Dead-end reached');
+      expect(result.errorCode).toBe(SpecEngineErrorCode.ROUTE_DEAD_END);
     });
 
     it('should complete successfully without dead-end when last node has no outgoing edges', async () => {
@@ -221,6 +226,7 @@ describe('SpecEngine', () => {
       const result = await engine.run(humanGraph);
       expect(result.status).toBe('awaiting_input');
       expect(result.awaitingSpec).toBe('entry');
+      expect(result.resumeToken).toMatch(/^entry:0:\d+$/);
     });
 
     it('should handle planner cycle error', async () => {
@@ -269,6 +275,7 @@ describe('SpecEngine', () => {
       const result = await engine.run(singleGraph);
       expect(result.status).toBe('error');
       expect(result.error?.message).toContain('Execution failed at spec entry');
+      expect(result.errorCode).toBe(SpecEngineErrorCode.EXECUTOR_FAILED);
       expect(mockMetrics.inc).toHaveBeenCalledWith('specly_engine_specs_failed_total');
       expect(mockMetrics.inc).toHaveBeenCalledWith('action_journal_retry_exhausted_total');
     });
@@ -337,6 +344,7 @@ describe('SpecEngine', () => {
       }, { sessionId: 'session', clientId: 'client' });
       expect(result.status).toBe('error');
       expect(result.error?.message).toContain('Lease acquisition failed');
+      expect(result.errorCode).toBe(SpecEngineErrorCode.LEASE_ACQUIRE_FAILED);
     });
 
     it('should handle mismatched spec hash', async () => {
@@ -346,6 +354,7 @@ describe('SpecEngine', () => {
       });
       expect(result.status).toBe('error');
       expect(result.error?.message).toContain('Stale or mismatched resume token');
+      expect(result.errorCode).toBe(SpecEngineErrorCode.RESUME_TOKEN_INVALID);
     });
 
     it('should handle resume with human spec in remaining steps', async () => {
@@ -374,6 +383,7 @@ describe('SpecEngine', () => {
       expect(result.status).toBe('awaiting_input');
       expect(result.awaitingSpec).toBe('node1');
       expect(result.executed).toContain('entry');
+      expect(result.resumeToken).toMatch(/^node1:3:\d+$/);
     });
 
     it('should handle resume with already used resume token', async () => {
@@ -392,6 +402,7 @@ describe('SpecEngine', () => {
       });
       expect(result2.status).toBe('error');
       expect(result2.error?.message).toContain('Resume token already used');
+      expect(result2.errorCode).toBe(SpecEngineErrorCode.RESUME_TOKEN_INVALID);
     });
 
     it('should handle executor failure during resume', async () => {
@@ -402,6 +413,7 @@ describe('SpecEngine', () => {
       });
       expect(result.status).toBe('error');
       expect(result.error?.message).toContain('Resume fail');
+      expect(result.errorCode).toBe(SpecEngineErrorCode.EXECUTOR_FAILED);
     });
 
     it('should handle lease renewal failure during resume', async () => {
@@ -447,6 +459,7 @@ describe('SpecEngine', () => {
       }, { sessionId: 'session', clientId: 'client' });
       expect(result.status).toBe('error');
       expect(result.error?.message).toContain('Lease renewal failed');
+      expect(result.errorCode).toBe(SpecEngineErrorCode.LEASE_RENEW_FAILED);
     });
   });
 

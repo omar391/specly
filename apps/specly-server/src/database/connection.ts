@@ -250,3 +250,11 @@ export async function initializeBothDatabases(workspacePath: string): Promise<{
   
   return { global, workspace };
 }
+
+/**
+ * Reset global instances (for testing)
+ */
+export function resetGlobalInstances(): void {
+  globalDbInstance = null;
+  workspaceDbInstance = null;
+}

@@ -509,7 +509,14 @@ export function getWorkspaceDatabase(workspacePath: string): DrizzleDatabaseMana
 }
 
 /**
- * Clear workspace database cache (for testing)
+ * Clear global database instance (for testing)
+ */
+export function clearGlobalDatabaseInstance(): void {
+  globalDbInstance = null;
+}
+
+/**
+ * Clear workspace database instances (for testing)
  */
 export function clearWorkspaceDatabaseCache(): void {
   workspaceDbInstances.clear();
