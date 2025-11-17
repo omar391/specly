@@ -34,9 +34,29 @@ describe('ToolGraphBuilder', () => {
         expect(() => unsafe.addEdge('A', 'Z')).toThrow(/undeclared spec/);
     });
 
+    it('throws when adding edge with undeclared from spec', () => {
+        const builder = ToolGraphBuilder.create()
+            .addSpec({ hash: 'A', intent: 'autonomous', entry: true });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const unsafe = builder as any;
+        expect(() => unsafe.addEdge('Z', 'A')).toThrow(/undeclared spec/);
+    });
+
     it('requires an entry spec', () => {
         const builder = ToolGraphBuilder.create()
             .addSpec({ hash: 'A', intent: 'autonomous' });
         expect(() => builder.build()).toThrow(/Entry spec not set/);
+    });
+
+    it('sets entry on second spec', () => {
+        const graph = buildToolGraph(b => b
+            .addSpec({ hash: 'A', intent: 'autonomous' })
+            .addSpec({ hash: 'B', intent: 'autonomous', entry: true })
+            .addEdge('A', 'B')
+        );
+        expect(graph.entry).toBe('B');
+        expect(graph.nodes).toHaveProperty('A');
+        expect(graph.nodes).toHaveProperty('B');
+        expect(graph.edges).toEqual([{ from: 'A', to: 'B', priority: undefined }]);
     });
 });
