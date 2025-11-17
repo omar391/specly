@@ -130,7 +130,21 @@ describe('AddToolNew', () => {
             expect(task?.title).toBe('Explicit Title');
             expect(task?.priority).toBe('medium');
         });
+        it('defaults priority to medium when not provided', async () => {
+            vi.spyOn(Date, 'now').mockReturnValue(1762194999999); // 999999
 
+            const result = await addTool.execute({
+                workspace_path: workspacePath,
+                task_description: 'Task without priority'
+                // no priority provided
+            });
+
+            expect(result.isError).toBe(false);
+            const wsDb = new WorkspaceDatabaseService(workspacePath);
+            await wsDb.initialize();
+            const task = await wsDb.getTask('TP-999999');
+            expect(task?.priority).toBe('medium');
+        });
         it('generates short title from long description (>60 chars)', async () => {
             vi.spyOn(Date, 'now').mockReturnValue(1762194555555); // 555555
             const longDesc = 'This is a very long description that definitely exceeds sixty characters so it should be truncated and ended with ellipsis.';
@@ -146,6 +160,39 @@ describe('AddToolNew', () => {
             expect(task).toBeTruthy();
             expect(task?.title.endsWith('...')).toBe(true);
             expect(task?.title.length).toBeGreaterThan(3);
+        });
+
+        it('generates title from description without sentence endings', async () => {
+            vi.spyOn(Date, 'now').mockReturnValue(1762194777777); // 777777
+            const descWithoutSentences = 'This description has no period or question mark or exclamation point';
+
+            await addTool.execute({
+                workspace_path: workspacePath,
+                task_description: descWithoutSentences
+            });
+
+            const wsDb = new WorkspaceDatabaseService(workspacePath);
+            await wsDb.initialize();
+            const task = await wsDb.getTask('TP-777777');
+            expect(task).toBeTruthy();
+            expect(task?.title).toBe('This description has no period or question mark or...');
+        });
+
+        it('generates title from short description without ellipsis', async () => {
+            vi.spyOn(Date, 'now').mockReturnValue(1762194888888); // 888888
+            const shortDesc = 'Short description under 50 chars';
+
+            await addTool.execute({
+                workspace_path: workspacePath,
+                task_description: shortDesc
+            });
+
+            const wsDb = new WorkspaceDatabaseService(workspacePath);
+            await wsDb.initialize();
+            const task = await wsDb.getTask('TP-888888');
+            expect(task).toBeTruthy();
+            expect(task?.title).toBe('Short description under 50 chars');
+            expect(task?.title.endsWith('...')).toBe(false);
         });
     });
 
@@ -176,6 +223,23 @@ describe('AddToolNew', () => {
             expect(res.isError).toBe(true);
             expect(res.content[0].text).toContain('Failed to create task');
             expect(res.content[0].text).toContain('Write failure');
+            spy.mockRestore();
+        });
+
+        it('handles createTask throwing non-Error object', async () => {
+            vi.spyOn(Date, 'now').mockReturnValue(1762194222222); // 222222
+
+            // Spy to simulate throwing a string
+            const spy = vi.spyOn(WorkspaceDatabaseService.prototype, 'createTask').mockRejectedValueOnce('String error');
+
+            const res = await addTool.execute({
+                workspace_path: workspacePath,
+                task_description: 'Trigger string error'
+            });
+
+            expect(res.isError).toBe(true);
+            expect(res.content[0].text).toContain('Failed to create task');
+            expect(res.content[0].text).toContain('String error');
             spy.mockRestore();
         });
     });
