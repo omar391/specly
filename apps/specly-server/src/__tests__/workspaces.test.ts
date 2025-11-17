@@ -503,6 +503,88 @@ describe('WorkspacesController', () => {
       });
     });
 
+    it('handles tasks with unknown priorities for both tasks', async () => {
+      const mockWorkspace = {
+        id: 'workspace-1',
+        name: 'Test Workspace',
+        path: '/path/to/workspace',
+        status: 'active',
+        lastActivity: '2024-01-01T00:00:00Z',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z'
+      };
+
+      const mockTasks = [
+        { id: 'task-1', title: 'Critical Task', status: 'in_progress', priority: 'critical', updatedAt: '2024-01-01T00:00:00Z' },
+        { id: 'task-2', title: 'Urgent Task', status: 'in_progress', priority: 'urgent', updatedAt: '2024-01-01T00:00:00Z' }
+      ];
+
+      mockGlobalDb.getAllWorkspaces.mockResolvedValue([mockWorkspace]);
+      mockWorkspaceDb.getAllTasks.mockResolvedValue(mockTasks);
+
+      await controller.getWorkspaces(mockContext as Context);
+
+      const expectedWorkspace = {
+        id: 'workspace-1',
+        name: 'Test Workspace',
+        path: '/path/to/workspace',
+        status: 'active',
+        last_activity: '2024-01-01T00:00:00Z',
+        task_count: 2,
+        active_task: 'Critical Task', // both unknown priorities (4), same time, stable sort
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z'
+      };
+
+      expect(mockContext.json).toHaveBeenCalledWith({
+        data: { workspaces: [expectedWorkspace] }
+      });
+    });
+
+    it('handles tasks with null updatedAt for both tasks', async () => {
+      const mockWorkspace = {
+        id: 'workspace-1',
+        name: 'Test Workspace',
+        path: '/path/to/workspace',
+        status: 'active',
+        lastActivity: '2024-01-01T00:00:00Z',
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z'
+      };
+
+      const mockTasks = [
+        { id: 'task-1', title: 'Task 1', status: 'in_progress', priority: 'medium', updatedAt: null },
+        { id: 'task-2', title: 'Task 2', status: 'in_progress', priority: 'medium', updatedAt: null }
+      ];
+
+      mockGlobalDb.getAllWorkspaces.mockResolvedValue([mockWorkspace]);
+      mockWorkspaceDb.getAllTasks.mockResolvedValue(mockTasks);
+
+      await controller.getWorkspaces(mockContext as Context);
+
+      const expectedWorkspace = {
+        id: 'workspace-1',
+        name: 'Test Workspace',
+        path: '/path/to/workspace',
+        status: 'active',
+        last_activity: '2024-01-01T00:00:00Z',
+        task_count: 2,
+        active_task: 'Task 1', // same priority, both null timestamps (0), stable sort
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z'
+      };
+
+      expect(mockContext.json).toHaveBeenCalledWith({
+        data: { workspaces: [expectedWorkspace] }
+      });
+    });
+
+    it('handles getAllWorkspaces error', async () => {
+      mockGlobalDb.getAllWorkspaces.mockRejectedValue(new Error('Database connection failed'));
+
+      await expect(controller.getWorkspaces(mockContext as Context)).rejects.toThrow('Database connection failed');
+    });
+
   });
 
   describe('getWorkspaceById', () => {
