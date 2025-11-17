@@ -1,11 +1,7 @@
 #!/usr/bin/env node
 
 import { initializeGlobalDatabaseService, GlobalDatabaseService } from './database/global-queries.js';
-import { DatabaseService } from './services/database-service.js';
-import { SeedManager } from './services/seed-manager.js';
-import { PromptOrchestrator } from './services/prompt-orchestrator.js';
 import type { DrizzleDatabaseManager } from './database/drizzle-connection.js';
-import type { BaseTool } from './tools/base-tool.js';
 import type { z } from 'zod';
 import { validateToolName, ToolNames } from './constants/tool-names.js';
 import { getTestDatabaseInstances } from './test-utils/database-test-helpers.js';
@@ -337,7 +333,6 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // Only run main when not in test environment
-/* istanbul ignore next */
 if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
     main().catch(error => {
         console.error('❌ Fatal error:', error);

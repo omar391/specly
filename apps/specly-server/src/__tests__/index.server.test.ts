@@ -92,6 +92,47 @@ describe('index.ts server behaviors', () => {
         await s.ensureSpeclySeed(false);
 
         expect(consoleLog).toHaveBeenCalled();
+        // Ensure a summary is captured on the server instance when seed occurs
+        expect((s as any).lastSeedSummary).toBeDefined();
+        expect((s as any).lastSeedSummary!.seeded).toBe(true);
+    });
+
+    it('ensureSpeclySeed does not call seed when rows present and not forced', async () => {
+        // Mock DB to return a row (profiles exist)
+        const fakeDb = { all: vi.fn().mockResolvedValue([{ id: 'root-profile' }]) };
+        const fakeGlobalDbService = { getDrizzleManager: () => ({ getDb: () => fakeDb }) };
+        vi.doMock('../database/global-queries.js', () => ({
+            initializeGlobalDatabaseService: vi.fn().mockResolvedValue(fakeGlobalDbService),
+            GlobalDatabaseService: class GlobalDatabaseService { constructor(_arg: any) { /* noop */ } }
+        }));
+
+        // Re-mock SeedManager with seedSpecly spy
+        const seedSpecly = vi.fn().mockResolvedValue({ seeded: true });
+        vi.doMock('../services/seed-manager.js', () => ({ SeedManager: vi.fn().mockImplementation(() => ({ initializeGlobalData: vi.fn(), seedSpecly })) }));
+
+        // Minimal tool mock required for initializing server
+        const toolMock = vi.fn().mockImplementation(() => ({}));
+        vi.doMock('../tools/init.js', () => ({ InitToolNew: toolMock, initToolSchema: {} }));
+        vi.doMock('../tools/start.js', () => ({ StartTool: toolMock, startToolSchema: {} }));
+        vi.doMock('../tools/add.js', () => ({ AddToolNew: toolMock, addToolSchema: {} }));
+        vi.doMock('../tools/status.js', () => ({ StatusToolNew: toolMock, statusToolSchema: {} }));
+        vi.doMock('../tools/update.js', () => ({ UpdateToolNew: toolMock, updateToolSchema: {} }));
+        vi.doMock('../tools/audit.js', () => ({ AuditToolNew: toolMock, auditToolSchema: {} }));
+        vi.doMock('../tools/focus.js', () => ({ FocusToolNew: toolMock, focusToolSchema: {} }));
+        vi.doMock('../tools/github.js', () => ({ GitHubTool: toolMock, githubToolSchema: {} }));
+        vi.doMock('../tools/rule-update.js', () => ({ RuleUpdateTool: toolMock, ruleUpdateToolSchema: {} }));
+        vi.doMock('../tools/remote-interface.js', () => ({ RemoteInterfaceTool: toolMock, remoteInterfaceToolSchema: {} }));
+        vi.doMock('../tools/update-resources.js', () => ({ UpdateResourcesTool: toolMock, updateResourcesToolSchema: {} }));
+        vi.doMock('../tools/update-steps.js', () => ({ UpdateStepsTool: toolMock, updateStepsToolSchema: {} }));
+
+        const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => { });
+        const mod = await import('../index.js');
+        const { SpeclyServer } = mod as any;
+        const sNoSeed = new SpeclyServer();
+        await sNoSeed.initializeServer();
+        // No seed should be called because root profile row exists
+        await sNoSeed.ensureSpeclySeed(false);
+        expect(seedSpecly).not.toHaveBeenCalled();
     });
 
     it('startBackgroundJobs/stopBackgroundJobs behave when enabled and disabled', async () => {
@@ -158,6 +199,62 @@ describe('index.ts server behaviors', () => {
         delete process.env.SPECLY_GC_ENABLED;
         delete process.env.SPECLY_GC_TRANSIENT_SESSION_HOURS;
         delete process.env.SPECLY_GC_SOFT_DELETE_DAYS;
+    });
+
+    it('startBackgroundJobs logs when initial GC sweep fails', async () => {
+        // Setup minimal server initialization
+        const fakeGlobalDbService = { getDrizzleManager: () => ({ getDb: () => ({ all: vi.fn().mockResolvedValue([]) }) }) };
+        vi.doMock('../database/global-queries.js', () => ({
+            initializeGlobalDatabaseService: vi.fn().mockResolvedValue(fakeGlobalDbService),
+            GlobalDatabaseService: class GlobalDatabaseService { constructor(_arg: any) { /* noop */ } }
+        }));
+
+        // Mock SeedManager + PromptOrchestrator + tools (same as earlier)
+        vi.doMock('../services/seed-manager.js', () => ({ SeedManager: vi.fn().mockImplementation(() => ({ initializeGlobalData: vi.fn(), seedSpecly: vi.fn().mockResolvedValue({}) })) }));
+        vi.doMock('../services/prompt-orchestrator.js', () => ({ PromptOrchestrator: vi.fn().mockImplementation(() => ({})) }));
+        const toolMock = vi.fn().mockImplementation(() => ({}));
+        vi.doMock('../tools/init.js', () => ({ InitToolNew: toolMock, initToolSchema: {} }));
+        vi.doMock('../tools/start.js', () => ({ StartTool: toolMock, startToolSchema: {} }));
+        vi.doMock('../tools/add.js', () => ({ AddToolNew: toolMock, addToolSchema: {} }));
+        vi.doMock('../tools/status.js', () => ({ StatusToolNew: toolMock, statusToolSchema: {} }));
+        vi.doMock('../tools/update.js', () => ({ UpdateToolNew: toolMock, updateToolSchema: {} }));
+        vi.doMock('../tools/audit.js', () => ({ AuditToolNew: toolMock, auditToolSchema: {} }));
+        vi.doMock('../tools/focus.js', () => ({ FocusToolNew: toolMock, focusToolSchema: {} }));
+        vi.doMock('../tools/github.js', () => ({ GitHubTool: toolMock, githubToolSchema: {} }));
+        vi.doMock('../tools/rule-update.js', () => ({ RuleUpdateTool: toolMock, ruleUpdateToolSchema: {} }));
+        vi.doMock('../tools/remote-interface.js', () => ({ RemoteInterfaceTool: toolMock, remoteInterfaceToolSchema: {} }));
+        vi.doMock('../tools/update-resources.js', () => ({ UpdateResourcesTool: toolMock, updateResourcesToolSchema: {} }));
+        vi.doMock('../tools/update-steps.js', () => ({ UpdateStepsTool: toolMock, updateStepsToolSchema: {} }));
+
+        // Mock BackgroundJobsService to reject on runAll to exercise the 'Initial GC sweep failed' catch branch
+        const runAll = vi.fn().mockRejectedValue(new Error('boomGC'));
+        const BackgroundJobsServiceMock = vi.fn().mockImplementation(() => ({ runAll }));
+        vi.doMock('../services/background-jobs-service.js', () => ({ BackgroundJobsService: BackgroundJobsServiceMock }));
+
+        const consoleError = vi.spyOn(console, 'error').mockImplementation(() => { });
+        const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => { });
+
+        const mod = await import('../index.js');
+        const { SpeclyServer } = mod as any;
+        const s = new SpeclyServer();
+        await s.initializeServer();
+
+        process.env.SPECLY_GC_ENABLED = 'true';
+        s.startBackgroundJobs();
+
+        // Wait briefly to allow runAll promise rejection handling
+        await new Promise((res) => setTimeout(res, 10));
+
+        expect(BackgroundJobsServiceMock).toHaveBeenCalled();
+        expect(runAll).toHaveBeenCalled();
+        expect(consoleError).toHaveBeenCalledWith(
+            expect.stringContaining('Initial GC sweep failed')
+        );
+
+        // cleanup env
+        delete process.env.SPECLY_GC_ENABLED;
+        consoleError.mockRestore();
+        consoleLog.mockRestore();
     });
 
     it('createMCPToolHandlers returns handlers with listTools and handleToolCall', async () => {

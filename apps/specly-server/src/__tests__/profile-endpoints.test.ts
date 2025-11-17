@@ -263,4 +263,172 @@ describe('Profile & Workspace Binding Endpoints (SP-015)', () => {
       });
         expect(missing.status).toBe(404);
     });
+
+  it('returns 404 for non-existent profile in createProfileVersion', async () => {
+    const { app } = await makeApp();
+    const res = await app.request('/profiles/nonexistent/versions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error).toBe('profile not found');
+  });
+
+  it('returns 404 for non-existent profile in attachTools', async () => {
+    const { app } = await makeApp();
+    const res = await app.request('/profiles/nonexistent/versions/1/attachments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ attachments: [{ tool_name: 'test', tool_version_hash: 'hash' }] })
+    });
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error).toBe('profile not found');
+  });
+
+  it('returns 404 for non-existent profile in upgradeWorkspaceProfile', async () => {
+    const { app } = await makeApp();
+    const res = await app.request('/workspaces/w1/profile/upgrade', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile: 'nonexistent' })
+    });
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error).toBe('profile not found');
+  });
+
+  it('returns 404 for non-existent profile in getAttachments', async () => {
+    const { app } = await makeApp();
+    const res = await app.request('/profiles/nonexistent/versions/1/attachments', {
+      method: 'GET'
+    });
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error).toBe('profile not found');
+  });
+
+  it('returns 404 for non-existent profile in publishProfileVersion', async () => {
+    const { app } = await makeApp();
+    const res = await app.request('/profiles/nonexistent/versions/1/publish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error).toBe('profile not found');
+  });
+
+  it('returns 404 for non-existent version in upgradeWorkspaceProfile', async () => {
+    const { app } = await makeApp();
+    // Create profile with version 1
+    await app.request('/profiles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'testprof' })
+    });
+    await app.request('/profiles/testprof/versions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    // Try to upgrade to version 99 (doesn't exist)
+    const res = await app.request('/workspaces/w1/profile/upgrade', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile: 'testprof', version: 99 })
+    });
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error).toBe('profile version not found');
+  });
+
+  it('upgrades to specific existing version in upgradeWorkspaceProfile', async () => {
+    const { app } = await makeApp();
+    // Create profile with versions 1 and 2
+    await app.request('/profiles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'testprof' })
+    });
+    await app.request('/profiles/testprof/versions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    await app.request('/profiles/testprof/versions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    // Upgrade to version 1 specifically
+    const res = await app.request('/workspaces/w1/profile/upgrade', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile: 'testprof', version: 1 })
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toHaveProperty('workspace_id', 'w1');
+    expect(body).toHaveProperty('profile_version_id');
+    expect(body).toHaveProperty('pinned_at');
+  });
+
+  it('upgrades to latest version when no version specified in upgradeWorkspaceProfile', async () => {
+    const { app } = await makeApp();
+    // Create profile with versions 1 and 2
+    await app.request('/profiles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'testprof' })
+    });
+    await app.request('/profiles/testprof/versions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    await app.request('/profiles/testprof/versions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    // Upgrade without specifying version (should use latest)
+    const res = await app.request('/workspaces/w1/profile/upgrade', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile: 'testprof' })
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toHaveProperty('workspace_id', 'w1');
+    expect(body).toHaveProperty('profile_version_id');
+    expect(body).toHaveProperty('pinned_at');
+  });
+
+  it('returns 400 for missing tool_name in attachTools', async () => {
+    const { app } = await makeApp();
+    // Create profile and version
+    await app.request('/profiles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'testprof' })
+    });
+    await app.request('/profiles/testprof/versions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    // Try to attach tool without tool_name
+    const res = await app.request('/profiles/testprof/versions/1/attachments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ attachments: [{ tool_version_hash: 'hash123' }] })
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('tool_name and tool_version_hash required for each attachment');
+  });
 });

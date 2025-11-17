@@ -566,7 +566,7 @@ describe('WorkspaceRegistry', () => {
 
             (registry as any).startActivityMonitoring('test-id');
 
-            vi.advanceTimersByTime(300000); // 5 minutes
+            vi.runOnlyPendingTimers();
 
             expect(mockGlobalDb.updateWorkspace).toHaveBeenCalledWith('test-id', {
                 status: 'inactive',
@@ -581,7 +581,7 @@ describe('WorkspaceRegistry', () => {
 
             (registry as any).startActivityMonitoring('test-id');
 
-            vi.advanceTimersByTime(300000);
+            vi.runOnlyPendingTimers();
 
             // Should not throw, error should be logged
             expect(mockGlobalDb.updateWorkspace).toHaveBeenCalled();

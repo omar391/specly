@@ -326,5 +326,53 @@ describe('WorkspaceRulesRepository', () => {
       const reinforcedRule = allRules.find(r => r.rule === 'rule 1');
       expect(reinforcedRule!.confidence).toBeGreaterThan(1);
     });
+
+    it('handles existing rule with null confidence (nullish fallback)', async () => {
+      // Build a fake global DB whose select returns a row with confidence: null
+      const fakeDb: any = {
+        select: () => ({
+          from: () => ({
+            where: () => ({
+              limit: async () => [{ id: 'null-conf', confidence: null }]
+            })
+          })
+        }),
+        update: () => ({ set: () => ({ where: async () => ({}) }) })
+      };
+
+      const fakeGlobalDb = {
+        getDrizzleManager: () => ({ getDb: () => fakeDb })
+      } as unknown as GlobalDatabaseService;
+
+      const repoWithNull = new WorkspaceRulesRepository(fakeGlobalDb as any);
+
+      const result = await repoWithNull.addOrReinforce({ workspaceId: 'ws-test', relation: 'always-do', rule: 'null confidence rule' });
+
+      expect(result.created).toBe(false);
+      // Since old confidence is null, fallback value 1 should be used and then increased
+      expect(result.confidence).toBeGreaterThanOrEqual(1);
+      expect(result.id).toBe('null-conf');
+    });
+
+    it('handles insert returning without confidence (undefined fallback)', async () => {
+      // Build a fake global DB whose insert returning returns a row without confidence
+      const fakeDb: any = {
+        select: () => ({ from: () => ({ where: () => ({ limit: async () => [] }) }) }),
+        insert: () => ({ values: () => ({ returning: async () => [{ id: 'inserted-no-conf' }] }) })
+      };
+
+      const fakeGlobalDb = {
+        getDrizzleManager: () => ({ getDb: () => fakeDb })
+      } as unknown as GlobalDatabaseService;
+
+      const repoWithMissing = new WorkspaceRulesRepository(fakeGlobalDb as any);
+
+      const result = await repoWithMissing.addOrReinforce({ workspaceId: 'ws-test', relation: 'always-do', rule: 'no conf insert' });
+
+      expect(result.created).toBe(true);
+      // When the returned row lacks a confidence value, fallback to 1 should be used
+      expect(result.confidence).toBe(1);
+      expect(result.id).toBe('inserted-no-conf');
+    });
   });
 });

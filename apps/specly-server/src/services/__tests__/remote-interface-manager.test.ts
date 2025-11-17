@@ -345,4 +345,50 @@ describe('RemoteInterfaceManager', () => {
         expect(Array.isArray(trello)).toBe(true);
         expect(trello.length).toBeGreaterThanOrEqual(3);
     });
+
+    it('testConnection linear network error with non-Error throw covers unknown error branch', async () => {
+        const linear = { id: 'l-non-err', interfaceType: 'linear', name: 'l', baseUrl: 'https://linear', apiToken: 't', projectId: null, syncEnabled: true, syncDirection: 'bidirectional', fieldMappings: '[]', lastSync: null, createdAt: '', updatedAt: '' };
+        workspaceDb.getRemoteInterface.mockResolvedValue(linear);
+        vi.stubGlobal('fetch', vi.fn().mockRejectedValue('non-error-throw'));
+        const rl = await manager.testConnection('ws1', 'l-non-err');
+        expect(rl.success).toBe(false);
+        expect(rl.error).toMatch(/Connection failed: Unknown error/);
+    });
+
+    it('testConnection jira network error with non-Error throw covers unknown error branch', async () => {
+        const jira = { id: 'j-non-err', interfaceType: 'jira', name: 'j', baseUrl: 'https://jira', apiToken: 't', projectId: null, syncEnabled: true, syncDirection: 'bidirectional', fieldMappings: '[]', lastSync: null, createdAt: '', updatedAt: '' };
+        workspaceDb.getRemoteInterface.mockResolvedValue(jira);
+        vi.stubGlobal('fetch', vi.fn().mockRejectedValue('non-error-throw'));
+        const rj = await manager.testConnection('ws1', 'j-non-err');
+        expect(rj.success).toBe(false);
+        expect(rj.error).toMatch(/Connection failed: Unknown error/);
+    });
+
+    it('testConnection generic network error with non-Error throw covers unknown error branch', async () => {
+        const custom = { id: 'c-non-err', interfaceType: 'custom', name: 'c', baseUrl: 'https://custom', apiToken: 't', projectId: null, syncEnabled: true, syncDirection: 'bidirectional', fieldMappings: '[]', lastSync: null, createdAt: '', updatedAt: '' };
+        workspaceDb.getRemoteInterface.mockResolvedValue(custom);
+        vi.stubGlobal('fetch', vi.fn().mockRejectedValue('non-error-throw'));
+        const rc = await manager.testConnection('ws1', 'c-non-err');
+        expect(rc.success).toBe(false);
+        expect(rc.error).toMatch(/Connection failed: Unknown error/);
+    });
+
+    it('testConnection github network error with non-Error throw covers unknown error branch', async () => {
+        const github = { id: 'g-non-err', interfaceType: 'github', name: 'g', baseUrl: 'https://api.github.com', apiToken: 't', projectId: null, syncEnabled: true, syncDirection: 'bidirectional', fieldMappings: '[]', lastSync: null, createdAt: '', updatedAt: '' };
+        workspaceDb.getRemoteInterface.mockResolvedValue(github);
+        vi.stubGlobal('fetch', vi.fn().mockRejectedValue('non-error-throw'));
+        const rg = await manager.testConnection('ws1', 'g-non-err');
+        expect(rg.success).toBe(false);
+        expect(rg.error).toMatch(/Connection failed: Unknown error/);
+    });
+
+    it('testConnection propagates non-Error thrown from internal testers covers testConnection catch unknown error branch', async () => {
+        const ri = { id: 'x-err', interfaceType: 'github', name: 'g', baseUrl: 'https://api.github.com', apiToken: 't', projectId: null, syncEnabled: true, syncDirection: 'bidirectional', fieldMappings: '[]', lastSync: null, createdAt: '', updatedAt: '' };
+        workspaceDb.getRemoteInterface.mockResolvedValue(ri);
+        const anyM = manager as any;
+        vi.spyOn(anyM, 'testGitHubConnection' as any).mockRejectedValue('non-error-throw');
+        const r = await manager.testConnection('ws1', 'x-err');
+        expect(r.success).toBe(false);
+        expect(r.error).toBe('Unknown error');
+    });
 });

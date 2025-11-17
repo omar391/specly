@@ -180,6 +180,28 @@ describe('BackgroundJobsService', () => {
       );
     });
 
+    it('should handle Error exceptions in transientSessionGC', async () => {
+      const workspaces = [
+        { id: 'ws1', path: '/path/to/ws1' },
+      ];
+
+      mockGlobalDb.getAllWorkspaces.mockResolvedValue(workspaces);
+      mockWorkspaceDb.getDb.mockImplementationOnce(() => {
+        throw new Error('boom'); // Throw an Error instance
+      });
+
+      const service = new BackgroundJobsService(mockGlobalDb);
+      const result = await service.transientSessionGC();
+
+      expect(result).toBe(0);
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to GC workspace')
+      );
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        expect.stringContaining('boom')
+      );
+    });
+
     it('should not call metrics when no sessions deleted', async () => {
       const workspaces = [{ id: 'ws1', path: '/path/to/ws1' }];
       mockGlobalDb.getAllWorkspaces.mockResolvedValue(workspaces);
@@ -305,6 +327,28 @@ describe('BackgroundJobsService', () => {
       );
       expect(consoleLogSpy).toHaveBeenCalledWith(
         expect.stringContaining('42')
+      );
+    });
+
+    it('should handle Error exceptions in softDeletePurge', async () => {
+      const workspaces = [
+        { id: 'ws1', path: '/path/to/ws1' },
+      ];
+
+      mockGlobalDb.getAllWorkspaces.mockResolvedValue(workspaces);
+      mockWorkspaceDb.getDb.mockImplementationOnce(() => {
+        throw new Error('boom2'); // Throw an Error instance
+      });
+
+      const service = new BackgroundJobsService(mockGlobalDb);
+      const result = await service.softDeletePurge();
+
+      expect(result).toBe(0);
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to purge workspace')
+      );
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        expect.stringContaining('boom2')
       );
     });
 

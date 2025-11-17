@@ -1,5 +1,67 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { SSEEventManager } from '../api/router.js'
+import { SSEEventManager, createApiRouter } from '../api/router.js'
+
+// Mock all controllers for route coverage
+vi.mock('../api/workspaces.js', () => ({
+  WorkspacesController: class {
+    async getWorkspaces() { return { workspaces: [] } }
+  }
+}))
+
+vi.mock('../api/tasks.js', () => ({
+  TasksController: class {
+    async getTasks() { return { tasks: [] } }
+    async getTask() { return { task: {} } }
+    async createTask() { return { task: {} } }
+    async updateTask() { return { task: {} } }
+    async patchTaskStatus() { return { task: {} } }
+    async addDependency() { return { dependency: {} } }
+    async removeDependency() { return {} }
+    async listDependencies() { return { dependencies: [] } }
+  }
+}))
+
+vi.mock('../api/tools-execute.js', () => ({
+  ToolsExecuteController: class {
+    async execute() { return { result: {} } }
+  }
+}))
+
+vi.mock('../api/specs-tools.js', () => ({
+  SpecsController: class {
+    async createSpec() { return { spec: {} } }
+  },
+  ToolsController: class {
+    async createTool() { return { tool: {} } }
+    async createToolVersion() { return { version: {} } }
+  }
+}))
+
+vi.mock('../api/profiles.js', () => ({
+  ProfilesController: class {
+    async createProfile() { return { profile: {} } }
+    async createProfileVersion() { return { version: {} } }
+    async publishProfileVersion() { return { published: true } }
+    async attachTools() { return { attached: true } }
+    async getAttachments() { return { attachments: [] } }
+    async upgradeWorkspaceProfile() { return { upgraded: true } }
+    async getWorkspaceProfile() { return { profile: {} } }
+  }
+}))
+
+vi.mock('../api/sessions.js', () => ({
+  SessionsController: class {
+    async getSessions() { return { sessions: [] } }
+  }
+}))
+
+vi.mock('../api/rules.js', () => ({
+  RulesController: class {
+    async initialize() { }
+    async createRule() { return { rule: {} } }
+    async getRules() { return { rules: [] } }
+  }
+}))
 
 describe('SSEEventManager', () => {
   let manager: SSEEventManager
@@ -14,11 +76,12 @@ describe('SSEEventManager', () => {
   it('adds client, sends event, and closes all', async () => {
     const enqueue = vi.fn()
     const close = vi.fn()
+    let onAbortCallback: any
 
     const stream = {
       controller: { enqueue, close },
       writeln: vi.fn(() => Promise.resolve()),
-      onAbort: (cb: any) => { /* noop for test */ }
+      onAbort: (cb: any) => { onAbortCallback = cb }
     }
 
     const c = {
@@ -30,11 +93,19 @@ describe('SSEEventManager', () => {
     manager.addClient('client1', c as any)
     expect(manager.getClientCount()).toBe(1)
 
+    // Send event before disconnecting
     manager.sendToClient('client1', { hello: 'world' })
     expect(enqueue).toHaveBeenCalled()
 
+    // Wait a bit for the async streamSSE callback to execute
+    await new Promise(resolve => setTimeout(resolve, 0))
+
     manager.closeAll()
     expect(close).toHaveBeenCalled()
+    expect(manager.getClientCount()).toBe(0)
+
+    // Call onAbort to cover the disconnect cleanup (client already removed by closeAll)
+    onAbortCallback()
     expect(manager.getClientCount()).toBe(0)
   })
 

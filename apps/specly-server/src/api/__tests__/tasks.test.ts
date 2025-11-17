@@ -238,6 +238,42 @@ describe('TasksController', () => {
         201
       );
     });
+
+    it('should throw error when workspace not found', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1' })),
+          json: vi.fn().mockResolvedValue({
+            title: 'Test Task',
+            description: 'Test Description',
+            priority: 'high'
+          })
+        },
+        json: vi.fn(),
+      };
+
+      mockWorkspacesController.prototype.getWorkspaceById.mockRejectedValue(new Error('Workspace not found'));
+
+      await expect(controller.createTask(mockCtx as any)).rejects.toThrow('Workspace not found');
+    });
+
+    it('should throw error when createTask fails', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1' })),
+          json: vi.fn().mockResolvedValue({
+            title: 'Test Task',
+            description: 'Test Description',
+            priority: 'high'
+          })
+        },
+        json: vi.fn(),
+      };
+
+      mockWorkspaceDb.createTask.mockResolvedValue(null);
+
+      await expect(controller.createTask(mockCtx as any)).rejects.toThrow('Failed to create task');
+    });
   });
 
   describe('getTasks', () => {
@@ -307,6 +343,77 @@ describe('TasksController', () => {
 
       expect(mockWorkspaceDb.getTasksPaginated).toHaveBeenCalledWith(undefined, 100, 0);
     });
+
+    it('should handle tasks with null fields from database', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1' })),
+          query: vi.fn(() => ({}))
+        },
+        json: vi.fn(),
+      };
+
+      mockWorkspaceDb.getTasksPaginated.mockResolvedValue([
+        {
+          id: 'task-1',
+          title: 'Task 1',
+          description: null,
+          status: null,
+          priority: null,
+          progress: null,
+          assets: null,
+          externalReferences: null,
+          metadata: null,
+          tags: null,
+          notes: null,
+          createdAt: null,
+          updatedAt: null,
+          completedAt: null
+        }
+      ]);
+      mockWorkspaceDb.countTasks.mockResolvedValue(1);
+
+      await controller.getTasks(mockCtx as any);
+
+      expect(mockCtx.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            tasks: expect.arrayContaining([
+              expect.objectContaining({
+                id: 'task-1',
+                title: 'Task 1',
+                description: '',
+                priority: 'medium',
+                status: 'queued',
+                progress: 0,
+                assets: [],
+                external_references: [],
+                metadata: {},
+                tags: [],
+                notes: null,
+                created_at: null,
+                updated_at: null,
+                completed_at: null
+              })
+            ])
+          })
+        })
+      );
+    });
+
+    it('should throw error when workspace not found', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1' })),
+          query: vi.fn(() => ({}))
+        },
+        json: vi.fn(),
+      };
+
+      mockWorkspacesController.prototype.getWorkspaceById.mockRejectedValue(new Error('Workspace not found'));
+
+      await expect(controller.getTasks(mockCtx as any)).rejects.toThrow('Workspace not found');
+    });
   });
 
   describe('getTask', () => {
@@ -362,6 +469,70 @@ describe('TasksController', () => {
         }),
         404
       );
+    });
+
+    it('should handle task with null fields from database', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1', taskId: 'task-1' }))
+        },
+        json: vi.fn(),
+      };
+
+      mockWorkspaceDb.getTask.mockResolvedValue({
+        id: 'task-1',
+        title: 'Task 1',
+        description: null,
+        status: null,
+        priority: null,
+        progress: null,
+        assets: null,
+        externalReferences: null,
+        metadata: null,
+        tags: null,
+        notes: null,
+        createdAt: null,
+        updatedAt: null,
+        completedAt: null
+      });
+
+      await controller.getTask(mockCtx as any);
+
+      expect(mockCtx.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            task: expect.objectContaining({
+              id: 'task-1',
+              title: 'Task 1',
+              description: '',
+              priority: 'medium',
+              status: 'queued',
+              progress: 0,
+              assets: [],
+              external_references: [],
+              metadata: {},
+              tags: [],
+              notes: null,
+              created_at: null,
+              updated_at: null,
+              completed_at: null
+            })
+          })
+        })
+      );
+    });
+
+    it('should throw error when workspace not found', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1', taskId: 'task-1' }))
+        },
+        json: vi.fn(),
+      };
+
+      mockWorkspacesController.prototype.getWorkspaceById.mockRejectedValue(new Error('Workspace not found'));
+
+      await expect(controller.getTask(mockCtx as any)).rejects.toThrow('Workspace not found');
     });
   });
 
@@ -567,6 +738,20 @@ describe('TasksController', () => {
         422
       );
     });
+
+    it('should throw error when workspace not found', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1', taskId: 'task-1' })),
+          json: vi.fn().mockResolvedValue({ status: 'completed' })
+        },
+        json: vi.fn(),
+      };
+
+      mockWorkspacesController.prototype.getWorkspaceById.mockRejectedValue(new Error('Workspace not found'));
+
+      await expect(controller.patchTaskStatus(mockCtx as any)).rejects.toThrow('Workspace not found');
+    });
   });
 
   describe('addDependency', () => {
@@ -726,6 +911,20 @@ describe('TasksController', () => {
         422
       );
     });
+
+    it('should throw error when workspace not found', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1', taskId: 'task-1' })),
+          json: vi.fn().mockResolvedValue({ depends_on: 'task-2' })
+        },
+        json: vi.fn(),
+      };
+
+      mockWorkspacesController.prototype.getWorkspaceById.mockRejectedValue(new Error('Workspace not found'));
+
+      await expect(controller.addDependency(mockCtx as any)).rejects.toThrow('Workspace not found');
+    });
   });
 
   describe('removeDependency', () => {
@@ -744,6 +943,529 @@ describe('TasksController', () => {
       expect(mockWorkspaceDb.removeTaskDependency).toHaveBeenCalledWith('task-1', 'task-2');
       expect(mockCtx.status).toHaveBeenCalledWith(204);
       expect(mockCtx.body).toHaveBeenCalledWith(null);
+    });
+
+    it('should throw error when workspace not found', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1', taskId: 'task-1', dependsOn: 'task-2' }))
+        },
+        status: vi.fn(),
+        body: vi.fn(),
+      };
+
+      mockWorkspacesController.prototype.getWorkspaceById.mockRejectedValue(new Error('Workspace not found'));
+
+      await expect(controller.removeDependency(mockCtx as any)).rejects.toThrow('Workspace not found');
+    });
+  });
+
+  describe('listDependencies', () => {
+    it('should list dependencies successfully', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1', taskId: 'task-1' }))
+        },
+        json: vi.fn(),
+      };
+
+      mockWorkspaceDb.listTaskDependencies.mockResolvedValue([
+        { depends_on_task_id: 'task-2' }
+      ]);
+
+      await controller.listDependencies(mockCtx as any);
+
+      expect(mockWorkspaceDb.listTaskDependencies).toHaveBeenCalledWith('task-1');
+      expect(mockCtx.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            task_id: 'task-1',
+            dependencies: [{ depends_on_task_id: 'task-2' }]
+          })
+        })
+      );
+    });
+
+    it('should throw error when workspace not found', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1', taskId: 'task-1' }))
+        },
+        json: vi.fn(),
+      };
+
+      mockWorkspacesController.prototype.getWorkspaceById.mockRejectedValue(new Error('Workspace not found'));
+
+      await expect(controller.listDependencies(mockCtx as any)).rejects.toThrow('Workspace not found');
+    });
+  });
+
+  describe('updateTask', () => {
+    it('should update task successfully', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1', taskId: 'task-1' })),
+          json: vi.fn().mockResolvedValue({
+            field: 'title',
+            value: 'Updated Title',
+            reason: 'Test update'
+          })
+        },
+        json: vi.fn(),
+      };
+
+      const mockTask = {
+        id: 'task-1',
+        title: 'Original Title',
+        updatedAt: '2023-01-01T00:00:00.000Z'
+      };
+
+      mockWorkspaceDb.getTask.mockResolvedValue(mockTask);
+      mockWorkspaceDb.updateTask.mockResolvedValue();
+      mockWorkspaceDb.getTask.mockResolvedValue({ ...mockTask, title: 'Updated Title', updatedAt: '2023-01-02T00:00:00.000Z' });
+
+      await controller.updateTask(mockCtx as any);
+
+      expect(mockWorkspaceDb.updateTask).toHaveBeenCalledWith('task-1', expect.objectContaining({
+        title: 'Updated Title',
+        updatedAt: expect.any(String)
+      }));
+      expect(mockCtx.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            task: expect.objectContaining({
+              id: 'task-1',
+              title: 'Updated Title'
+            })
+          })
+        })
+      );
+    });
+
+    it('should throw error when workspace not found', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1', taskId: 'task-1' })),
+          json: vi.fn().mockResolvedValue({
+            field: 'title',
+            value: 'Updated Title',
+            reason: 'Test update'
+          })
+        },
+        json: vi.fn(),
+      };
+
+      mockWorkspacesController.prototype.getWorkspaceById.mockRejectedValue(new Error('Workspace not found'));
+
+      await expect(controller.updateTask(mockCtx as any)).rejects.toThrow('Workspace not found');
+    });
+
+    it('should return 422 for missing field', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1', taskId: 'task-1' })),
+          json: vi.fn().mockResolvedValue({
+            value: 'Updated Title',
+            reason: 'Test update'
+          })
+        },
+        json: vi.fn(),
+      };
+
+      await controller.updateTask(mockCtx as any);
+
+      expect(mockCtx.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            code: 'VALIDATION_ERROR',
+            message: 'Field to update is required'
+          })
+        }),
+        422
+      );
+    });
+
+    it('should return 422 for missing value', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1', taskId: 'task-1' })),
+          json: vi.fn().mockResolvedValue({
+            field: 'title',
+            reason: 'Test update'
+          })
+        },
+        json: vi.fn(),
+      };
+
+      await controller.updateTask(mockCtx as any);
+
+      expect(mockCtx.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            code: 'VALIDATION_ERROR',
+            message: 'Value is required'
+          })
+        }),
+        422
+      );
+    });
+
+    it('should return 422 for missing reason', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1', taskId: 'task-1' })),
+          json: vi.fn().mockResolvedValue({
+            field: 'title',
+            value: 'Updated Title'
+          })
+        },
+        json: vi.fn(),
+      };
+
+      await controller.updateTask(mockCtx as any);
+
+      expect(mockCtx.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            code: 'VALIDATION_ERROR',
+            message: 'Reason for update is required'
+          })
+        }),
+        422
+      );
+    });
+
+    it('should return 422 for invalid field', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1', taskId: 'task-1' })),
+          json: vi.fn().mockResolvedValue({
+            field: 'invalid_field',
+            value: 'value',
+            reason: 'Test update'
+          })
+        },
+        json: vi.fn(),
+      };
+
+      mockWorkspaceDb.getTask.mockResolvedValue({ id: 'task-1' });
+
+      await controller.updateTask(mockCtx as any);
+
+      expect(mockCtx.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid field: invalid_field'
+          })
+        }),
+        422
+      );
+    });
+
+    it('should return 422 for invalid priority', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1', taskId: 'task-1' })),
+          json: vi.fn().mockResolvedValue({
+            field: 'priority',
+            value: 'invalid',
+            reason: 'Test update'
+          })
+        },
+        json: vi.fn(),
+      };
+
+      mockWorkspaceDb.getTask.mockResolvedValue({ id: 'task-1' });
+
+      await controller.updateTask(mockCtx as any);
+
+      expect(mockCtx.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            code: 'VALIDATION_ERROR',
+            message: 'Priority must be high, medium, or low'
+          })
+        }),
+        422
+      );
+    });
+
+    it('should return 422 for invalid status', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1', taskId: 'task-1' })),
+          json: vi.fn().mockResolvedValue({
+            field: 'status',
+            value: 'invalid_status',
+            reason: 'Test update'
+          })
+        },
+        json: vi.fn(),
+      };
+
+      mockWorkspaceDb.getTask.mockResolvedValue({ id: 'task-1' });
+
+      await controller.updateTask(mockCtx as any);
+
+      expect(mockCtx.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            code: 'VALIDATION_ERROR',
+            message: 'Invalid status value'
+          })
+        }),
+        422
+      );
+    });
+
+    it('should return 422 for invalid progress - not a number', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1', taskId: 'task-1' })),
+          json: vi.fn().mockResolvedValue({
+            field: 'progress',
+            value: 'not_a_number',
+            reason: 'Test update'
+          })
+        },
+        json: vi.fn(),
+      };
+
+      mockWorkspaceDb.getTask.mockResolvedValue({ id: 'task-1' });
+
+      await controller.updateTask(mockCtx as any);
+
+      expect(mockCtx.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            code: 'VALIDATION_ERROR',
+            message: 'Progress must be a number between 0 and 100'
+          })
+        }),
+        422
+      );
+    });
+
+    it('should return 422 for invalid progress - negative', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1', taskId: 'task-1' })),
+          json: vi.fn().mockResolvedValue({
+            field: 'progress',
+            value: -5,
+            reason: 'Test update'
+          })
+        },
+        json: vi.fn(),
+      };
+
+      mockWorkspaceDb.getTask.mockResolvedValue({ id: 'task-1' });
+
+      await controller.updateTask(mockCtx as any);
+
+      expect(mockCtx.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            code: 'VALIDATION_ERROR',
+            message: 'Progress must be a number between 0 and 100'
+          })
+        }),
+        422
+      );
+    });
+
+    it('should return 422 for invalid progress - over 100', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1', taskId: 'task-1' })),
+          json: vi.fn().mockResolvedValue({
+            field: 'progress',
+            value: 150,
+            reason: 'Test update'
+          })
+        },
+        json: vi.fn(),
+      };
+
+      mockWorkspaceDb.getTask.mockResolvedValue({ id: 'task-1' });
+
+      await controller.updateTask(mockCtx as any);
+
+      expect(mockCtx.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            code: 'VALIDATION_ERROR',
+            message: 'Progress must be a number between 0 and 100'
+          })
+        }),
+        422
+      );
+    });
+
+    it('should update progress successfully', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1', taskId: 'task-1' })),
+          json: vi.fn().mockResolvedValue({
+            field: 'progress',
+            value: 75,
+            reason: 'Test update'
+          })
+        },
+        json: vi.fn(),
+      };
+
+      const mockTask = {
+        id: 'task-1',
+        title: 'Original Title',
+        progress: 0,
+        updatedAt: '2023-01-01T00:00:00.000Z'
+      };
+
+      mockWorkspaceDb.getTask.mockResolvedValue(mockTask);
+      mockWorkspaceDb.updateTask.mockResolvedValue();
+      mockWorkspaceDb.getTask.mockResolvedValue({ ...mockTask, progress: 75, updatedAt: '2023-01-02T00:00:00.000Z' });
+
+      await controller.updateTask(mockCtx as any);
+
+      expect(mockWorkspaceDb.updateTask).toHaveBeenCalledWith('task-1', expect.objectContaining({
+        progress: 75,
+        updatedAt: expect.any(String)
+      }));
+      expect(mockCtx.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            task: expect.objectContaining({
+              id: 'task-1',
+              progress: 75
+            })
+          })
+        })
+      );
+    });
+
+    it('should update status to completed and set completedAt', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1', taskId: 'task-1' })),
+          json: vi.fn().mockResolvedValue({
+            field: 'status',
+            value: 'completed',
+            reason: 'Test update'
+          })
+        },
+        json: vi.fn(),
+      };
+
+      const mockTask = {
+        id: 'task-1',
+        title: 'Original Title',
+        status: 'in_progress',
+        updatedAt: '2023-01-01T00:00:00.000Z'
+      };
+
+      mockWorkspaceDb.getTask.mockResolvedValue(mockTask);
+      mockWorkspaceDb.updateTask.mockResolvedValue();
+      mockWorkspaceDb.getTask.mockResolvedValue({ ...mockTask, status: 'completed', updatedAt: '2023-01-02T00:00:00.000Z', completedAt: '2023-01-02T00:00:00.000Z' });
+
+      await controller.updateTask(mockCtx as any);
+
+      expect(mockWorkspaceDb.updateTask).toHaveBeenCalledWith('task-1', expect.objectContaining({
+        status: 'completed',
+        completedAt: expect.any(String),
+        updatedAt: expect.any(String)
+      }));
+      expect(mockCtx.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            task: expect.objectContaining({
+              id: 'task-1',
+              status: 'completed'
+            })
+          })
+        })
+      );
+    });
+
+    it('should return 404 for non-existent task', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1', taskId: 'task-1' })),
+          json: vi.fn().mockResolvedValue({
+            field: 'title',
+            value: 'Updated Title',
+            reason: 'Test update'
+          })
+        },
+        json: vi.fn(),
+      };
+
+      mockWorkspaceDb.getTask.mockResolvedValue(null);
+
+      await controller.updateTask(mockCtx as any);
+
+      expect(mockCtx.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: expect.objectContaining({
+            code: 'NOT_FOUND',
+            message: 'Task not found: task-1'
+          })
+        }),
+        404
+      );
+    });
+
+    it('should handle database errors during update', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1', taskId: 'task-1' })),
+          json: vi.fn().mockResolvedValue({
+            field: 'title',
+            value: 'Updated Title',
+            reason: 'Test update'
+          })
+        },
+        json: vi.fn(),
+      };
+
+      const mockTask = {
+        id: 'task-1',
+        title: 'Original Title',
+        updatedAt: '2023-01-01T00:00:00.000Z'
+      };
+
+      mockWorkspaceDb.getTask.mockResolvedValue(mockTask);
+      mockWorkspaceDb.updateTask.mockRejectedValue(new Error('Database connection failed'));
+
+      await expect(controller.updateTask(mockCtx as any)).rejects.toThrow('Database connection failed');
+    });
+
+    it('should throw if updated task cannot be fetched after update', async () => {
+      const mockCtx = {
+        req: {
+          param: vi.fn(() => ({ workspaceId: 'ws-1', taskId: 'task-1' })),
+          json: vi.fn().mockResolvedValue({
+            field: 'title',
+            value: 'Updated Title',
+            reason: 'Test update'
+          })
+        },
+        json: vi.fn(),
+      };
+
+      const mockTask = {
+        id: 'task-1',
+        title: 'Original Title',
+        updatedAt: '2023-01-01T00:00:00.000Z'
+      };
+
+      // First call returns existing task, after update the fetched task is null
+      mockWorkspaceDb.getTask.mockResolvedValueOnce(mockTask);
+      mockWorkspaceDb.updateTask.mockResolvedValue();
+      mockWorkspaceDb.getTask.mockResolvedValueOnce(null);
+
+      await expect(controller.updateTask(mockCtx as any)).rejects.toThrow('Failed to update task');
     });
   });
 

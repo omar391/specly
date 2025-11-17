@@ -175,9 +175,44 @@ describe('SpeclyServer (index.ts) extra coverage', () => {
         await expect(s.ensureSpeclySeed(false)).resolves.toBeUndefined();
     });
 
-    it('SPECLY_VERSION is a string', async () => {
+    it('ensureSpeclySeed calls console.error on DB error', async () => {
         const mod = await import('../index.js');
-        expect(typeof mod.SPECLY_VERSION).toBe('string');
+        const { SpeclyServer } = mod;
+        const s = new SpeclyServer();
+
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+        // Provide a globalDbService whose db.all throws
+        s['globalDbService'] = {
+            getDrizzleManager: () => ({ getDb: () => ({ all: () => { throw new Error('DB error'); } }) })
+        } as any;
+
+        s['seedManager'] = { seedSpecly: vi.fn(() => Promise.resolve({ seeded: false })) } as any;
+
+        await s.ensureSpeclySeed(false);
+
+        expect(errorSpy).toHaveBeenCalledWith('Error checking/performing Specly seed:', expect.any(Error));
+
+        errorSpy.mockRestore();
+    });
+
+    it('startBackgroundJobs logs when disabled via SPECLY_GC_ENABLED=false', async () => {
+        const origEnv = process.env.SPECLY_GC_ENABLED;
+        process.env.SPECLY_GC_ENABLED = 'false';
+
+        const mod = await import('../index.js');
+        const { SpeclyServer } = mod;
+        const s = new SpeclyServer();
+
+        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
+
+        s.startBackgroundJobs();
+
+        expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('"level":"info"'));
+        expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('Background jobs disabled via SPECLY_GC_ENABLED=false'));
+
+        logSpy.mockRestore();
+        process.env.SPECLY_GC_ENABLED = origEnv;
     });
 
     it('createMCPToolHandlers returns listTools with inputSchema JSON', async () => {

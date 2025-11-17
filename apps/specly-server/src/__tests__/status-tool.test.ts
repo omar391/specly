@@ -151,7 +151,7 @@ describe('StatusToolNew', () => {
         it('should execute successfully with valid workspace and no tasks', async () => {
             const result = await statusTool.execute({ workspace_path: workspacePath });
       expect(result.isError).toBe(false);
-        expect(result.content[0].text).toContain('Workspace status summary generated');
+          expect(result.content[0].text).toBe('Workspace status: 0 total tasks, 0 completed, 0 in progress, 0 blocked (0% complete)');
     });
 
       it('should call validateWorkspace with input workspace_path (spy, no mock)', async () => {
@@ -195,13 +195,13 @@ describe('StatusToolNew', () => {
 
         const result = await statusTool.execute({ workspace_path: workspacePath });
       expect(result.isError).toBe(false);
-      expect(result.content[0].text).toContain('Workspace status summary generated');
+      expect(result.content[0].text).toBe('Workspace status: 5 total tasks, 2 completed, 1 in progress, 1 blocked (40% complete)');
     });
 
     it('should return 0% completion when no tasks exist', async () => {
         const result = await statusTool.execute({ workspace_path: workspacePath });
       expect(result.isError).toBe(false);
-        expect(result.content[0].text).toContain('Workspace status summary generated');
+      expect(result.content[0].text).toBe('Workspace status: 0 total tasks, 0 completed, 0 in progress, 0 blocked (0% complete)');
     });
 
     it('should calculate 100% completion when all tasks completed', async () => {
@@ -212,7 +212,7 @@ describe('StatusToolNew', () => {
 
         const result = await statusTool.execute({ workspace_path: workspacePath });
       expect(result.isError).toBe(false);
-        expect(result.content[0].text).toContain('Workspace status summary generated');
+      expect(result.content[0].text).toBe('Workspace status: 2 total tasks, 2 completed, 0 in progress, 0 blocked (100% complete)');
     });
 
     it('should handle tasks with only in_progress status', async () => {
@@ -223,14 +223,14 @@ describe('StatusToolNew', () => {
 
         const result = await statusTool.execute({ workspace_path: workspacePath });
       expect(result.isError).toBe(false);
-        expect(result.content[0].text).toContain('Workspace status summary generated');
+      expect(result.content[0].text).toBe('Workspace status: 2 total tasks, 0 completed, 2 in progress, 0 blocked (0% complete)');
     });
 
     it('should handle tasks with only blocked status', async () => {
         await seedTasks([{ id: '1', status: 'blocked', title: 'Task 1' }]);
         const result = await statusTool.execute({ workspace_path: workspacePath });
       expect(result.isError).toBe(false);
-        expect(result.content[0].text).toContain('Workspace status summary generated');
+      expect(result.content[0].text).toBe('Workspace status: 1 total tasks, 0 completed, 0 in progress, 1 blocked (0% complete)');
     });
   });
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { SpecEngine, BasicExecutionPlanner, type ToolGraph, type ExecutionPlanner, type SpecExecutor, type ClientStateLeaseProvider, type ActionJournalAdapter, type MetricsCollector, type RetryPolicy } from '../spec-engine.js';
+import { SpecEngine, BasicExecutionPlanner, SpecEngineErrorCode, type ToolGraph, type ExecutionPlanner, type SpecExecutor, type ClientStateLeaseProvider, type ActionJournalAdapter, type MetricsCollector, type RetryPolicy } from '../spec-engine.js';
 
 // Mock implementations
 const mockToolGraph: ToolGraph = {
@@ -9,6 +9,14 @@ const mockToolGraph: ToolGraph = {
     node1: { hash: 'node1', intent: 'autonomous', sideEffect: false },
   },
   edges: [{ from: 'entry', to: 'node1' }],
+};
+
+const singleGraph: ToolGraph = {
+  entry: 'entry',
+  nodes: {
+    entry: { hash: 'entry', intent: 'autonomous', sideEffect: false },
+  },
+  edges: [],
 };
 
 const mockPlanner: ExecutionPlanner = {
@@ -53,6 +61,7 @@ describe('SpecEngine', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockExecutor.execute.mockReset().mockResolvedValue({ success: true });
     engine = new SpecEngine({
       planner: mockPlanner,
       executor: mockExecutor,
@@ -213,6 +222,84 @@ describe('SpecEngine', () => {
       expect(result.status).toBe('awaiting_input');
       expect(result.awaitingSpec).toBe('entry');
     });
+
+    it('should handle planner cycle error', async () => {
+      mockPlanner.buildPlan.mockImplementation(() => {
+        throw new Error('Cycle detected in tool graph');
+      });
+      const result = await engine.run(mockToolGraph);
+      expect(result.status).toBe('error');
+      expect(result.error?.message).toBe('Cycle detected in tool graph');
+      expect(result.errorCode).toBe(SpecEngineErrorCode.GRAPH_CYCLE);
+    });
+
+    it('should handle other planner errors', async () => {
+      mockPlanner.buildPlan.mockImplementation(() => {
+        throw new Error('Some other planner error');
+      });
+      const result = await engine.run(mockToolGraph);
+      expect(result.status).toBe('error');
+      expect(result.error?.message).toBe('Some other planner error');
+      expect(result.errorCode).toBeUndefined();
+    });
+
+    it('should retry with exponential backoff', async () => {
+      let attempt = 0;
+      mockExecutor.execute.mockImplementation(async () => {
+        attempt++;
+        if (attempt === 1) throw new Error('Fail');
+        return { success: true };
+      });
+      mockPlanner.buildPlan.mockReturnValueOnce({
+        steps: [{ specHash: 'entry', awaitingHuman: false }],
+        warnings: [],
+      });
+      const result = await engine.run(singleGraph);
+      expect(result.status).toBe('completed');
+      expect(attempt).toBe(2);
+      expect(mockMetrics.observe).toHaveBeenCalledWith('specly_engine_retry_delay_ms', 100);
+    });
+
+    it('should exhaust retries and fail', async () => {
+      mockExecutor.execute.mockRejectedValue(new Error('Persistent fail'));
+      mockPlanner.buildPlan.mockReturnValueOnce({
+        steps: [{ specHash: 'entry', awaitingHuman: false }],
+        warnings: [],
+      });
+      const result = await engine.run(singleGraph);
+      expect(result.status).toBe('error');
+      expect(result.error?.message).toContain('Execution failed at spec entry');
+      expect(mockMetrics.inc).toHaveBeenCalledWith('specly_engine_specs_failed_total');
+      expect(mockMetrics.inc).toHaveBeenCalledWith('action_journal_retry_exhausted_total');
+    });
+
+    it('should reuse side effect results', async () => {
+      const graph: ToolGraph = {
+        entry: 'entry',
+        nodes: {
+          entry: { hash: 'entry', intent: 'autonomous', sideEffect: true },
+        },
+        edges: [],
+      };
+      mockPlanner.buildPlan.mockReturnValueOnce({
+        steps: [{ specHash: 'entry', awaitingHuman: false }],
+        warnings: [],
+      });
+      const mockJournalWithReuse = {
+        ...mockJournal,
+        getSuccessfulResult: vi.fn().mockResolvedValue({ resultJson: { reused: true } }),
+      };
+      const engineReuse = new SpecEngine({
+        planner: mockPlanner,
+        executor: mockExecutor,
+        journalAdapter: mockJournalWithReuse as any,
+      });
+      const result = await engineReuse.run(graph);
+      expect(result.status).toBe('completed');
+      expect(result.results.entry).toEqual({ reused: true });
+      expect(mockJournalWithReuse.getSuccessfulResult).toHaveBeenCalledWith('entry');
+      expect(mockExecutor.execute).not.toHaveBeenCalled();
+    });
   });
 
   describe('resume', () => {
@@ -305,6 +392,61 @@ describe('SpecEngine', () => {
       });
       expect(result2.status).toBe('error');
       expect(result2.error?.message).toContain('Resume token already used');
+    });
+
+    it('should handle executor failure during resume', async () => {
+      mockExecutor.execute.mockRejectedValueOnce(new Error('Resume fail'));
+      const result = await engine.resume(mockToolGraph, mockSerializedState, {
+        specHash: 'entry',
+        humanOutput: {},
+      });
+      expect(result.status).toBe('error');
+      expect(result.error?.message).toContain('Resume fail');
+    });
+
+    it('should handle lease renewal failure during resume', async () => {
+      mockLeaseProvider.renew.mockRejectedValueOnce(new Error('Resume renew failed'));
+      const longRemainingGraph: ToolGraph = {
+        entry: 'entry',
+        nodes: {
+          entry: { hash: 'entry', intent: 'autonomous', sideEffect: false },
+          node0: { hash: 'node0', intent: 'autonomous', sideEffect: false },
+          node1: { hash: 'node1', intent: 'autonomous', sideEffect: false },
+          node2: { hash: 'node2', intent: 'autonomous', sideEffect: false },
+          node3: { hash: 'node3', intent: 'autonomous', sideEffect: false },
+          node4: { hash: 'node4', intent: 'autonomous', sideEffect: false },
+          node5: { hash: 'node5', intent: 'autonomous', sideEffect: false },
+        },
+        edges: [
+          { from: 'entry', to: 'node0' },
+          { from: 'node0', to: 'node1' },
+          { from: 'node1', to: 'node2' },
+          { from: 'node2', to: 'node3' },
+          { from: 'node3', to: 'node4' },
+          { from: 'node4', to: 'node5' },
+        ],
+      };
+      const stateWithLongRemaining = {
+        ...mockSerializedState,
+        plan: {
+          steps: [
+            { specHash: 'entry', awaitingHuman: true },
+            { specHash: 'node0', awaitingHuman: false },
+            { specHash: 'node1', awaitingHuman: false },
+            { specHash: 'node2', awaitingHuman: false },
+            { specHash: 'node3', awaitingHuman: false },
+            { specHash: 'node4', awaitingHuman: false },
+            { specHash: 'node5', awaitingHuman: false },
+          ],
+          warnings: [],
+        },
+      };
+      const result = await engine.resume(longRemainingGraph, stateWithLongRemaining, {
+        specHash: 'entry',
+        humanOutput: {},
+      }, { sessionId: 'session', clientId: 'client' });
+      expect(result.status).toBe('error');
+      expect(result.error?.message).toContain('Lease renewal failed');
     });
   });
 

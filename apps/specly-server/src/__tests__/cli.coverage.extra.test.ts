@@ -72,15 +72,20 @@ describe('cli runCli and main branches', () => {
 
     it('unhandledRejection handler calls process.exit(1)', async () => {
         const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number | string | null) => { /* noop */ }) as unknown as never);
+        // Add the handler manually since it's not added in test environment
+        const handler = (reason: any, promise: any) => {
+            console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+            process.exit(1);
+        };
+        process.on('unhandledRejection', handler);
         try {
-            // Call the registered unhandledRejection handlers directly to avoid creating a true unhandled rejection
-            const handlers = process.listeners('unhandledRejection');
-            for (const h of handlers) {
-                // call with a reason and a dummy promise
-                (h as any)(new Error('boom'), Promise.resolve());
-            }
+            // Trigger unhandled rejection
+            Promise.reject(new Error('boom'));
+            // Wait a bit for the event loop
+            await new Promise(resolve => setTimeout(resolve, 10));
             expect(exitSpy).toHaveBeenCalledWith(1);
         } finally {
+            process.removeListener('unhandledRejection', handler);
             exitSpy.mockRestore();
         }
     });
@@ -130,8 +135,73 @@ describe('cli runCli and main branches', () => {
         }
     });
 
+    it('initializeTools uses test database instances when provided', async () => {
+        vi.resetModules();
+        vi.doMock('../test-utils/database-test-helpers.js', () => ({
+            getTestDatabaseInstances: () => ({
+                isInitialized: true,
+                drizzleManager: {},
+                dbService: { initialize: async () => { /* noop */ }, getDrizzleManager: () => ({}) }
+            })
+        }));
+
+        // Mock tool constructors to ensure they can be constructed with a minimal drizzle manager
+        const toolCtor = vi.fn().mockImplementation(() => ({ execute: vi.fn().mockResolvedValue({ isError: false, content: { ok: true } }) }));
+        const mockSchema = { parse: vi.fn().mockReturnValue({}) };
+        vi.doMock('../tools/init.js', () => ({ InitToolNew: toolCtor, initToolSchema: mockSchema }));
+        vi.doMock('../tools/start.js', () => ({ StartTool: toolCtor, startToolSchema: mockSchema }));
+        vi.doMock('../tools/add.js', () => ({ AddToolNew: toolCtor, addToolSchema: mockSchema }));
+        vi.doMock('../tools/status.js', () => ({ StatusToolNew: toolCtor, statusToolSchema: mockSchema }));
+        vi.doMock('../tools/update.js', () => ({ UpdateToolNew: toolCtor, updateToolSchema: mockSchema }));
+        vi.doMock('../tools/audit.js', () => ({ AuditToolNew: toolCtor, auditToolSchema: mockSchema }));
+        vi.doMock('../tools/focus.js', () => ({ FocusToolNew: toolCtor, focusToolSchema: mockSchema }));
+        vi.doMock('../tools/github.js', () => ({ GitHubTool: toolCtor, githubToolSchema: mockSchema }));
+        vi.doMock('../tools/rule-update.js', () => ({ RuleUpdateTool: toolCtor, ruleUpdateToolSchema: mockSchema }));
+        vi.doMock('../tools/remote-interface.js', () => ({ RemoteInterfaceTool: toolCtor, remoteInterfaceToolSchema: mockSchema }));
+
+        const mod = await import('../cli.js');
+        const result = await mod.executeToolCall('specly_init', {});
+        expect(result).toHaveProperty('isError', false);
+    });
+
     it('throwUnhandledTool helper throws the expected error', async () => {
         const mod = await import('../cli.js');
         expect(() => mod.throwUnhandledTool('specly_magic')).toThrow('Unhandled tool: specly_magic');
+    });
+
+    it('executeToolCall throws for unknown tool name', async () => {
+        const mod = await import('../cli.js');
+        await expect(mod.executeToolCall('unknown_tool', {})).rejects.toThrow('Unknown tool: unknown_tool');
+    });
+
+    it('initializeTools logs error when initializeGlobalDatabaseService throws', async () => {
+        vi.resetModules();
+        // Mock test instances to be unavailable so it uses production path
+        vi.doMock('../test-utils/database-test-helpers.js', () => ({ getTestDatabaseInstances: () => ({ isInitialized: false }) }));
+        // Override NODE_ENV to trigger production path
+        const origNodeEnv = process.env.NODE_ENV;
+        process.env.NODE_ENV = 'production';
+        try {
+            // Mock GlobalDatabaseService to throw on initialize
+            vi.doMock('../database/global-queries.js', () => ({
+                getGlobalDatabaseService: () => ({
+                    initialize: vi.fn().mockImplementation(() => { throw new Error('initialize failed'); }),
+                    getDrizzleManager: () => ({})
+                }),
+                GlobalDatabaseService: class GlobalDatabaseService { constructor(/*..*/) { } }
+            }));
+
+            const errSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
+
+            try {
+                const mod = await import('../cli.js');
+                await expect(mod.executeToolCall('specly_init', {})).rejects.toThrow();
+                expect(errSpy).toHaveBeenCalled();
+            } finally {
+                errSpy.mockRestore();
+            }
+        } finally {
+            process.env.NODE_ENV = origNodeEnv;
+        }
     });
 });

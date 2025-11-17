@@ -183,7 +183,7 @@ describe('SpecsController', () => {
         expect(ctx.json).toHaveBeenCalledWith({ hash: 'dbservicehash', created: true }, 201);
     });
 
-    it('createSpec - uses fallback when no injection', async () => {
+    it('createSpec - uses injected DrizzleDatabaseManager', async () => {
         const ctx: any = {
             req: {
                 json: vi.fn().mockResolvedValue({
@@ -194,17 +194,19 @@ describe('SpecsController', () => {
             },
             json: vi.fn(),
         };
-        // No dbService injected, should use fallback (controller default)
+        // Create actual instance of mocked DrizzleDatabaseManager
+        const mockDrizzleManager = { getDb: () => mockDb };
+        (ctx as any).dbService = mockDrizzleManager; // Inject DrizzleDatabaseManager
 
         const { hashSpec } = await import('../../utils/hash.js');
-        (hashSpec as any).mockReturnValue({ hash: 'fallbackhash' });
+        (hashSpec as any).mockReturnValue({ hash: 'drizzlehash' });
 
         const { validateSpecSecurity } = await import('../../utils/security-validators.js');
         (validateSpecSecurity as any).mockReturnValue(null);
 
         await controller.createSpec(ctx);
 
-        expect(ctx.json).toHaveBeenCalledWith({ hash: 'fallbackhash', created: true }, 201);
+        expect(ctx.json).toHaveBeenCalledWith({ hash: 'drizzlehash', created: true }, 201);
     });
 
     it('createSpec - fails on security validation error', async () => {
@@ -229,6 +231,7 @@ describe('SpecsController', () => {
 
         expect(ctx.json).toHaveBeenCalledWith({ error: 'security error', code: 'SEC_ERROR', details: {} }, 422);
     });
+});
 
 describe('ToolsController', () => {
     let controller: ToolsController;
@@ -336,12 +339,14 @@ describe('ToolsController', () => {
         expect(ctx.json).toHaveBeenCalledWith({ name: 'testtool', created: true }, 201);
     });
 
-    it('createTool - uses fallback when no injection', async () => {
+    it('createTool - uses injected DrizzleDatabaseManager', async () => {
         const ctx: any = {
             req: { json: vi.fn().mockResolvedValue({ name: 'testtool' }) },
             json: vi.fn(),
         };
-    // No dbService injected, should use fallback (controller default)
+        // Create actual instance of mocked DrizzleDatabaseManager
+        const mockDrizzleManager = { getDb: () => mockDb };
+        (ctx as any).dbService = mockDrizzleManager; // Inject DrizzleDatabaseManager
 
         await controller.createTool(ctx);
 
@@ -447,7 +452,7 @@ describe('ToolsController', () => {
         expect(ctx.json).toHaveBeenCalledWith({ hash: 'edgehash', tool: 'testtool', created: true }, 201);
     });
 
-    it('createToolVersion - uses fallback when no injection', async () => {
+    it('createToolVersion - uses injected DrizzleDatabaseManager', async () => {
         const ctx: any = {
             req: {
                 param: vi.fn().mockReturnValue('testtool'),
@@ -459,14 +464,16 @@ describe('ToolsController', () => {
             },
             json: vi.fn(),
         };
-        // No dbService injected, should use fallback (controller default)
+        // Create actual instance of mocked DrizzleDatabaseManager
+        const mockDrizzleManager = { getDb: () => mockDb };
+        (ctx as any).dbService = mockDrizzleManager; // Inject DrizzleDatabaseManager
 
         // Mock tool exists
         mockDb.select().limit.mockResolvedValueOnce([{ name: 'testtool' }]);
         // Mock specs exist - handled by mockImplementation
 
         const { hashToolVersion } = await import('../../utils/hash.js');
-        (hashToolVersion as any).mockReturnValue({ hash: 'edgehash' });
+        (hashToolVersion as any).mockReturnValue({ hash: 'drizzleedgehash' });
 
         const { validateGraphSizeLimits, validateGraphDepth } = await import('../../utils/security-validators.js');
         (validateGraphSizeLimits as any).mockReturnValue(null);
@@ -477,7 +484,7 @@ describe('ToolsController', () => {
 
         await controller.createToolVersion(ctx);
 
-        expect(ctx.json).toHaveBeenCalledWith({ hash: 'edgehash', tool: 'testtool', created: true }, 201);
+        expect(ctx.json).toHaveBeenCalledWith({ hash: 'drizzleedgehash', tool: 'testtool', created: true }, 201);
     });
 
     it('createToolVersion - fails if ordered_specs not array', async () => {
@@ -706,7 +713,36 @@ describe('ToolsController', () => {
 
         expect(ctx.json).toHaveBeenCalledWith({ hash: 'existingversion', tool: 'testtool', created: false });
     });
-});
 
+    it('createToolVersion - handles edges with defined condition_type', async () => {
+        const ctx: any = {
+            req: {
+                param: vi.fn().mockReturnValue('testtool'),
+                json: vi.fn().mockResolvedValue({
+                    ordered_specs: ['hash1'],
+                    entry_spec: 'hash1',
+                    edges: [{ from: 'hash1', to: 'hash1', condition_type: 'error', condition_value: 'test', priority: 1 }]
+                })
+            },
+            json: vi.fn(),
+        };
 
+        // Mock tool exists
+        mockDb.select().limit.mockResolvedValueOnce([{ name: 'testtool' }]);
+        // Mock specs exist - handled by mockImplementation
+
+        const { hashToolVersion } = await import('../../utils/hash.js');
+        (hashToolVersion as any).mockReturnValue({ hash: 'definedconditiontypehash' });
+
+        const { validateGraphSizeLimits, validateGraphDepth } = await import('../../utils/security-validators.js');
+        (validateGraphSizeLimits as any).mockReturnValue(null);
+        (validateGraphDepth as any).mockReturnValue(null);
+
+        const { validateToolGraph } = await import('../../utils/graph-validate.js');
+        (validateToolGraph as any).mockImplementation(() => { });
+
+        await controller.createToolVersion(ctx);
+
+        expect(ctx.json).toHaveBeenCalledWith({ hash: 'definedconditiontypehash', tool: 'testtool', created: true }, 201);
+    });
 });

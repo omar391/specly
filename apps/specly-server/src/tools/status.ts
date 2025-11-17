@@ -65,22 +65,10 @@ export class StatusToolNew extends BaseTool {
       const blockedTasks = tasks.filter(t => t.status === 'blocked').length;
 
       // Generate status prompt
-      return this.createSuccessResult(
-        'Workspace status summary generated',
-        {
-          isFinalStep: true,
-          feedback: 'Status overview complete',
-          data: {
-            summary: {
-              total_tasks: totalTasks,
-              completed_tasks: completedTasks,
-              in_progress_tasks: inProgressTasks,
-              blocked_tasks: blockedTasks,
-              completion_percentage: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
-            }
-          }
-        }
-      );
+      const completionPercentage = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+      const statusText = `Workspace status: ${totalTasks} total tasks, ${completedTasks} completed, ${inProgressTasks} in progress, ${blockedTasks} blocked (${completionPercentage}% complete)`;
+
+      return this.createSuccessResult(statusText);
 
     } catch (error) {
       return this.createErrorResult(

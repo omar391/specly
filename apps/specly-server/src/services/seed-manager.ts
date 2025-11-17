@@ -22,14 +22,16 @@ export class SeedManager {
    * Create default spec repository when not provided
    */
   private createDefaultSpecRepo(): SpecRepositoryImpl {
-    return new SpecRepositoryImpl({ getDrizzleManager: () => ({ getDb: () => this.drizzleDb }) });
+    const globalDbService = new GlobalDatabaseService(this.dbManager);
+    return new SpecRepositoryImpl(globalDbService);
   }
 
   /**
    * Create default tool version repository when not provided
    */
   private createDefaultToolVersionRepo(): ToolVersionRepositoryImpl {
-    return new ToolVersionRepositoryImpl({ getDrizzleManager: () => ({ getDb: () => this.drizzleDb }) });
+    const globalDbService = new GlobalDatabaseService(this.dbManager);
+    return new ToolVersionRepositoryImpl(globalDbService);
   }
 
   /**

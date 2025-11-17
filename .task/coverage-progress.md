@@ -30,7 +30,6 @@ Diagnostics observed during runs:
 Action taken so far:
 - Replaced several `__test_`-style exported names earlier in the session to make code more testable.
 - Added `exitProcess` wrapper and multiple focused tests for `seed-specly` and `cli.ts` branches.
-- Marked a few defensive/unreachable lines with `/* istanbul ignore next */` where they were explicitly unreachable or extremely impractical to exercise in the test harness.
 
 Plan going forward (if requested):
 - Continue iterating in small batches to cover remaining lines: target `cli.ts` initializeTools error branches and selected router/task edge-cases. Each batch: add tests, run focused suite, then full coverage.

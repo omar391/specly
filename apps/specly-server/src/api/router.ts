@@ -50,135 +50,65 @@ export async function createApiRouter(databaseService: DatabaseService): Promise
 
   // API Routes (register specific routes first)
   // Spec & Tool Management (SP-014)
-  app.post('/specs', writeRateLimit, async (c) => { return await specsController.createSpec(c); });
-  app.post('/tools', writeRateLimit, async (c) => { return await toolsController.createTool(c); });
-  app.post('/tools/:tool/versions', writeRateLimit, async (c) => { return await toolsController.createToolVersion(c); });
+  app.post('/specs', writeRateLimit, async (c) => await specsController.createSpec(c));
+  app.post('/tools', writeRateLimit, async (c) => await toolsController.createTool(c));
+  app.post('/tools/:tool/versions', writeRateLimit, async (c) => await toolsController.createToolVersion(c));
 
   // Profile & Workspace Binding (SP-015)
-  app.post('/profiles', writeRateLimit, async (c) => { return await profilesController.createProfile(c); });
-  app.post('/profiles/:profile/versions', writeRateLimit, async (c) => { return await profilesController.createProfileVersion(c); });
-  app.post('/profiles/:profile/versions/:version/publish', writeRateLimit, async (c) => { return await profilesController.publishProfileVersion(c); });
-  app.post('/profiles/:profile/versions/:version/attachments', writeRateLimit, async (c) => { return await profilesController.attachTools(c); });
-  app.get('/profiles/:profile/versions/:version/attachments', readRateLimit, async (c) => { return await profilesController.getAttachments(c); });
-  app.post('/workspaces/:workspaceId/profile/upgrade', writeRateLimit, validateWorkspaceId, async (c) => { return await profilesController.upgradeWorkspaceProfile(c); });
-  app.get('/workspaces/:workspaceId/profile', readRateLimit, validateWorkspaceId, async (c) => { return await profilesController.getWorkspaceProfile(c); });
+  app.post('/profiles', writeRateLimit, async (c) => await profilesController.createProfile(c));
+  app.post('/profiles/:profile/versions', writeRateLimit, async (c) => await profilesController.createProfileVersion(c));
+  app.post('/profiles/:profile/versions/:version/publish', writeRateLimit, async (c) => await profilesController.publishProfileVersion(c));
+  app.post('/profiles/:profile/versions/:version/attachments', writeRateLimit, async (c) => await profilesController.attachTools(c));
+  app.get('/profiles/:profile/versions/:version/attachments', readRateLimit, async (c) => await profilesController.getAttachments(c));
+  app.post('/workspaces/:workspaceId/profile/upgrade', writeRateLimit, validateWorkspaceId, async (c) => await profilesController.upgradeWorkspaceProfile(c));
+  app.get('/workspaces/:workspaceId/profile', readRateLimit, validateWorkspaceId, async (c) => await profilesController.getWorkspaceProfile(c));
 
   // POST /api/tools/:tool/execute (unified run/resume)
-  app.post('/tools/:tool/execute', writeRateLimit, async (c) => {
-    return await toolsExecuteController.execute(c);
-  });
+  app.post('/tools/:tool/execute', writeRateLimit, async (c) => await toolsExecuteController.execute(c));
 
   // 1. GET /api/workspaces - List all workspaces
-  app.get('/workspaces', readRateLimit, async (c) => {
-    try {
-      return await workspacesController.getWorkspaces(c);
-    } catch (error) {
-      throw error;
-    }
-  });
+  app.get('/workspaces', readRateLimit, async (c) => await workspacesController.getWorkspaces(c));
 
   // Sessions listing (global; filter by workspace_id)
-  app.get('/sessions', readRateLimit, async (c) => {
-    try {
-      return await sessionsController.getSessions(c);
-    } catch (error) {
-      throw error;
-    }
-  });
+  app.get('/sessions', readRateLimit, async (c) => await sessionsController.getSessions(c));
 
   // Workspace Rules (SP-017)
-  app.post('/rules', writeRateLimit, async (c) => {
-    try {
-      return await rulesController.createRule(c);
-    } catch (error) {
-      throw error;
-    }
-  });
-  app.get('/rules', readRateLimit, async (c) => {
-    try {
-      return await rulesController.getRules(c);
-    } catch (error) {
-      throw error;
-    }
-  });
+  app.post('/rules', writeRateLimit, async (c) => await rulesController.createRule(c));
+  app.get('/rules', readRateLimit, async (c) => await rulesController.getRules(c));
 
   // 2. GET /api/workspaces/{id}/tasks - Get tasks for workspace
-  app.get('/workspaces/:workspaceId/tasks', readRateLimit, validateWorkspaceId, async (c) => {
-    try {
-      return await tasksController.getTasks(c);
-    } catch (error) {
-      throw error;
-    }
-  });
+  app.get('/workspaces/:workspaceId/tasks', readRateLimit, validateWorkspaceId, async (c) => await tasksController.getTasks(c));
   // 2a. GET /api/workspaces/{id}/tasks/{taskId} - Get a single task
-  app.get('/workspaces/:workspaceId/tasks/:taskId', readRateLimit, validateWorkspaceId, validateTaskId, async (c) => {
-    try {
-      return await tasksController.getTask(c);
-    } catch (error) {
-      throw error;
-    }
-  });
+  app.get('/workspaces/:workspaceId/tasks/:taskId', readRateLimit, validateWorkspaceId, validateTaskId, async (c) => await tasksController.getTask(c));
   // 3. POST /api/workspaces/{id}/tasks - Create new task
-  app.post('/workspaces/:workspaceId/tasks', writeRateLimit, validateWorkspaceId, async (c) => {
-    try {
-      return await tasksController.createTask(c);
-    } catch (error) {
-      throw error;
-    }
-  });
+  app.post('/workspaces/:workspaceId/tasks', writeRateLimit, validateWorkspaceId, async (c) => await tasksController.createTask(c));
 
   // 4. PUT /api/workspaces/{id}/tasks/{taskId} - Update task
-  app.put('/workspaces/:workspaceId/tasks/:taskId', writeRateLimit, validateWorkspaceId, validateTaskId, async (c) => {
-    try {
-      return await tasksController.updateTask(c);
-    } catch (error) {
-      throw error;
-    }
-  });
+  app.put('/workspaces/:workspaceId/tasks/:taskId', writeRateLimit, validateWorkspaceId, validateTaskId, async (c) => await tasksController.updateTask(c));
   // 4a. PATCH /api/workspaces/{id}/tasks/{taskId}/status - Update task status
-  app.patch('/workspaces/:workspaceId/tasks/:taskId/status', writeRateLimit, validateWorkspaceId, validateTaskId, async (c) => {
-    try {
-      return await tasksController.patchTaskStatus(c);
-    } catch (error) {
-      throw error;
-    }
-  });
+  app.patch('/workspaces/:workspaceId/tasks/:taskId/status', writeRateLimit, validateWorkspaceId, validateTaskId, async (c) => await tasksController.patchTaskStatus(c));
 
   // 4b. Task dependency endpoints
   // POST add dependency
-  app.post('/workspaces/:workspaceId/tasks/:taskId/dependencies', writeRateLimit, validateWorkspaceId, validateTaskId, async (c) => {
-    try {
-      return await tasksController.addDependency(c);
-    } catch (error) {
-      throw error;
-    }
-  });
+  app.post('/workspaces/:workspaceId/tasks/:taskId/dependencies', writeRateLimit, validateWorkspaceId, validateTaskId, async (c) => await tasksController.addDependency(c));
   // DELETE remove dependency
-  app.delete('/workspaces/:workspaceId/tasks/:taskId/dependencies/:dependsOn', writeRateLimit, validateWorkspaceId, validateTaskId, async (c) => {
-    try {
-      return await tasksController.removeDependency(c);
-    } catch (error) {
-      throw error;
-    }
-  });
+  app.delete('/workspaces/:workspaceId/tasks/:taskId/dependencies/:dependsOn', writeRateLimit, validateWorkspaceId, validateTaskId, async (c) => await tasksController.removeDependency(c));
   // GET list dependencies
-  app.get('/workspaces/:workspaceId/tasks/:taskId/dependencies', readRateLimit, validateWorkspaceId, validateTaskId, async (c) => {
-    try {
-      return await tasksController.listDependencies(c);
-    } catch (error) {
-      throw error;
-    }
-  });
+  app.get('/workspaces/:workspaceId/tasks/:taskId/dependencies', readRateLimit, validateWorkspaceId, validateTaskId, async (c) => await tasksController.listDependencies(c));
 
   // Error handling
   app.onError((err, c) => {
-    if (err instanceof BadRequestError) {
+    console.log('onError called with:', err.constructor.name, err.message);
+    console.log('Error instanceof BadRequestError:', err instanceof BadRequestError);
+    console.log('Error name:', err.name);
+    if (err instanceof BadRequestError || err.name === 'BadRequestError') {
+      console.log('Returning BadRequestError response');
       return c.json(createErrorResponse('BAD_REQUEST', err.message), 400);
     }
-    if (err instanceof ValidationError) {
+    if (err instanceof ValidationError || err.name === 'ValidationError') {
       return c.json(createErrorResponse('VALIDATION_ERROR', err.message), 422);
     }
-    if (err instanceof NotFoundError) {
+    if (err instanceof NotFoundError || err.name === 'NotFoundError') {
       return c.json(createErrorResponse('NOT_FOUND', err.message), 404);
     }
     console.error('Unhandled error:', err);
