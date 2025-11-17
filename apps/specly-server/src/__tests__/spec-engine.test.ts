@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { BasicExecutionPlanner, ToolGraph, SpecEngine, SpecEngineErrorCode, NoopAutonomousExecutor } from '../services/spec-engine.js';
+import { BasicExecutionPlanner, ToolGraph, SpecEngine, SpecEngineErrorCode, NoopAutonomousExecutor } from '../services/spec-engine.ts';
 import { PersistentJournalService } from '../services/persistent-journal-service.js';
 import { GlobalDatabaseService } from '../database/global-queries.js';
 import { WorkspaceRulesRepository } from '../repositories/workspace-rules-repository.js';
