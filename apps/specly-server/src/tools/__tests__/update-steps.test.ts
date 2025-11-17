@@ -119,19 +119,57 @@ describe('UpdateStepsTool', () => {
             );
         });
 
-        it('should work without reason parameter', async () => {
-            const inputWithoutReason = { ...validInput };
-            delete inputWithoutReason.reason;
-
-            await tool.execute(inputWithoutReason);
+        it('should accept empty reason string', async () => {
+            const inputWithEmptyReason = { ...validInput, reason: '' };
+            await tool.execute(inputWithEmptyReason);
 
             expect(mockOrchestrator.orchestratePrompt).toHaveBeenCalledWith(
                 'specly_update_steps',
                 'test-workspace-id',
                 expect.objectContaining({
-                    reason: undefined
+                    reason: ''
                 })
             );
+        });
+
+        it('should handle empty content string', async () => {
+            const inputWithEmptyContent = { ...validInput, content: '' };
+            await tool.execute(inputWithEmptyContent);
+
+            expect(mockOrchestrator.orchestratePrompt).toHaveBeenCalledWith(
+                'specly_update_steps',
+                'test-workspace-id',
+                expect.objectContaining({
+                    content: ''
+                })
+            );
+        });
+
+        it('should handle special characters in content', async () => {
+            const inputWithSpecialChars = { ...validInput, content: 'Content with\nnewlines\tand\ttabs' };
+            await tool.execute(inputWithSpecialChars);
+
+            expect(mockOrchestrator.orchestratePrompt).toHaveBeenCalledWith(
+                'specly_update_steps',
+                'test-workspace-id',
+                expect.objectContaining({
+                    content: 'Content with\nnewlines\tand\ttabs'
+                })
+            );
+        });
+
+        it('should generate valid ISO timestamp', async () => {
+            const before = new Date();
+            await tool.execute(validInput);
+            const after = new Date();
+
+            const callArgs = mockOrchestrator.orchestratePrompt.mock.calls[0][2];
+            const timestamp = new Date(callArgs.timestamp);
+
+            expect(timestamp).toBeInstanceOf(Date);
+            expect(isNaN(timestamp.getTime())).toBe(false);
+            expect(timestamp.getTime()).toBeGreaterThanOrEqual(before.getTime());
+            expect(timestamp.getTime()).toBeLessThanOrEqual(after.getTime());
         });
     });
 
@@ -270,12 +308,48 @@ describe('UpdateStepsTool', () => {
             const validInputs = [
                 { workspace_path: '/test', step_name: 'workspace_rules_feedback', content: 'test' },
                 { workspace_path: '/test', step_name: 'custom_validation_step', content: 'test' },
-                { workspace_path: '/test', step_name: 'step_123', content: 'test' }
+                { workspace_path: '/test', step_name: 'step_123', content: 'test' },
+                { workspace_path: '/test', step_name: 'step-with-dashes', content: 'test' },
+                { workspace_path: '/test', step_name: 'step_with_underscores', content: 'test' }
             ];
 
             validInputs.forEach(input => {
                 expect(() => updateStepsToolSchema.parse(input)).not.toThrow();
             });
+        });
+
+        it('should accept empty strings for all string fields', () => {
+            const inputWithEmptyStrings = {
+                workspace_path: '',
+                step_name: '',
+                content: '',
+                reason: ''
+            };
+
+            expect(() => updateStepsToolSchema.parse(inputWithEmptyStrings)).not.toThrow();
+        });
+
+        it('should accept very long strings', () => {
+            const longString = 'a'.repeat(10000);
+            const inputWithLongStrings = {
+                workspace_path: longString,
+                step_name: longString,
+                content: longString,
+                reason: longString
+            };
+
+            expect(() => updateStepsToolSchema.parse(inputWithLongStrings)).not.toThrow();
+        });
+
+        it('should accept strings with special characters', () => {
+            const inputWithSpecialChars = {
+                workspace_path: '/path/with spaces & symbols',
+                step_name: 'step-name_with.special.chars',
+                content: 'Content with émojis 🎉 and symbols @#$%^&*()',
+                reason: 'Reason with quotes "and" apostrophes \'test\''
+            };
+
+            expect(() => updateStepsToolSchema.parse(inputWithSpecialChars)).not.toThrow();
         });
     });
 });
