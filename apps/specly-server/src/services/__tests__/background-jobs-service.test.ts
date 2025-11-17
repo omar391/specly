@@ -121,6 +121,20 @@ describe('BackgroundJobsService', () => {
       expect(mockMetrics.inc).toHaveBeenCalledWith('specly_gc_transient_sessions_deleted_total', 10);
     });
 
+    it('should handle undefined changes from database operations', async () => {
+      const workspaces = [{ id: 'ws1', path: '/path/to/ws1' }];
+      mockGlobalDb.getAllWorkspaces.mockResolvedValue(workspaces);
+      mockDb.delete.mockReturnValue({
+        where: vi.fn().mockResolvedValue({ changes: undefined }),
+      });
+
+      const service = new BackgroundJobsService(mockGlobalDb, {}, mockMetrics);
+      const result = await service.transientSessionGC();
+
+      expect(result).toBe(0); // undefined ?? 0 = 0
+      expect(mockMetrics.inc).not.toHaveBeenCalled();
+    });
+
     it('should log when sessions are deleted', async () => {
       const workspaces = [{ id: 'ws1', path: '/path/to/ws1' }];
       mockGlobalDb.getAllWorkspaces.mockResolvedValue(workspaces);
@@ -202,6 +216,13 @@ describe('BackgroundJobsService', () => {
       );
     });
 
+    it('should handle getAllWorkspaces throwing an error in transientSessionGC', async () => {
+      mockGlobalDb.getAllWorkspaces.mockRejectedValue(new Error('Database connection failed'));
+
+      const service = new BackgroundJobsService(mockGlobalDb);
+      await expect(service.transientSessionGC()).rejects.toThrow('Database connection failed');
+    });
+
     it('should not call metrics when no sessions deleted', async () => {
       const workspaces = [{ id: 'ws1', path: '/path/to/ws1' }];
       mockGlobalDb.getAllWorkspaces.mockResolvedValue(workspaces);
@@ -253,6 +274,24 @@ describe('BackgroundJobsService', () => {
       expect(result).toBe(5); // 2 + 3
       expect(mockDb.delete).toHaveBeenCalledTimes(2);
       expect(mockMetrics.inc).toHaveBeenCalledWith('specly_gc_soft_delete_purged_total', 5);
+    });
+
+    it('should handle undefined changes from soft delete operations', async () => {
+      const workspaces = [{ id: 'ws1', path: '/path/to/ws1' }];
+      mockGlobalDb.getAllWorkspaces.mockResolvedValue(workspaces);
+      mockDb.delete
+        .mockReturnValueOnce({
+          where: vi.fn().mockResolvedValue({ changes: undefined }), // sessions
+        })
+        .mockReturnValueOnce({
+          where: vi.fn().mockResolvedValue({ changes: undefined }), // tasks
+        });
+
+      const service = new BackgroundJobsService(mockGlobalDb, {}, mockMetrics);
+      const result = await service.softDeletePurge();
+
+      expect(result).toBe(0); // undefined ?? 0 = 0
+      expect(mockMetrics.inc).not.toHaveBeenCalled();
     });
 
     it('should log when entities are purged', async () => {
@@ -350,6 +389,13 @@ describe('BackgroundJobsService', () => {
       expect(consoleLogSpy).toHaveBeenCalledWith(
         expect.stringContaining('boom2')
       );
+    });
+
+    it('should handle getAllWorkspaces throwing an error in softDeletePurge', async () => {
+      mockGlobalDb.getAllWorkspaces.mockRejectedValue(new Error('Database connection failed'));
+
+      const service = new BackgroundJobsService(mockGlobalDb);
+      await expect(service.softDeletePurge()).rejects.toThrow('Database connection failed');
     });
 
     it('should not call metrics when no entities purged', async () => {
