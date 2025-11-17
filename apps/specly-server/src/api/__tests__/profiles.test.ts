@@ -66,6 +66,19 @@ describe('ProfilesController', () => {
         vi.restoreAllMocks();
     });
 
+    describe('constructor', () => {
+        it('should set defaultDb when provided', () => {
+            const customDb = { initialize: vi.fn() };
+            const testController = new ProfilesController(customDb as any);
+            expect(testController).toBeInstanceOf(ProfilesController);
+        });
+
+        it('should use getGlobalDatabaseService when no defaultDb', () => {
+            const testController = new ProfilesController();
+            expect(testController).toBeInstanceOf(ProfilesController);
+        });
+    });
+
     describe('createProfile', () => {
         it('should create profile successfully', async () => {
             const mockCtx = {
@@ -128,6 +141,21 @@ describe('ProfilesController', () => {
             await controller.createProfile(mockCtx as any);
 
             expect(mockCtx.json).toHaveBeenCalledWith({ error: 'validation failed' }, 422);
+        });
+
+        it('should use fallback when injected dbService is invalid', async () => {
+            const mockCtx = {
+                req: { json: vi.fn().mockResolvedValue({ name: 'test-profile', description: 'desc' }) },
+                json: vi.fn(),
+                env: { dbService: 'invalid' }, // Invalid injected service
+            };
+            mockRepo.createProfile.mockResolvedValue({ created: true, profile: { id: '1', name: 'test-profile' } });
+
+            await controller.createProfile(mockCtx as any);
+
+            expect(mockDb.initialize).toHaveBeenCalled();
+            expect(mockRepo.createProfile).toHaveBeenCalledWith({ name: 'test-profile', description: 'desc', parentProfileId: null });
+            expect(mockCtx.json).toHaveBeenCalledWith({ id: '1', name: 'test-profile', created: true }, 201);
         });
     });
 
@@ -192,6 +220,40 @@ describe('ProfilesController', () => {
 
             expect(mockCtx.json).toHaveBeenCalledWith({ error: 'Cycle detected' }, 422);
         });
+
+        it('should handle unknown error in createProfileVersion', async () => {
+            const mockCtx = {
+                req: {
+                    param: vi.fn().mockReturnValue('test-profile'),
+                    json: vi.fn().mockResolvedValue({})
+                },
+                json: vi.fn(),
+            };
+            mockRepo.getProfileByName.mockResolvedValue({ id: 'profile-id' });
+            const error = new Error('some unknown error');
+            mockRepo.createProfileVersion.mockRejectedValue(error);
+
+            await controller.createProfileVersion(mockCtx as any);
+
+            expect(mockCtx.json).toHaveBeenCalledWith({ error: 'failed to create profile version' }, 500);
+        });
+
+        it('should handle error with no message in createProfileVersion', async () => {
+            const mockCtx = {
+                req: {
+                    param: vi.fn().mockReturnValue('test-profile'),
+                    json: vi.fn().mockResolvedValue({})
+                },
+                json: vi.fn(),
+            };
+            mockRepo.getProfileByName.mockResolvedValue({ id: 'profile-id' });
+            const error = new Error();
+            mockRepo.createProfileVersion.mockRejectedValue(error);
+
+            await controller.createProfileVersion(mockCtx as any);
+
+            expect(mockCtx.json).toHaveBeenCalledWith({ error: 'failed to create profile version' }, 500);
+        });
     });
 
     describe('upgradeWorkspaceProfile', () => {
@@ -210,6 +272,40 @@ describe('ProfilesController', () => {
 
             await controller.upgradeWorkspaceProfile(mockCtx as any);
 
+            expect(mockCtx.json).toHaveBeenCalledWith(
+                expect.objectContaining({ workspace_id: 'ws-id', profile_version_id: 'pv-id' }),
+                200
+            );
+        });
+
+        it('should upgrade workspace profile when drizzle query succeeds', async () => {
+            // Override the drizzle mock to return a workspace
+            mockDb.getDrizzleManager.mockReturnValue({
+                getDb: vi.fn(() => ({
+                    select: vi.fn(() => ({
+                        from: vi.fn(() => ({
+                            where: vi.fn(() => ({
+                                limit: vi.fn(() => Promise.resolve([{ id: 'ws-id' }]))
+                            }))
+                        }))
+                    }))
+                }))
+            });
+
+            const mockCtx = {
+                req: {
+                    param: createParamMock({ workspaceId: 'ws-id' }),
+                    json: vi.fn().mockResolvedValue({ profile: 'test-profile', version: 1 })
+                },
+                json: vi.fn(),
+            };
+            mockRepo.getProfileByName.mockResolvedValue({ id: 'profile-id' });
+            mockRepo.listProfileVersions.mockResolvedValue([{ id: 'pv-id', version: 1 }]);
+            mockRepo.bindWorkspaceProfile.mockResolvedValue({ workspaceId: 'ws-id', profileVersionId: 'pv-id', pinnedAt: new Date() });
+
+            await controller.upgradeWorkspaceProfile(mockCtx as any);
+
+            expect(mockDb.getWorkspace).not.toHaveBeenCalled(); // Should not fallback
             expect(mockCtx.json).toHaveBeenCalledWith(
                 expect.objectContaining({ workspace_id: 'ws-id', profile_version_id: 'pv-id' }),
                 200
