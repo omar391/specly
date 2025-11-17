@@ -173,6 +173,68 @@ describe('ProjectInitializer (unit)', () => {
         globalDbMock.getDb = originalGetDb;
     });
 
+    it('isWorkspaceInitialized returns false when task count is 0 but rules exist', async () => {
+        // set workspace selection
+        const workspaceObj = { id: 'w4', path: '/p/w4' };
+        globalDbMock._nextSelectReturn = workspaceObj;
+
+        // make workspace DB return a task count = 0
+        const wdb = {
+            getDb: () => ({
+                select: () => ({ from: () => ({ get: async () => ({ count: 0 }) }) })
+            })
+        };
+        // ensure initializeWorkspaceDatabase returns our workspace DB
+        const drizzleModule = await import('../../database/drizzle-connection.js');
+        vi.spyOn(drizzleModule, 'initializeWorkspaceDatabase').mockResolvedValue(wdb as any);
+
+        // return rules array with length > 0
+        const rulesArr: any = [{ id: 'r1' }];
+        rulesArr.get = async () => rulesArr;
+        const originalGetDb = globalDbMock.getDb;
+        globalDbMock.getDb = () => ({
+            select: () => ({ from: () => ({ where: () => rulesArr }) })
+        } as any);
+
+        const anyM = manager as any;
+        const r = await anyM.isWorkspaceInitialized('/p/w4');
+        expect(r).toBe(false);
+
+        // restore original
+        globalDbMock.getDb = originalGetDb;
+    });
+
+    it('isWorkspaceInitialized returns false when taskCountResult is null but rules exist', async () => {
+        // set workspace selection
+        const workspaceObj = { id: 'w5', path: '/p/w5' };
+        globalDbMock._nextSelectReturn = workspaceObj;
+
+        // make workspace DB return null for task count
+        const wdb = {
+            getDb: () => ({
+                select: () => ({ from: () => ({ get: async () => null }) })
+            })
+        };
+        // ensure initializeWorkspaceDatabase returns our workspace DB
+        const drizzleModule = await import('../../database/drizzle-connection.js');
+        vi.spyOn(drizzleModule, 'initializeWorkspaceDatabase').mockResolvedValue(wdb as any);
+
+        // return rules array with length > 0
+        const rulesArr: any = [{ id: 'r1' }];
+        rulesArr.get = async () => rulesArr;
+        const originalGetDb = globalDbMock.getDb;
+        globalDbMock.getDb = () => ({
+            select: () => ({ from: () => ({ where: () => rulesArr }) })
+        } as any);
+
+        const anyM = manager as any;
+        const r = await anyM.isWorkspaceInitialized('/p/w5');
+        expect(r).toBe(false);
+
+        // restore original
+        globalDbMock.getDb = originalGetDb;
+    });
+
     it('reinitializeWorkspace clears tasks when preserveTasks=false', async () => {
         // prepare existing workspace selection
         const existing = { id: 'ex2', path: '/p/ex2', name: 'n' };
