@@ -17,7 +17,7 @@ describe('cli coverage quickfix', () => {
   });
 
   it('executeToolCall hits default case for unhandled tool', async () => {
-    const validateSpy = vi.spyOn(toolNames, 'validateToolName').mockImplementation(() => {});
+    const validateSpy = vi.spyOn(toolNames, 'validateToolName').mockImplementation(() => { });
     const throwSpy = vi.spyOn({ throwUnhandledTool }, 'throwUnhandledTool');
 
     try {
@@ -34,6 +34,7 @@ describe('cli coverage quickfix', () => {
   it('initializeTools handles getDrizzleManager error', async () => {
     // Mock the database service to throw when getDrizzleManager is called
     const mockDbService = {
+      initialize: vi.fn().mockResolvedValue(undefined),
       getDrizzleManager: vi.fn().mockImplementation(() => {
         throw new Error('Drizzle manager error');
       })

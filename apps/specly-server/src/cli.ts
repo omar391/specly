@@ -310,10 +310,29 @@ export async function runCli(
 
             /* istanbul ignore next -- map to CLI exit behavior in real runs */
             if (result.isError) {
+                // Emit a structured error to stderr so tests that assert on console.error
+                // see the original underlying cause instead of the generic process.exit text.
+                let errorText: string = '';
+                if (Array.isArray(result.content) && result.content.length > 0 && typeof result.content[0].text === 'string') {
+                    errorText = result.content[0].text;
+                } else {
+                    errorText = String(result.content);
+                }
+
+                // If the message was wrapped as "Error executing tool <toolName>: <inner>",
+                // surface the inner message to match test expectations.
+                const prefix = `Error executing tool ${toolName}: `;
+                if (errorText.startsWith(prefix)) {
+                    console.error('Error:', errorText.slice(prefix.length));
+                } else {
+                    console.error('Error:', errorText);
+                }
+
                 console.log('⚠️  Tool returned error result:');
             } else {
                 console.log('📋 Tool result:');
             }
+
             if (Array.isArray(result.content)) {
                 for (const item of result.content) {
                     if (item.type === 'text') console.log(item.text); else console.log(`[${item.type}]`, item);
