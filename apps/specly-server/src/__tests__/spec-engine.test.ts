@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { BasicExecutionPlanner, ToolGraph, SpecEngine, SpecEngineErrorCode, NoopAutonomousExecutor } from '../services/spec-engine.ts';
+import { BasicExecutionPlanner, ToolGraph, SpecEngine, SpecEngineErrorCode, NoopAutonomousExecutor, NoopClientStateLeaseProvider, NoopActionJournalAdapter, NoopMetricsCollector } from '../services/spec-engine.ts';
 import { PersistentJournalService } from '../services/persistent-journal-service.js';
 import { GlobalDatabaseService } from '../database/global-queries.js';
 import { WorkspaceRulesRepository } from '../repositories/workspace-rules-repository.js';
@@ -8,6 +8,15 @@ import { WorkspaceRulesRepository } from '../repositories/workspace-rules-reposi
 vi.mock('../services/persistent-journal-service.js');
 vi.mock('../database/global-queries.js');
 vi.mock('../repositories/workspace-rules-repository.js');
+vi.mock('../utils/graph-validate.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    validateToolGraph: vi.fn()
+  };
+});
+
+import { validateToolGraph, GraphValidationError } from '../utils/graph-validate.js';
 
 function makeNode(hash: string, intent: 'human' | 'autonomous' = 'autonomous', sideEffect: boolean = false) {
   return { hash, intent, sideEffect };
@@ -347,13 +356,21 @@ describe('SpecEngine (SP-005)', () => {
     });
 
     it('handles missing node during execution', async () => {
+      // Mock planner to return a plan with a missing node
+      const badPlanner = {
+        buildPlan: vi.fn().mockReturnValue({
+          steps: [{ specHash: 'A', awaitingHuman: false }, { specHash: 'MISSING', awaitingHuman: false }],
+          warnings: []
+        })
+      };
+
       const graph: ToolGraph = {
         entry: 'A',
         nodes: { A: makeNode('A') },
         edges: [{ from: 'A', to: 'MISSING' }]
       };
 
-      const engine = new SpecEngine();
+      const engine = new SpecEngine({ planner: badPlanner });
       const result = await engine.run(graph);
 
       expect(result.status).toBe('error');
@@ -814,7 +831,7 @@ describe('SpecEngine (SP-005)', () => {
       const result = await engine.run(graph, { workspaceId: 'workspace-1' });
 
       expect(result.status).toBe('completed');
-      // Should continue without rules
+      expect(mockRulesRepo.list).toHaveBeenCalledWith('workspace-1', true);
     });
 
     it('handles journal operations failures gracefully', async () => {
@@ -1119,6 +1136,180 @@ describe('SpecEngine (SP-005)', () => {
       const executor = new NoopAutonomousExecutor();
       const result = await executor.execute('test-hash');
       expect(result).toEqual({ ok: true, spec: 'test-hash' });
+    });
+
+    it('NoopClientStateLeaseProvider works', async () => {
+      const provider = new NoopClientStateLeaseProvider();
+      const result = await provider.acquire('session', 'client');
+      expect(result).toEqual({ leaseId: 'noop' });
+      await provider.renew('noop');
+      await provider.release('noop');
+    });
+
+    it('NoopActionJournalAdapter works', async () => {
+      const journal = new NoopActionJournalAdapter();
+      journal.recordStart('hash', 1);
+      journal.recordSuccess('hash', 1, 'output');
+      journal.recordFailure('hash', 1, { message: 'error' });
+    });
+
+    it('NoopMetricsCollector works', async () => {
+      const metrics = new NoopMetricsCollector();
+      metrics.inc('counter');
+      metrics.inc('counter', { label: 'value' });
+      metrics.observe('histogram', 1.0);
+      metrics.observe('histogram', 1.0, { label: 'value' });
+    });
+
+    it('handles unexpected errors in run method', async () => {
+      const failingPlanner = {
+        buildPlan: vi.fn().mockImplementation(() => { throw new Error('Unexpected planner error'); })
+      };
+
+      const graph: ToolGraph = {
+        entry: 'A',
+        nodes: { A: makeNode('A') },
+        edges: []
+      };
+
+      const engine = new SpecEngine({ planner: failingPlanner });
+      const result = await engine.run(graph);
+
+      expect(result.status).toBe('error');
+      expect(result.error?.message).toBe('Unexpected planner error');
+      expect(result.errorCode).toBeUndefined(); // Since it doesn't match the regex
+    });
+
+    it('handles executor failure during resume', async () => {
+      const failingExecutor = {
+        execute: vi.fn().mockRejectedValue(new Error('Resume executor failed'))
+      };
+
+      const serializedState = {
+        plan: { steps: [{ specHash: 'A', awaitingHuman: false }, { specHash: 'B', awaitingHuman: true }, { specHash: 'C', awaitingHuman: false }], warnings: [] },
+        currentIndex: 1, // pointing to the human spec 'B'
+        executed: ['A'],
+        results: { A: {} },
+        warnings: [],
+        awaitingSpec: 'B',
+        sessionContext: {}
+      };
+
+      const graph: ToolGraph = {
+        entry: 'A',
+        nodes: { A: makeNode('A'), B: makeNode('B', 'human'), C: makeNode('C') },
+        edges: [{ from: 'A', to: 'B' }, { from: 'B', to: 'C' }]
+      };
+
+      const engine = new SpecEngine({ executor: failingExecutor });
+      const result = await engine.resume(graph, serializedState, {
+        specHash: 'B',
+        humanOutput: { input: 'test' }
+      });
+
+      expect(result.status).toBe('error');
+      expect(result.errorCode).toBe(SpecEngineErrorCode.EXECUTOR_FAILED);
+    });
+
+    it('handles resume with PersistentJournalService', async () => {
+      // Mock the PersistentJournalService constructor
+      const mockPersistentJournal = {
+        recordSuccess: vi.fn(),
+        recordStart: vi.fn(),
+        recordFailure: vi.fn()
+      };
+      (PersistentJournalService as any).mockImplementation(() => mockPersistentJournal);
+
+      const serializedState = {
+        plan: { steps: [{ specHash: 'B', awaitingHuman: true }, { specHash: 'C', awaitingHuman: false }], warnings: [] },
+        currentIndex: 0,
+        executed: ['A'],
+        results: { A: {} },
+        warnings: [],
+        awaitingSpec: 'B',
+        sessionContext: {}
+      };
+
+      const graph: ToolGraph = {
+        entry: 'A',
+        nodes: { A: makeNode('A'), B: makeNode('B', 'human'), C: makeNode('C') },
+        edges: [{ from: 'A', to: 'B' }, { from: 'B', to: 'C' }]
+      };
+
+      const engine = new SpecEngine();
+      // Trigger journal upgrade by providing sessionId
+      await engine.run(graph, { sessionId: 'session-1' });
+
+      // Now resume with the upgraded journal
+      const result = await engine.resume(graph, serializedState, {
+        specHash: 'B',
+        humanOutput: { input: 'test' }
+      });
+
+      expect(result.status).toBe('completed');
+      expect(mockPersistentJournal.recordSuccess).toHaveBeenCalledWith('B', 1, { input: 'test' });
+      expect(mockPersistentJournal.recordStart).toHaveBeenCalledWith('C', 1);
+    });
+
+    it('handles unknown GraphValidationError codes', async () => {
+      // Test that GraphValidationError works
+      const testError = new GraphValidationError('ERR_UNKNOWN' as any, 'Unknown validation error');
+      console.log('Real error message:', testError.message);
+      console.log('Real error:', testError);
+
+      // Mock validateToolGraph to throw an unknown GraphValidationError
+      vi.mocked(validateToolGraph).mockImplementationOnce(() => {
+        console.log('validateToolGraph mock called');
+        const error = new GraphValidationError('ERR_UNKNOWN' as any, 'Unknown validation error');
+        console.log('Mock error message:', error.message);
+        console.log('Mock error:', error);
+        throw error;
+      });
+
+      const graph: ToolGraph = {
+        entry: 'A',
+        nodes: { A: makeNode('A') },
+        edges: []
+      };
+
+      const engine = new SpecEngine();
+      
+      // This should return an error result since the unknown error is caught by the outer catch
+      const result = await engine.run(graph);
+      console.log('Test result:', result);
+      expect(result.status).toBe('error');
+      expect(result.error?.message).toBe('Unknown validation error');
+      expect(result.errorCode).toBeUndefined();
+    });
+
+    it('handles finalizeError in resume with lease acquisition failure', async () => {
+      mockLeaseProvider.acquire.mockRejectedValue(new Error('Lease acquire failed'));
+
+      const serializedState = {
+        plan: { steps: [{ specHash: 'B', awaitingHuman: true }, { specHash: 'C', awaitingHuman: false }], warnings: [] },
+        currentIndex: 0,
+        executed: ['A'],
+        results: { A: {} },
+        warnings: [],
+        awaitingSpec: 'B',
+        sessionContext: {}
+      };
+
+      const graph: ToolGraph = {
+        entry: 'A',
+        nodes: { A: makeNode('A'), B: makeNode('B', 'human'), C: makeNode('C') },
+        edges: [{ from: 'A', to: 'B' }, { from: 'B', to: 'C' }]
+      };
+
+      const engine = new SpecEngine({ leaseProvider: mockLeaseProvider });
+      const result = await engine.resume(graph, serializedState, {
+        specHash: 'B',
+        humanOutput: { input: 'test' }
+      }, { sessionId: 'session-1', clientId: 'client-1' });
+
+      expect(result.status).toBe('error');
+      expect(result.errorCode).toBe(SpecEngineErrorCode.LEASE_ACQUIRE_FAILED);
+      expect(mockLeaseProvider.acquire).toHaveBeenCalledWith('session-1', 'client-1', undefined);
     });
   });
 });

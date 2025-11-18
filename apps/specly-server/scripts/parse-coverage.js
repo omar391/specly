@@ -54,6 +54,17 @@ function getPctFromEntry(entry) {
     }
     // fallback: check any number-like pct at top-level
     if (typeof entry.pct === 'number') return entry.pct;
+
+    // Handle raw istanbul format (v8): compute from 's', 'b', 'f' maps
+    if (entry.s && typeof entry.s === 'object') {
+        // statements: count how many have > 0 executions
+        const totalStatements = Object.keys(entry.s).length;
+        const coveredStatements = Object.values(entry.s).filter(count => count > 0).length;
+        if (totalStatements > 0) {
+            return Math.round((coveredStatements * 100) / totalStatements);
+        }
+    }
+
     return null;
 }
 
