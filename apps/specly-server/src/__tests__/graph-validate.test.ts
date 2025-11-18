@@ -105,6 +105,12 @@ describe('graph-validate', () => {
     try { validateToolGraph(manifest); } catch (e:any) { expect(e.code).toBe('ERR_UNDECLARED_SPEC'); }
   });
 
+  it('rejects missing manifest', () => {
+    // @ts-expect-error: test pass invalid input to trigger error
+    expect(() => validateToolGraph(undefined)).toThrowError(GraphValidationError);
+    try { validateToolGraph(undefined as any); } catch (e: any) { expect(e.code).toBe('ERR_UNDECLARED_SPEC'); }
+  });
+
   it('sorts edges deterministically using insertion index fallback', () => {
     const manifest = {
       ordered_specs: ['A', 'B', 'C'],

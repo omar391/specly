@@ -163,6 +163,12 @@ Acceptable exceptions documented for remaining gaps (hard-to-cover lines):
 - Added tests for workspace rules confidence variations, journal upgrade, journal success recording, and cycle detection
 - Overall coverage maintained at 99.74% statements, 96.79% branches
 
+### spec-engine.ts
+- **Before**: 96% (uncov lines: [241,409-413,437,494,520,616,635])
+- **After**: 96% (no delta)
+- **Tests Added**: src/__tests__/spec-engine-edge-cases.test.ts (4 new edge-case tests)
+- **Notes**: Some lines are defensive/unreachable or hard-to-trigger; consider `/* c8 ignore next */` for 241 and 409-413 if they remain untestable.
+
 **Remaining Gaps**: All documented as acceptable exceptions for:
 - spec-engine.ts lines 241-242,409-414,520 (coverage instrumentation issues despite passing tests)
 - Various unreachable defensive code paths in other files

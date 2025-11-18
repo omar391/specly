@@ -1,4 +1,121 @@
 import { describe, it, expect, vi } from 'vitest';
+import { SpecEngine, ToolGraph, SpecEngineErrorCode } from '../services/spec-engine.js';
+import { buildToolGraph } from '../utils/tool-graph-builder.js';
+
+function node(hash: string, intent: 'human' | 'autonomous' = 'autonomous') {
+    return { hash, intent, sideEffect: false };
+}
+
+describe('SpecEngine edge case behaviors', () => {
+    it('maps planner errors with "Cycle detected" to GRAPH_CYCLE', async () => {
+        const engine = new SpecEngine({});
+        // Replace planner with one that throws a specific message
+        (engine as any).planner = { buildPlan: () => { throw new Error('Cycle detected: simulated'); } };
+
+        const graph: ToolGraph = {
+            entry: 'A',
+            nodes: { A: node('A') },
+            edges: []
+        };
+
+        const res = await engine.run(graph);
+        expect(res.status).toBe('error');
+        expect(res.errorCode).toBe(SpecEngineErrorCode.GRAPH_CYCLE);
+    });
+
+    it('maps planner errors with "Missing node during execution" to GRAPH_MISSING_NODE', async () => {
+        const engine = new SpecEngine({});
+        (engine as any).planner = { buildPlan: () => { throw new Error('Missing node during execution: simulated'); } };
+
+        const graph: ToolGraph = {
+            entry: 'A',
+            nodes: { A: node('A') },
+            edges: []
+        };
+
+        const res = await engine.run(graph);
+        expect(res.status).toBe('error');
+        expect(res.errorCode).toBe(SpecEngineErrorCode.GRAPH_MISSING_NODE);
+    });
+
+    it('rejects resume when resumeToken has already been consumed', async () => {
+        const engine = new SpecEngine();
+
+        const graph = buildToolGraph(b => b
+            .addSpec({ hash: 'A', intent: 'autonomous', entry: true })
+            .addSpec({ hash: 'H', intent: 'human' })
+            .addSpec({ hash: 'B', intent: 'autonomous' })
+            .addEdge('A', 'H')
+            .addEdge('H', 'B')
+        );
+
+        // Pause at first human
+        const first = await engine.run(graph);
+        expect(first.status).toBe('awaiting_input');
+        const resumeToken = first.resumeToken as string;
+
+        const serialized = {
+            plan: first.resumeToken ? { steps: [], warnings: [] } as any : { steps: [{ specHash: 'A', awaitingHuman: false }, { specHash: 'H', awaitingHuman: true }, { specHash: 'B', awaitingHuman: false }], warnings: [] },
+            currentIndex: 1,
+            executed: ['A'],
+            results: { A: { ok: true } },
+            warnings: [],
+            awaitingSpec: 'H',
+            sessionContext: {}
+        };
+
+        // First resume should succeed
+        const resumed = await engine.resume(graph, serialized as any, { specHash: 'H', humanOutput: { value: 'x' }, resumeToken });
+        expect(resumed.status).toBeDefined();
+
+        // Second resume with same token should be rejected
+        const second = await engine.resume(graph, serialized as any, { specHash: 'H', humanOutput: { value: 'x' }, resumeToken });
+        expect(second.status).toBe('error');
+        expect(second.errorCode).toBe(SpecEngineErrorCode.RESUME_TOKEN_INVALID);
+    });
+
+    it('calls journal.recordFailure when executor fails during resume', async () => {
+        let recordFailures = 0;
+        const fakeJournal = {
+            recordStart: vi.fn().mockResolvedValue(undefined),
+            recordSuccess: vi.fn().mockResolvedValue(undefined),
+            recordFailure: vi.fn().mockImplementation(() => { recordFailures++; return Promise.resolve(); })
+        };
+
+        const failingExecutor = {
+            execute: vi.fn().mockImplementation(() => {
+                throw new Error('fail');
+            })
+        };
+
+        const engine = new SpecEngine({ executor: failingExecutor as any, journalAdapter: fakeJournal as any });
+
+        const graph = buildToolGraph(b => b
+            .addSpec({ hash: 'A', intent: 'autonomous', entry: true })
+            .addSpec({ hash: 'H', intent: 'human' })
+            .addSpec({ hash: 'B', intent: 'autonomous' })
+            .addEdge('A', 'H')
+            .addEdge('H', 'B')
+        );
+
+        // Construct a paused serialized state manually and resume
+        const serialized = {
+            plan: { steps: [{ specHash: 'A', awaitingHuman: false }, { specHash: 'H', awaitingHuman: true }, { specHash: 'B', awaitingHuman: false }], warnings: [] },
+            currentIndex: 1,
+            executed: ['A'],
+            results: { A: { ok: true } },
+            warnings: [],
+            awaitingSpec: 'H',
+            sessionContext: {}
+        };
+
+        const resumed = await engine.resume(graph, serialized as any, { specHash: 'H', humanOutput: { x: 1 } });
+        expect(resumed.status).toBe('error');
+        // recordFailure should have been called by the resume flow
+        expect((fakeJournal.recordFailure as any).mock.calls.length).toBeGreaterThan(0);
+    });
+});
+import { describe, it, expect, vi } from 'vitest';
 import { SpecEngine, ToolGraph, ClientStateLeaseProvider, SpecEngineErrorCode, BasicExecutionPlanner, NoopAutonomousExecutor } from '../services/spec-engine.js';
 import { buildToolGraph } from '../utils/tool-graph-builder.js';
 
