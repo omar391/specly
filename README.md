@@ -9,11 +9,21 @@ A Model Context Protocol server for deterministic, hash-addressable multi-step a
 ### Installation
 
 ```bash
+# Clone with submodules (recommended)
+git clone --recurse-submodules <repository-url>
+cd specly-mcp
+
+# OR if already cloned without submodules
 git clone <repository-url>
 cd specly-mcp
+make init-submodules  # or: git submodule update --init --recursive
+
+# Install dependencies and build
 pnpm install
 pnpm build:all
 ```
+
+**Note**: This repository uses `packages/mcp-kit` as a git submodule. You must initialize submodules after cloning, or clone with `--recurse-submodules` flag.
 
 ### Launch Integrated Server
 
@@ -160,8 +170,8 @@ pnpm graph
 ```text
 .
 ├── packages/
-│   ├── mcp-kit/              # 📦 Publishable MCP toolkit (@omar391/mcp-kit)
-│   │   ├── src/
+│   ├── mcp-kit/              # 📦 Git submodule → github.com/omar391/mcp-kit
+│   │   ├── src/              # Universal MCP toolkit (published independently)
 │   │   │   ├── client.ts     # MCP client utilities
 │   │   │   ├── server/
 │   │   │   │   ├── core/     # 🌍 Universal Hono-based MCP core
@@ -199,6 +209,10 @@ pnpm graph
 ```
 
 **Architecture Notes:**
+- **Git Submodule**: `packages/mcp-kit` is a git submodule linked to [github.com/omar391/mcp-kit](https://github.com/omar391/mcp-kit)
+  - Initialize submodules after cloning: `make init-submodules` or `git submodule update --init --recursive`
+  - Update submodule to latest: `make update-submodules` or `git submodule update --remote`
+  - See [Makefile](./Makefile) for submodule management commands
 - **Universal Core**: `mcp-kit` now provides a Hono-based MCP server that works across all JavaScript runtimes
 - **Runtime Detection**: Automatic detection of Node.js, Bun, Cloudflare Workers, Vercel Edge, etc.
 - **Multi-Target Builds**: Separate optimized builds for universal, Node.js, and browser environments

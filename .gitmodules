@@ -1,0 +1,3 @@
+[submodule "packages/mcp-kit"]
+	path = packages/mcp-kit
+	url = git@github.com:omar391/mcp-kit.git
