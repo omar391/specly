@@ -104,4 +104,24 @@ describe('graph-validate', () => {
     expect(() => validateToolGraph(manifest)).toThrowError(GraphValidationError);
     try { validateToolGraph(manifest); } catch (e:any) { expect(e.code).toBe('ERR_UNDECLARED_SPEC'); }
   });
+
+  it('sorts edges deterministically using insertion index fallback', () => {
+    const manifest = {
+      ordered_specs: ['A', 'B', 'C'],
+      entry_spec: 'A',
+      edges: [
+        // Create edges with identical sorting criteria except insertion index
+        { from: 'A', to: 'B', condition_type: 'always' as const, condition_value: 'same', priority: 50 },
+        { from: 'A', to: 'B', condition_type: 'always' as const, condition_value: 'same', priority: 50 },
+        { from: 'A', to: 'C', condition_type: 'always' as const, priority: 10 }
+      ]
+    };
+    const normalized = validateToolGraph(manifest);
+    // The edges should be sorted deterministically
+    expect(normalized.edges.length).toBe(3);
+    // First two edges should be the identical ones (sorted by insertion index)
+    expect(normalized.edges[0].to).toBe('B');
+    expect(normalized.edges[1].to).toBe('B');
+    expect(normalized.edges[2].to).toBe('C');
+  });
 });

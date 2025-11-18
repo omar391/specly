@@ -102,7 +102,8 @@ describe('cli runCli and main branches', () => {
         const errSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
         try {
             const mod = await import('../cli.js');
-            await expect(mod.executeToolCall('specly_init', {})).rejects.toThrow();
+            const result = await mod.executeToolCall('specly_init', {});
+            expect(result.isError).toBe(true);
             expect(errSpy).toHaveBeenCalled();
         } finally {
             errSpy.mockRestore();
@@ -125,7 +126,8 @@ describe('cli runCli and main branches', () => {
             const errSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
             try {
                 const mod = await import('../cli.js');
-                await expect(mod.executeToolCall('specly_init', {})).rejects.toThrow();
+                const result = await mod.executeToolCall('specly_init', {});
+                expect(result.isError).toBe(true);
                 expect(errSpy).toHaveBeenCalled();
             } finally {
                 errSpy.mockRestore();
@@ -171,7 +173,9 @@ describe('cli runCli and main branches', () => {
 
     it('executeToolCall throws for unknown tool name', async () => {
         const mod = await import('../cli.js');
-        await expect(mod.executeToolCall('unknown_tool', {})).rejects.toThrow('Unknown tool: unknown_tool');
+        const result = await mod.executeToolCall('unknown_tool', {});
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('Unknown tool');
     });
 
     it('initializeTools logs error when initializeGlobalDatabaseService throws', async () => {
@@ -195,7 +199,8 @@ describe('cli runCli and main branches', () => {
 
             try {
                 const mod = await import('../cli.js');
-                await expect(mod.executeToolCall('specly_init', {})).rejects.toThrow();
+                const result = await mod.executeToolCall('specly_init', {});
+                expect(result.isError).toBe(true);
                 expect(errSpy).toHaveBeenCalled();
             } finally {
                 errSpy.mockRestore();

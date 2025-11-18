@@ -23,3 +23,18 @@ test('runIfMain triggers main().catch when argv indicates direct run', async () 
     process.argv[1] = origArg1;
   }
 });
+
+test('runIfMain returns resolved promise when not a direct run', async () => {
+  const indexModule = await import('../index.js');
+
+  // Set process.argv[1] to something that doesn't match
+  const origArg1 = process.argv[1];
+  process.argv[1] = '/some/other/path.js';
+
+  try {
+    const result = await indexModule.runIfMain();
+    expect(result).toBeUndefined(); // runIfMain returns Promise.resolve() which resolves to undefined
+  } finally {
+    process.argv[1] = origArg1;
+  }
+});

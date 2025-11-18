@@ -267,5 +267,62 @@ describe('SpecEngine comprehensive coverage', () => {
       expect(result.status).toBe('error');
       expect(result.errorCode).toBe(SpecEngineErrorCode.RESUME_TOKEN_INVALID);
     });
+
+    it('handles lease renewal failure during resume', async () => {
+      // Mock lease provider to fail renewal
+      const mockLeaseProvider = {
+        acquire: vi.fn().mockResolvedValue({ leaseId: 'lease123' }),
+        renew: vi.fn().mockRejectedValue(new Error('Lease renewal failed')),
+        release: vi.fn().mockResolvedValue(undefined)
+      };
+
+      const engineWithLease = new SpecEngine({
+        executor: new NoopAutonomousExecutor(),
+        leaseProvider: mockLeaseProvider as any,
+        leaseRenewEvery: 1 // Force renewal on first spec
+      });
+
+      const graphWithMultipleSpecs: ToolGraph = {
+        entry: 'A',
+        nodes: {
+          A: { hash: 'A', intent: 'autonomous', sideEffect: false },
+          B: { hash: 'B', intent: 'human', sideEffect: false },
+          C: { hash: 'C', intent: 'autonomous', sideEffect: false },
+          D: { hash: 'D', intent: 'autonomous', sideEffect: false }
+        },
+        edges: [
+          { from: 'A', to: 'B' },
+          { from: 'B', to: 'C' },
+          { from: 'C', to: 'D' }
+        ]
+      };
+
+      const pausedStateWithMultiple: any = {
+        plan: {
+          steps: [
+            { specHash: 'A', awaitingHuman: false },
+            { specHash: 'B', awaitingHuman: true },
+            { specHash: 'C', awaitingHuman: false },
+            { specHash: 'D', awaitingHuman: false }
+          ],
+          warnings: []
+        },
+        currentIndex: 1,
+        executed: ['A'],
+        results: { A: { result: 'A done' } },
+        warnings: [],
+        awaitingSpec: 'B',
+        sessionContext: {}
+      };
+
+      const result = await engineWithLease.resume(graphWithMultipleSpecs, pausedStateWithMultiple, {
+        specHash: 'B',
+        humanOutput: { human: 'input' }
+      }, { sessionId: 'session123', clientId: 'client123' });
+
+      expect(result.status).toBe('error');
+      expect(result.errorCode).toBe(SpecEngineErrorCode.LEASE_RENEW_FAILED);
+      expect(result.error?.message).toContain('Lease renewal failed');
+    });
   });
 });

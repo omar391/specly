@@ -1,3 +1,77 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { canonicalStringify, sha256, hashSpec, hashToolVersion, stableHash } from '../utils/hash.js';
+import { configureHashCache, resetHashCacheMetrics } from '../utils/hash-cache.js';
+
+describe('canonicalStringify and internal behavior', () => {
+  it('stringifies primitives and null', () => {
+    expect(canonicalStringify(null)).toBe('null');
+    expect(canonicalStringify(123)).toBe('123');
+    expect(canonicalStringify('x')).toBe('"x"');
+    expect(canonicalStringify(true)).toBe('true');
+  });
+
+  it('preserves array order', () => {
+    expect(canonicalStringify([2, 1])).toBe('[2,1]');
+    expect(canonicalStringify(["b", "a"])) .toBe('["b","a"]');
+  });
+
+  it('orders object keys lexicographically', () => {
+    const obj = { b: 2, a: 1 };
+    expect(canonicalStringify(obj)).toBe('{"a":1,"b":2}');
+  });
+
+  it('handles nested structures', () => {
+    const nested = { z: [3, { b: 2, a: 1 }], a: null };
+    const canon = canonicalStringify(nested);
+    // keys sorted: a then z
+    expect(canon.startsWith('{"a":null,"z":')).toBe(true);
+  });
+});
+
+describe('hashing utilities', () => {
+  beforeEach(() => {
+    configureHashCache({ size: 10 });
+    resetHashCacheMetrics();
+  });
+
+  it('sha256 returns hex string of length 64', () => {
+    const s = sha256('hello');
+    expect(typeof s).toBe('string');
+    expect(s).toHaveLength(64);
+  });
+
+  it('hashSpec is deterministic', () => {
+    const spec = { a: 1, b: 2 };
+    const r1 = hashSpec(spec);
+    const r2 = hashSpec(spec);
+    expect(r1.hash).toEqual(r2.hash);
+    expect(r1.canonical).toEqual(r2.canonical);
+  });
+
+  it('hashToolVersion sorts edges deterministically', () => {
+    const input = {
+      ordered_specs: ['s1', 's2'],
+      edges: [
+        { from: 'x', to: 'y', priority: 2 },
+        { from: 'a', to: 'b', priority: 1 }
+      ],
+      meta: 'm'
+    };
+    const a = hashToolVersion(input);
+    // reverse edge order should produce same canonical hash
+    const input2 = { ...input, edges: [...input.edges].reverse() };
+    const b = hashToolVersion(input2);
+    expect(a.hash).toEqual(b.hash);
+    expect(a.canonical).toEqual(b.canonical);
+  });
+
+  it('stableHash is deterministic across calls', () => {
+    const v = { x: 1, y: [2, 3] };
+    const h1 = stableHash(v);
+    const h2 = stableHash(v);
+    expect(h1).toEqual(h2);
+  });
+});
 import { describe, it, expect } from 'vitest';
 import { canonicalStringify, hashSpec, hashToolVersion, stableHash } from '../utils/hash.js';
 

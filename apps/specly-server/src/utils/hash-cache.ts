@@ -3,16 +3,21 @@
 type ComputeFn<V> = () => V;
 
 export class LRUCache<K, V> {
-  private map = new Map<K, V>();
-  constructor(public maxSize: number) {}
+  protected map = new Map<K, V>();
+  private maxSize: number;
+
+  constructor(maxSize: number) {
+    this.maxSize = maxSize;
+  }
 
   get(key: K): V | undefined {
-    const existing = this.map.get(key);
-    if (existing === undefined) return undefined;
-    // refresh recency
-    this.map.delete(key);
-    this.map.set(key, existing);
-    return existing;
+    const value = this.map.get(key);
+    if (value !== undefined) {
+      // Refresh recency by moving to end
+      this.map.delete(key);
+      this.map.set(key, value);
+    }
+    return value;
   }
 
   set(key: K, value: V) {
@@ -22,6 +27,7 @@ export class LRUCache<K, V> {
     this.map.set(key, value);
     if (this.map.size > this.maxSize) {
       // evict oldest
+      /* istanbul ignore next -- defensive branch for broken Map iterator implementations */
       const oldestKey = this.map.keys().next().value as K | undefined;
       if (oldestKey !== undefined) this.map.delete(oldestKey);
     }

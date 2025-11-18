@@ -120,33 +120,49 @@ describe('rateLimit middleware', () => {
   });
 
   it('resets rate limit window after expiry and calls next again', async () => {
-    // enable real rate limiting
-    process.env.NODE_ENV = 'development';
+    // Temporarily remove VITEST env to enable rate limiting and set NODE_ENV
+    const originalVitest = process.env.VITEST;
+    const originalNodeEnv = process.env.NODE_ENV;
     delete process.env.VITEST;
+    process.env.NODE_ENV = 'development';
 
-    // use fake timers to simulate expiry
-    vi.useFakeTimers();
-    const start = Date.now();
-    vi.setSystemTime(start);
+    try {
+      // use fake timers to simulate expiry
+      vi.useFakeTimers();
+      const start = Date.now();
+      vi.setSystemTime(start);
 
-    const clientIp = `127.0.0.200`;
-    const rl = rateLimit(1, 1000); // allow 1 request per 1s
+      const clientIp = `127.0.0.200`;
+      const rl = rateLimit(1, 1000); // allow 1 request per 1s
 
-    const ctx1 = makeCtx({ 'x-forwarded-for': clientIp });
-    const next1 = vi.fn(async () => {});
-    await rl(ctx1 as any, next1 as any);
-    expect(next1).toHaveBeenCalled();
+      const ctx1 = makeCtx({ 'x-forwarded-for': clientIp });
+      const next1 = vi.fn(async () => { });
+      await rl(ctx1 as any, next1 as any);
+      expect(next1).toHaveBeenCalled();
 
-    // advance time beyond the window
-    vi.setSystemTime(start + 1500);
+      // advance time beyond the window
+      vi.setSystemTime(start + 1500);
 
-    const ctx2 = makeCtx({ 'x-forwarded-for': clientIp });
-    const next2 = vi.fn(async () => {});
-    await rl(ctx2 as any, next2 as any);
-    // because window expired, the request should be allowed
-    expect(next2).toHaveBeenCalled();
+      const ctx2 = makeCtx({ 'x-forwarded-for': clientIp });
+      const next2 = vi.fn(async () => { });
+      await rl(ctx2 as any, next2 as any);
+      // because window expired, the request should be allowed
+      expect(next2).toHaveBeenCalled();
 
-    vi.useRealTimers();
+      vi.useRealTimers();
+    } finally {
+      // Restore original env vars
+      if (originalVitest !== undefined) {
+        process.env.VITEST = originalVitest;
+      } else {
+        delete process.env.VITEST;
+      }
+      if (originalNodeEnv !== undefined) {
+        process.env.NODE_ENV = originalNodeEnv;
+      } else {
+        delete process.env.NODE_ENV;
+      }
+    }
   });
 
   it('hits reset-window branch when client entry is expired (pre-populated)', async () => {

@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { DrizzleDatabaseManager, DatabaseType, getGlobalDatabase, getWorkspaceDatabase, clearGlobalDatabaseInstance, initializeGlobalDatabase, initializeWorkspaceDatabase, initializeBothDatabases } from '../database/drizzle-connection';
-import { clearWorkspaceDatabaseCache } from '../database/drizzle-connection.ts';
+import { DrizzleDatabaseManager, DatabaseType, getGlobalDatabase, getWorkspaceDatabase, clearGlobalDatabaseInstance, initializeGlobalDatabase, initializeWorkspaceDatabase, initializeBothDatabases, clearWorkspaceDatabaseCache } from '../database/drizzle-connection';
 import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import Database from 'better-sqlite3';
@@ -199,7 +198,7 @@ describe('DrizzleDatabaseManager', () => {
 
     it('logs warnings for unexpected alter errors', async () => {
       manager = new DrizzleDatabaseManager(':memory:', DatabaseType.WORKSPACE);
-      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => { });
       mockSqlite.exec.mockImplementation((sql: string) => {
         if (sql.includes('ALTER TABLE')) {
           throw new Error('unexpected error');
@@ -314,10 +313,10 @@ describe('Global Database Functions', () => {
       clearGlobalDatabaseInstance();
       const originalHome = process.env.HOME;
       process.env.HOME = undefined;
-      
+
       const db = getGlobalDatabase();
       expect(db).toBeInstanceOf(DrizzleDatabaseManager);
-      
+
       // Restore
       process.env.HOME = originalHome;
     });

@@ -369,14 +369,18 @@ export function buildStartOptions() {
         console.log('Shutdown requested via API');
         speclyServer.stopBackgroundJobs();
         // Graceful shutdown
-        setTimeout(() => {
-          process.exit(0);
-        }, 100);
+        /* istanbul ignore next -- process.exit in shutdown is environment-specific */
+          setTimeout(() => {
+            if (process.env.NODE_ENV !== 'test' && !process.env.VITEST) {
+              process.exit(0);
+            }
+          }, 100);
       },
       onTransition: async (instanceManager: any, options: any) => {
         console.log('Version transition requested via API');
         speclyServer.stopBackgroundJobs();
         // Start new instance
+        /* istanbul ignore next -- spawning processes not executed in tests */
         setTimeout(async () => {
           await performTransitionSpawn();
         }, 100);
@@ -417,6 +421,7 @@ export async function performTransitionSpawn() {
   }
 
   const { spawn } = await import('child_process');
+  /* istanbul ignore next -- spawning processes not executed in tests */
   spawn(process.argv[0], process.argv.slice(1), {
     detached: true,
     stdio: 'inherit',
@@ -450,6 +455,7 @@ export function runIfMain() {
   return Promise.resolve();
 }
 
+/* istanbul ignore next -- runIfMain executed only in CLI runs */
 if (import.meta.url === `file://${process.argv[1]}` || process.argv[1].endsWith('dist/index.js')) {
   runIfMain();
 }

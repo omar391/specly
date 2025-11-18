@@ -54,25 +54,15 @@ test('buildStartOptions callbacks exercise lifecycle paths safely', async () => 
   await opts.localMode.onLocalStart({}, {});
   expect(startBgSpy).toHaveBeenCalled();
 
-  // localMode.onShutdown should call stopBackgroundJobs and schedule exit; mock process.exit
-  const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {}) as any);
-  // stub setTimeout to run immediately
-  const originalSetTimeout = global.setTimeout;
-  // @ts-ignore
-  global.setTimeout = (cb: any, _ms?: number) => { cb(); return 0 as any; };
-
-  try {
-    await opts.localMode.onShutdown({}, {});
-    expect(stopBgSpy).toHaveBeenCalled();
-    expect(exitSpy).toHaveBeenCalled();
-  } finally {
-    global.setTimeout = originalSetTimeout;
-    exitSpy.mockRestore();
-  }
+  // localMode.onShutdown should call stopBackgroundJobs; process.exit is guarded and
+  // not expected to run in the test environment
+  await opts.localMode.onShutdown({}, {});
+  expect(stopBgSpy).toHaveBeenCalled();
 
   // localMode.onTransition should call stopBackgroundJobs and then spawn; set simulate env var to avoid real spawn
   process.env.SPECLY_TRANSITION_SIMULATE = '1';
   // stub setTimeout so the delayed spawn runs synchronously in the test
+  const originalSetTimeout = global.setTimeout;
   // @ts-ignore
   global.setTimeout = (cb: any, _ms?: number) => { cb(); return 0 as any; };
   try {

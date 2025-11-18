@@ -3,7 +3,9 @@ import { runCli, main, executeToolCall } from '../cli.js';
 
 describe('CLI tests', () => {
     it('executeToolCall throws for unknown tool', async () => {
-        await expect(executeToolCall('non-existent-tool', {})).rejects.toThrow('Unknown tool');
+        const result = await executeToolCall('non-existent-tool', {});
+        expect(result.isError).toBe(true);
+        expect(result.content[0].text).toContain('Unknown tool');
     });
 
   it('main throws when no args provided', async () => {
@@ -114,9 +116,8 @@ describe('CLI Tool Execution Tests', () => {
             // Missing required workspace_path for specly_start
             const invalidArgs = {};
 
-            await expect(async () => {
-                await executeToolCall('specly_start', invalidArgs);
-            }).rejects.toThrow();
+            const result = await executeToolCall('specly_start', invalidArgs);
+            expect(result.isError).toBe(true);
         });
 
         it('should validate parameter types', async () => {
@@ -125,15 +126,14 @@ describe('CLI Tool Execution Tests', () => {
                 workspace_path: 123 // Should be string
             };
 
-            await expect(async () => {
-                await executeToolCall('specly_start', invalidArgs);
-            }).rejects.toThrow();
+            const result = await executeToolCall('specly_start', invalidArgs);
+            expect(result.isError).toBe(true);
         });
 
         it('should handle unknown tools', async () => {
-            await expect(async () => {
-                await executeToolCall('unknown_tool', {});
-            }).rejects.toThrow('Unknown tool');
+            const result = await executeToolCall('unknown_tool', {});
+            expect(result.isError).toBe(true);
+            expect(result.content[0].text).toContain('Unknown tool');
         });
 
         // stepId validation removed with single-step migration

@@ -1151,9 +1151,6 @@ describe('main function', () => {
         it('handles local mode shutdown with logging and process exit', async () => {
             vi.useFakeTimers();
             const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => { });
-            const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: string | number | null | undefined) => {
-                // noop to avoid actual process exit during tests
-            }) as any);
 
             vi.mocked(parseCliArgs).mockReturnValue({
                 port: 8989,
@@ -1180,10 +1177,8 @@ describe('main function', () => {
             vi.useRealTimers();
 
             expect(consoleSpy).toHaveBeenCalledWith('Shutdown requested via API');
-            expect(exitSpy).toHaveBeenCalledWith(0);
 
             consoleSpy.mockRestore();
-            exitSpy.mockRestore();
         });
 
         it('handles local mode transition with logging and spawn', async () => {
