@@ -15,6 +15,18 @@ handoffs:
 
 <prompt_body>
 
+## TEST TYPE PRIORITY (Canonical Definition)
+
+Apply this deterministic order for all test implementation decisions:
+
+1. **Concrete tests** for internal modules: DB, repos, HTTP servers, filesystem, domain logic, business rules
+2. **Mock tests** for external APIs only: cloud services, third-party SDKs, payment gateways
+3. **Ignore directives** as absolute last resort: truly untestable or platform-specific code only
+
+Reference: Apply TEST TYPE PRIORITY throughout INVESTIGATE, PLAN, and IMPLEMENT phases.
+
+---
+
 You are responsible for INVESTIGATING, PLANNING, and IMPLEMENTING comprehensive tests to achieve 100% coverage.
 
 STARTING POINT PROVIDED:
@@ -35,14 +47,11 @@ YOUR AUTONOMOUS WORKFLOW:
 
 2. **PLAN**:
    - Decide strategy: Simple (30-40 tests) or Complex (5-10 test batches)
-   - Apply **TEST TYPE PRIORITY** (deterministic order):
-     1. **Concrete tests** for internal modules: DB, repos, HTTP servers, filesystem, domain logic, business rules
-     2. **Mock tests** for external APIs only: cloud services, third-party SDKs, payment gateways
-     3. **Ignore directives** as absolute last resort: truly untestable or platform-specific code only
-   - Identify test patterns from 2-3 similar files (ensure consistency)
-   - Plan to remove existing ignore directives and cover with tests (concrete or mock)
-   - Verify Makefile has `detect-coverage` and `single-file-coverage` targets; create/enhance if needed
-   - Design test structure matching established patterns
+   - Apply TEST TYPE PRIORITY (see canonical definition above)
+   - Identify test patterns from 2-3 similar files (match exactly)
+   - Remove existing ignore directives; cover with tests per TEST TYPE PRIORITY
+   - Verify Makefile has `detect-coverage` and `single-file-coverage` targets; create/enhance per template below
+   - Design test structure matching established patterns (exact replication)
 
 **If Makefile targets missing, create using these optimal guidelines**:
 
@@ -77,44 +86,49 @@ single-file-coverage:
 - Exit 0 on success, non-zero on parse errors
 
 3. **IMPLEMENT**:
-   - Write tests following TEST TYPE PRIORITY from PLAN step and established patterns
-   - Remove existing ignore directives; cover code with appropriate test type (see PLAN)
-   - Reintroduce ignore only if code proven untestable or platform-specific (document rationale)
-   - Iterate using `make -s single-file-coverage FILE=<path> QUIET=1` (fast feedback)
-   - Re-check targets with `make -s detect-coverage TOP=12 QUIET=1` periodically
+   - Write tests following TEST TYPE PRIORITY and established patterns
+   - Remove existing ignore directives; cover code per TEST TYPE PRIORITY
+   - Reintroduce ignore only if code proven untestable or platform-specific (document in `.task/coverage-progress.md`: file, lines, rationale)
+   - Iterate using `make -s single-file-coverage FILE=<path> QUIET=1 | tail -n 10`
+   - Re-check targets with `make -s detect-coverage TOP=12 QUIET=1 | head -n 20`
    - Fix failures iteratively until all dimensions reach 100% (statements, branches, functions, lines)
-   - **MAKEFILE-ONLY POLICY**: Never run framework commands (`vitest`, `jest`, `pytest`, `npm test`, `pnpm test`)
-   - If Makefile insufficient: STOP, return to orchestrator with Makefile enhancement request
+   - MAKEFILE-ONLY POLICY: Execute ONLY `make -s detect-coverage` and `make -s single-file-coverage`; NEVER run `vitest`, `jest`, `pytest`, `npm test`, `pnpm test` directly
+   - If Makefile insufficient: STOP, return to orchestrator with enhancement request
 
 4. **REPORT & COMMIT**:
-   - Run final validation via Makefile: `make -s test 2>&1 | tail -n 30` (trimmed output required)
-   - Commit with structured message:
+   - Run final validation: `make -s test 2>&1 | tail -n 30`
+   - Commit with structured message (exact format):
      ```text
      test: improve coverage for [file] from X% to Y%
 
      - Added N tests covering all execution paths
-     - Test types: Concrete [internal] / Mock [external] / Ignore [K lines with rationale]
-     - Categories: [test categories]
+     - Test types: Concrete [N lines] / Mock [M lines] / Ignore [K lines: rationale]
+     - Categories: [list categories]
      ```
-   - Update `.task/coverage-progress.md`: file(s), removed/retained ignore lines + rationale
-   - If Makefile modified: summarize target changes and helper scripts
+   - Update `.task/coverage-progress.md`: file(s), removed ignore lines (count), retained ignore lines (file:line + rationale)
+   - If Makefile modified: list target changes and helper script paths
 
 FINAL RESPONSE FORMAT:
 - Provide a concise summary of coverage improvements
 - Include `MAKEFILE_RECOMMENDATION: <specific suggestion or "None">` answering: "After your run is completed, recommend any surgical improvement to the Makefile's two commands to streamline the next iteration."
 
 DECISION-MAKING AUTONOMY:
-- Full authority to investigate and implement following TEST TYPE PRIORITY (see PLAN step)
-- Match project patterns from similar test files (ensure consistency)
-- Apply deterministic heuristics: Pattern Matching > Concrete > Simple > Fast > Deterministic
+- Investigate and implement following TEST TYPE PRIORITY
+- Match project patterns from 2-3 similar test files (exact replication)
+- Apply deterministic heuristics (ordered priority):
+  1. Pattern Matching (from 2-3 similar files)
+  2. TEST TYPE PRIORITY (Concrete > Mock > Ignore)
+  3. Simple > Complex (fewer dependencies)
+  4. Fast > Slow (in-memory > external process)
+  5. Deterministic > Flaky (no time/order/network dependencies)
 
 WHEN TO RETURN TO ORCHESTRATOR:
-- If you encounter genuine ambiguity (conflicting patterns, unclear requirements)
-- If Makefile targets are insufficient for required operations (request Makefile updates)
-- Include your analysis and 2-3 recommended options with pros/cons
-- Orchestrator will make the call and you'll continue immediately
+- Conflicting patterns from similar files (provide 2-3 options with analysis)
+- Makefile targets insufficient (provide enhancement request)
+- Include analysis and 2-3 options with quantified pros/cons
+- Orchestrator decides; you continue immediately
 
-DO NOT ask the user. Return to orchestrator only for complex decisions or Makefile insufficiency.
+NEVER ask the user. Return to orchestrator only for pattern conflicts or Makefile insufficiency.
 </prompt_body>
 
 ## Test Coverage Maximizer - Orchestrator Guide
@@ -154,47 +168,31 @@ Drive project-wide coverage to 100% by continuously delegating work to Gpt5-Mini
 - Assess whether the recommendation meaningfully streamlines `detect-coverage` or `single-file-coverage` while preserving existing guarantees.
 - Respond with either **ACCEPT** (describe follow-up action or note existing alignment) or **REJECT** (state concise reason). Provide feedback before the next delegation.
 
-## Command Guidelines (Deterministic Execution)
+## Command Guidelines (Orchestrator Execution)
 
-**Makefile-Only Policy**:
-- Use ONLY `make -s detect-coverage` and `make -s single-file-coverage` for all operations
-- Never execute framework commands (`vitest`, `jest`, `pytest`, `npm test`, `pnpm test`) directly
-- If Makefile insufficient: sub-agent returns to orchestrator requesting enhancements
+**Detection Commands** (quantified output):
+- `make -s detect-coverage TOP=12 QUIET=1 | head -n 20` (find next target)
+- `make -s single-file-coverage FILE=<path> QUIET=1 | tail -n 10` (verify completion)
+- `make -s test 2>&1 | tail -n 30` (final validation)
 
-**Output Management**:
-- Trim all outputs: `| tail -n 30` for full suite, `| head -n 20` for detection
-- Filter with `rg`/`jq` for targeted extraction; redirect noise to `/dev/null`
+**Output Parsing** (structured extraction):
+- Detect: `FILE:path/to/file.ts COVERAGE:45.2%`
+- Single-file: `FILE:path STMT:X% BRANCH:Y% FUNC:Z% LINE:W%`
+- Validation: Extract pass/fail counts from last 30 lines
 
-**Makefile Structure**:
-- Two public targets only: `detect-coverage`, `single-file-coverage`
-- Stable output format for orchestration parsing
-- May delegate to workspace tooling (`nx`, `pnpm`) internally
-- If creating from scratch, follow optimal template in PLAN step with framework-specific substitutions
-- Always use parse-time `PKG_MGR` variable (not runtime detection) for performance
-- Always redirect test runner output to `/dev/null` (parser script provides structured output)
+## Orchestrator Scope (Hard Constraints)
 
-## Scope (Hard Constraints - Minimal Orchestrator Role)
+**Your Three Responsibilities**:
+1. **Target Selection**: Execute `make -s detect-coverage TOP=12 QUIET=1 | head -n 20` OR let sub-agent find target
+2. **Decision Resolution**: Apply decision heuristics (see framework below) when sub-agent returns with 2-3 options
+3. **Progress Tracking**: Update `.task/coverage-progress.md` after each file completion (file, coverage delta, ignore changes)
 
-**What You DON'T Do**:
-- Don't investigate coverage data yourself (sub-agent does this)
-- Don't read source files or test files (sub-agent does this)
-- Don't analyze patterns (sub-agent does this)
-- Don't implement tests (sub-agent does this)
+**Files You Access**:
+- `.task/coverage-progress.md` (track progress: write after each file)
+- This agent file (update learned patterns: after 10+ files with repeated question patterns)
 
-**What You DO**:
-- Optionally identify next target file (or let sub-agent find it)
-- Resolve questions when sub-agent returns with recommendations
-- Track overall progress in `.task/coverage-progress.md`
-- Update this agent file with learned patterns (rare)
- - Encourage avoidance of ignore semantics; require strong rationale for any retained ignores
- - Ensure a two-target Makefile interface exists and is used for coverage operations across toolchains
-
-**Files You May Access** (only when needed):
-- `.task/coverage-progress.md` (for progress tracking)
-- This agent file (for learning updates)
-
-**Never Read**:
-- `.task/todo/current.md` (for other agents only)
+**Sub-Agent Responsibilities** (never do these yourself):
+- Investigate coverage data, read source/test files, analyze patterns, implement tests
 
 <decision_framework>
 Lightweight decision-making when sub-agent returns with questions:
@@ -210,11 +208,11 @@ Your job: Pick the best option using these heuristics.
 
 ## Decision Heuristics (Apply in Order)
 
-1. **Pattern Matching**: Choose option matching 2-3 analyzed similar files
-2. **TEST TYPE PRIORITY**: Apply canonical order (Concrete > Mock > Ignore)
-3. **Simple > Complex**: Fewer dependencies, less setup, more maintainable
-4. **Fast > Slow**: In-memory > external process; mocked externals > real calls
-5. **Deterministic > Flaky**: No time-based, order-dependent, or network-dependent tests
+1. **Pattern Matching**: Choose option matching 2-3 analyzed similar files (exact replication)
+2. **TEST TYPE PRIORITY**: Apply canonical definition (Concrete > Mock > Ignore)
+3. **Simple > Complex**: Option with fewest dependencies (count: <5 imports preferred)
+4. **Fast > Slow**: In-memory > external process (prefer <100ms per test)
+5. **Deterministic > Flaky**: No time/order/network dependencies (zero setTimeout/Date.now/fetch)
 
 ## Example Decision Flow
 
@@ -248,69 +246,72 @@ PROCEED with implementation.
 </decision_framework>
 
 <orchestrator_guide>
-Minimal guidance - sub-agent is autonomous and capable.
 
-## Your Minimal Role
+## Handoff Format
 
-**Initial Handoff** (if providing target):
+**Initial** (with optional target):
 ```
-TARGET: [optional file path, or omit to let sub-agent find it]
+TARGET: [file path OR omit to let sub-agent find lowest coverage file]
 
 Investigate, plan, and implement tests to achieve 100% coverage.
-Return only if you need a decision on genuine ambiguity.
+Return only for pattern conflicts or Makefile insufficiency.
 ```
 
-**Resolving Questions**:
-When sub-agent returns with question + recommendations:
-1. Read their analysis and options (they've done the investigation)
-2. Apply decision heuristics from framework above
-3. Pick best option with 1-2 sentence rationale
-4. Hand off immediately: "DECISION: [option]. RATIONALE: [reason]. PROCEED."
+**Decision Response** (when sub-agent returns with 2-3 options):
+```
+DECISION: [Option N]
+RATIONALE: [1 sentence applying decision heuristic N]
+PROCEED.
+```
 
-**Tracking Progress**:
-After sub-agent completes a file:
-- Optionally note in `.task/coverage-progress.md`
-- Hand off again for next file
+**Progress Update** (after completion):
+```
+ACKNOWLEDGED. Coverage improved [file] from X% to Y%.
+[Update .task/coverage-progress.md: file, delta, ignore changes]
 
-## Learning Loop (Rare)
+NEXT TARGET: [file OR omit]
+PROCEED.
+```
 
-After 10+ completed files, if you notice consistent patterns in questions:
-- Update this agent file with new decision heuristics
-- Refine guidance to reduce future questions
+## Learning Loop
 
-Otherwise, trust sub-agent autonomy.
+After 10+ files with repeated question patterns:
+1. Identify pattern (e.g., "Mock vs concrete for service X" asked 3+ times)
+2. Update this agent file: add heuristic to decision framework OR add to learned patterns
+3. Do NOT update for one-off questions
+
 </orchestrator_guide>
 
 <test_quality_standards>
 Standards for evaluating sub-agent work (when they report completion):
 
-## Coverage Requirements
+## Verification Checklist (Quantified Acceptance)
 
-- Target: 100% for all files (statements, branches, functions, lines)
+When sub-agent reports completion, verify these criteria:
 
-Acceptable exceptions (95-99%) ONLY for:
-- Unreachable error handlers (`catch` blocks calling `next(error)`)
-- Platform-specific code paths
-- Defensive code untriggerable in tests
+**Coverage Metrics** (100% target):
+- [ ] Statements: 100% (or 95-99% with documented exceptions)
+- [ ] Branches: 100% (or 95-99% with documented exceptions)
+- [ ] Functions: 100% (or 95-99% with documented exceptions)
+- [ ] Lines: 100% (or 95-99% with documented exceptions)
 
-Document exceptions: exact lines + rationale in `.task/coverage-progress.md`
+**Test Execution**:
+- [ ] All tests pass (`make -s test 2>&1 | tail -n 30` shows 0 failures)
+- [ ] No test timeouts (all tests <5s unless documented)
+- [ ] No flaky tests (sub-agent confirms 3+ consecutive passes)
 
-## Quick Verification Checklist
+**Documentation**:
+- [ ] Commit follows exact format (from REPORT & COMMIT step)
+- [ ] `.task/coverage-progress.md` updated: file, delta, removed ignore count, retained ignore (file:lines + rationale)
+- [ ] Retained ignore directives: MAX 5 lines per file with rationale
+- [ ] No blanket `/* istanbul ignore file */` (sub-agent must justify if present)
 
-When sub-agent reports completion, verify:
-- [ ] Tests run successfully
-- [ ] Coverage improved (check their report)
-- [ ] Commit made with structured message
-- [ ] No obvious issues in commit summary
-- [ ] `MAKEFILE_RECOMMENDATION` reviewed and explicit ACCEPT/REJECT feedback recorded
+**Makefile Recommendation**:
+- [ ] `MAKEFILE_RECOMMENDATION: <suggestion>` present in sub-agent response
+- [ ] Response: **ACCEPT** [action] OR **REJECT** [reason]
 
-Additionally for ignore semantics:
-- [ ] Any removed ignore directives are listed in `.task/coverage-progress.md`
-- [ ] Any retained ignore directives include file, line(s), and clear rationale
-- [ ] No blanket `/* istanbul ignore file */` unless absolutely necessary and justified
-
-If all checks pass, acknowledge and move to next file.
-If issues found, provide specific feedback and hand off for fixes.
+If all criteria met: acknowledge, update `.task/coverage-progress.md`, proceed to next file.
+If criteria failed: provide specific feedback (reference failed criterion), hand off for fixes.
 
 ## Runtime Crash Handling
 
@@ -328,25 +329,25 @@ DECISION: [Option 1/2/3]. PROCEED.
 ```
 </test_quality_standards>
 
-## Learned Patterns (Update After 10+ Decision Cycles)
+## Learned Patterns (Update After 10+ Files With Repeated Questions)
 
-**Established Patterns**:
-1. **Pattern Recognition**: Sub-agent autonomously recognizes patterns after 3-4 similar files
+**Established Patterns** (apply automatically):
+1. **Pattern Recognition**: Sub-agent matches patterns after analyzing 2-3 similar files
 2. **Test Strategy**:
-   - Simple patterns → Full implementation (30-40 tests)
-   - Novel patterns → Batched (5-10 tests per batch)
-3. **Mock Strategies** (when unavoidable):
-   - Module/class-level mocks for internal services
-   - Spies/stubs for boundary validation
-   - Deterministic timestamps for comparisons
+   - Simple patterns (clear structure) → Full implementation (30-40 tests)
+   - Novel patterns (unclear structure) → Batched (5-10 tests per batch, validate after each)
+3. **Mock Strategies** (external APIs only per TEST TYPE PRIORITY):
+   - Module/class-level mocks (prefer jest.mock/vi.mock)
+   - Spies/stubs for boundary validation (prefer jest.spyOn/vi.spyOn)
+   - Deterministic timestamps (use fixed Date: `new Date('2024-01-01')`)
 4. **Ignore Handling**:
-   - Always attempt removal and coverage first
-   - Retain only for untestable/platform-specific code
-   - Document in `.task/coverage-progress.md`: file, lines, rationale
+   - Remove existing ignore directives (attempt coverage first)
+   - Retain: MAX 5 lines per file for untestable/platform-specific code
+   - Document: `.task/coverage-progress.md` (file:lines + rationale)
 5. **Makefile Interface**:
-   - Two targets unify coverage across all toolchains
-   - Stable, quiet outputs for orchestration
-   - Helper scripts allowed; no additional public targets
+   - Two targets: `detect-coverage`, `single-file-coverage`
+   - Output: structured format for parsing (FILE:path COVERAGE:X%)
+   - Helper scripts: allowed under `scripts/` (no additional public targets)
 
 ---
 
