@@ -62,11 +62,12 @@ async function initializeTools(): Promise<{
     tools: ToolRegistry;
     schemas: SchemaRegistry;
 }> {
-    // Check if test database instances are available
+    // Check if test database instances are available (only use them in test mode)
     const testInstances = getTestDatabaseInstances();
+    const isTestEnv = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
 
-    if (testInstances.isInitialized && testInstances.drizzleManager && testInstances.dbService) {
-        // Use test database instances
+    if (isTestEnv && testInstances.isInitialized && testInstances.drizzleManager && testInstances.dbService) {
+        // Use test database instances when running under a test environment
         globalDrizzleManager = testInstances.drizzleManager;
         globalDbService = testInstances.dbService;
         toolsInitialized = true;
@@ -137,23 +138,31 @@ async function initializeTools(): Promise<{
     }
 
     try {
-        globalDrizzleManager = globalDbService.getDrizzleManager();
+        // Guard against getDrizzleManager returning undefined or non-object values
+        const dm = (globalDbService as any).getDrizzleManager();
+        if (!dm || typeof dm !== 'object') {
+            console.error('Invalid drizzle manager returned:', dm);
+            throw new Error('Drizzle manager error');
+        }
+        // Use a local strongly-typed variable for tool construction to satisfy TS narrowing
+        const drizzle = dm as DrizzleDatabaseManager;
+        globalDrizzleManager = drizzle;
 
         // Mark tools as initialized
         toolsInitialized = true;
 
-        // Create tool instances
+        // Create tool instances using local `drizzle` variable
         const tools = {
-            [ToolNames.INIT]: new InitToolNew(globalDrizzleManager),
-            [ToolNames.START]: new StartTool(globalDrizzleManager),
-            [ToolNames.ADD]: new AddToolNew(globalDrizzleManager),
-            [ToolNames.STATUS]: new StatusToolNew(globalDrizzleManager),
-            [ToolNames.UPDATE]: new UpdateToolNew(globalDrizzleManager),
-            [ToolNames.AUDIT]: new AuditToolNew(globalDrizzleManager),
-            [ToolNames.FOCUS]: new FocusToolNew(globalDrizzleManager),
-            [ToolNames.GITHUB]: new GitHubTool(globalDrizzleManager),
-            [ToolNames.RULE_UPDATE]: new RuleUpdateTool(globalDrizzleManager),
-            [ToolNames.REMOTE_INTERFACE]: new RemoteInterfaceTool(globalDrizzleManager),
+            [ToolNames.INIT]: new InitToolNew(drizzle),
+            [ToolNames.START]: new StartTool(drizzle),
+            [ToolNames.ADD]: new AddToolNew(drizzle),
+            [ToolNames.STATUS]: new StatusToolNew(drizzle),
+            [ToolNames.UPDATE]: new UpdateToolNew(drizzle),
+            [ToolNames.AUDIT]: new AuditToolNew(drizzle),
+            [ToolNames.FOCUS]: new FocusToolNew(drizzle),
+            [ToolNames.GITHUB]: new GitHubTool(drizzle),
+            [ToolNames.RULE_UPDATE]: new RuleUpdateTool(drizzle),
+            [ToolNames.REMOTE_INTERFACE]: new RemoteInterfaceTool(drizzle),
         };
 
         const schemas = {
@@ -172,7 +181,8 @@ async function initializeTools(): Promise<{
         return { tools, schemas };
     } catch (error) {
         console.error('Error getting drizzle manager:', error);
-        throw error;
+        // Normalize the error message so callers (and tests) can reliably detect drizzle failures
+        throw new Error('Drizzle manager error');
     }
 }
 
@@ -258,7 +268,6 @@ export { executeToolCall };
 async function main() {
     const args = process.argv.slice(2);
 
-    /* istanbul ignore next -- CLI main usage/exit path exercised in real CLI only */
     if (args.length < 1) {
         console.error('Usage: npm run test:tool -- <toolName> [arguments]');
         console.error('Example: npm run test:tool -- specly_start \'{"workspace_path": "/tmp/test-workspace"}\'');
@@ -274,7 +283,6 @@ async function main() {
         console.error('  specly_github');
         console.error('  specly_rule_update');
         console.error('  specly_remote_interface');
-        /* istanbul ignore next -- exit path exercised in real CLI only */
         throw new Error('process.exit called with code 1');
     }
 
@@ -308,7 +316,6 @@ export async function runCli(
             console.log(`✅ Tool call succeeded (${endTime - startTime}ms)`);
             console.log('');
 
-            /* istanbul ignore next -- map to CLI exit behavior in real runs */
             if (result.isError) {
                 // Emit a structured error to stderr so tests that assert on console.error
                 // see the original underlying cause instead of the generic process.exit text.
@@ -341,7 +348,6 @@ export async function runCli(
                 console.log(result);
             }
             // If the tool returned an error result, propagate as failure to match CLI exit behavior
-            /* istanbul ignore next -- map to CLI exit behavior in real runs */
             if (result.isError) {
                 throw new Error('process.exit called with code 1');
             }
@@ -350,19 +356,16 @@ export async function runCli(
             const endTime = Date.now();
             console.log(`💥 Tool call failed (${endTime - startTime}ms)`);
             console.error('Error:', error instanceof Error ? error.message : String(error));
-            /* istanbul ignore next -- CLI fatal error exit only */
             throw new Error('process.exit called with code 1');
         }
 
     } catch (error) {
         console.error('❌ CLI test failed:', error);
-        /* istanbul ignore next -- CLI fatal exit path exercised in real CLI only */
         throw new Error('process.exit called with code 1');
     }
 }
 
 // Handle unhandled promise rejections
-/* istanbul ignore next -- process-level handler for production runs */
 process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise, 'reason:', reason);
     process.exit(1);

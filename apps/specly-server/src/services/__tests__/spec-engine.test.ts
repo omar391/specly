@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SpecEngine, BasicExecutionPlanner, SpecEngineErrorCode, type ToolGraph, type ExecutionPlanner, type SpecExecutor, type ClientStateLeaseProvider, type ActionJournalAdapter, type MetricsCollector, type RetryPolicy } from '../spec-engine.js';
+import { validateToolGraph, GraphValidationError } from '../../utils/graph-validate.js';
 
 // Mock implementations
 const mockToolGraph: ToolGraph = {
@@ -92,13 +93,37 @@ describe('SpecEngine', () => {
       expect(mockExecutor.execute).toHaveBeenCalledTimes(2);
     });
 
-    it('should handle graph validation errors', async () => {
-      const invalidGraph = { ...mockToolGraph, nodes: {} };
-      const result = await engine.run(invalidGraph);
+    it('should handle graph validation errors with priority invalid', async () => {
+      const invalidPriorityGraph: ToolGraph = {
+        entry: 'entry',
+        nodes: {
+          entry: { hash: 'entry', intent: 'autonomous', sideEffect: false },
+          node1: { hash: 'node1', intent: 'autonomous', sideEffect: false },
+        },
+        edges: [{ from: 'entry', to: 'node1', priority: -1 }],
+      };
+      const result = await engine.run(invalidPriorityGraph);
       expect(result.status).toBe('error');
-      expect(result.error?.message).toContain('ordered_specs must be a non-empty array');
+      expect(result.error?.message).toContain('Priority must be integer >= 0');
       expect(result.errorCode).toBe(SpecEngineErrorCode.GRAPH_MISSING_NODE);
     });
+
+    it('should handle graph validation errors with unreachable nodes', async () => {
+      const unreachableGraph: ToolGraph = {
+        entry: 'entry',
+        nodes: {
+          entry: { hash: 'entry', intent: 'autonomous', sideEffect: false },
+          unreachable: { hash: 'unreachable', intent: 'autonomous', sideEffect: false },
+        },
+        edges: [],
+      };
+      const result = await engine.run(unreachableGraph);
+      expect(result.status).toBe('error');
+      expect(result.error?.message).toContain('Unreachable spec(s) detected');
+      expect(result.errorCode).toBe(SpecEngineErrorCode.GRAPH_MISSING_NODE);
+    });
+
+
 
     it('should handle lease acquisition failure', async () => {
       mockLeaseProvider.acquire.mockRejectedValueOnce(new Error('Lease failed'));
@@ -288,16 +313,13 @@ describe('SpecEngine', () => {
         },
         edges: [],
       };
-      mockPlanner.buildPlan.mockReturnValueOnce({
-        steps: [{ specHash: 'entry', awaitingHuman: false }],
-        warnings: [],
-      });
+      const planner = new BasicExecutionPlanner();
       const mockJournalWithReuse = {
         ...mockJournal,
         getSuccessfulResult: vi.fn().mockResolvedValue({ resultJson: { reused: true } }),
       };
       const engineReuse = new SpecEngine({
-        planner: mockPlanner,
+        planner,
         executor: mockExecutor,
         journalAdapter: mockJournalWithReuse as any,
       });
@@ -306,6 +328,56 @@ describe('SpecEngine', () => {
       expect(result.results.entry).toEqual({ reused: true });
       expect(mockJournalWithReuse.getSuccessfulResult).toHaveBeenCalledWith('entry');
       expect(mockExecutor.execute).not.toHaveBeenCalled();
+    });
+
+    it('should handle side effect reuse error gracefully', async () => {
+      const graph: ToolGraph = {
+        entry: 'entry',
+        nodes: {
+          entry: { hash: 'entry', intent: 'autonomous', sideEffect: true },
+        },
+        edges: [],
+      };
+      const planner = new BasicExecutionPlanner();
+      const mockJournalWithReuseError = {
+        ...mockJournal,
+        getSuccessfulResult: vi.fn().mockRejectedValue(new Error('Reuse failed')),
+      };
+      const engineReuse = new SpecEngine({
+        planner,
+        executor: mockExecutor,
+        journalAdapter: mockJournalWithReuseError as any,
+      });
+      const result = await engineReuse.run(graph);
+      expect(result.status).toBe('completed');
+      expect(result.results.entry).toEqual({ success: true });
+      expect(mockJournalWithReuseError.getSuccessfulResult).toHaveBeenCalledWith('entry');
+      expect(mockExecutor.execute).toHaveBeenCalled();
+    });
+
+    it('should handle side effect reuse with no result', async () => {
+      const graph: ToolGraph = {
+        entry: 'entry',
+        nodes: {
+          entry: { hash: 'entry', intent: 'autonomous', sideEffect: true },
+        },
+        edges: [],
+      };
+      const planner = new BasicExecutionPlanner();
+      const mockJournalWithReuseNoResult = {
+        ...mockJournal,
+        getSuccessfulResult: vi.fn().mockResolvedValue({ resultJson: null }),
+      };
+      const engineReuse = new SpecEngine({
+        planner,
+        executor: mockExecutor,
+        journalAdapter: mockJournalWithReuseNoResult as any,
+      });
+      const result = await engineReuse.run(graph);
+      expect(result.status).toBe('completed');
+      expect(result.results.entry).toEqual({ success: true });
+      expect(mockJournalWithReuseNoResult.getSuccessfulResult).toHaveBeenCalledWith('entry');
+      expect(mockExecutor.execute).toHaveBeenCalled();
     });
   });
 
@@ -387,7 +459,16 @@ describe('SpecEngine', () => {
     });
 
     it('should handle resume with already used resume token', async () => {
-      const result1 = await engine.resume(mockToolGraph, mockSerializedState, {
+      // Create a separate engine for this test to persist consumed tokens
+      const testEngine = new SpecEngine({
+        planner: mockPlanner,
+        executor: mockExecutor,
+        leaseProvider: mockLeaseProvider,
+        journalAdapter: mockJournal,
+        metricsCollector: mockMetrics,
+        retryPolicy: mockRetryPolicy,
+      });
+      const result1 = await testEngine.resume(mockToolGraph, mockSerializedState, {
         specHash: 'entry',
         humanOutput: { userInput: 'test' },
         resumeToken: 'used-token',
@@ -395,7 +476,7 @@ describe('SpecEngine', () => {
       expect(result1.status).toBe('completed');
 
       // Try to use the same token again
-      const result2 = await engine.resume(mockToolGraph, mockSerializedState, {
+      const result2 = await testEngine.resume(mockToolGraph, mockSerializedState, {
         specHash: 'entry',
         humanOutput: { userInput: 'test2' },
         resumeToken: 'used-token',
@@ -505,6 +586,23 @@ describe('SpecEngine', () => {
 
       const plan = planner.buildPlan(graphWithPriorities);
       expect(plan.steps).toBeDefined();
+    });
+
+    it('should detect cycles in graph', () => {
+      const planner = new BasicExecutionPlanner();
+      const cyclicGraph: ToolGraph = {
+        entry: 'entry',
+        nodes: {
+          entry: { hash: 'entry', intent: 'autonomous', sideEffect: false },
+          node1: { hash: 'node1', intent: 'autonomous', sideEffect: false },
+        },
+        edges: [
+          { from: 'entry', to: 'node1' },
+          { from: 'node1', to: 'entry' },
+        ],
+      };
+
+      expect(() => planner.buildPlan(cyclicGraph)).toThrow('Cycle detected in tool graph');
     });
   });
 });

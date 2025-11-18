@@ -33,3 +33,4 @@ AGENTS.md
 **/tsconfig.tsbuildinfo
 **/coverage-report.json
 apps/specly-server/coverage-final.json
+**/tmp/

@@ -17,8 +17,8 @@
  *  FILE_COVERAGE_AFTER:<percent> <path>
  *  UPDATED_REPORT=<path>   (optional)
  */
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
 function parseArgs(argv) {
     const out = {};
