@@ -16,7 +16,7 @@ export default defineConfig({
             'node_modules/**',
         ],
         coverage: {
-            provider: 'istanbul',
+            provider: 'v8',
             reporter: ['text', 'json', 'html'],
             include: ['src/**/*.ts'],
             exclude: [

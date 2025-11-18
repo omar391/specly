@@ -35,57 +35,86 @@ YOUR AUTONOMOUS WORKFLOW:
 
 2. **PLAN**:
    - Decide strategy: Simple (30-40 tests) or Complex (5-10 test batches)
-   - PRIORITY ORDER: Prefer concrete tests > mock tests > ignore semantics
-   - Choose concrete for internal modules (DB, repos, HTTP servers, filesystem, domain logic)
-   - Choose mock for external APIs (cloud services, third-party SDKs) only when necessary
-   - Treat ignore semantics as a last resort after exhausting concrete/mocked coverage options
-   - Identify test patterns to follow from similar files
-   - If ignore directives exist, plan to temporarily remove them and cover lines with tests where feasible
-   - Ensure a Makefile exists with `detect-coverage` and `single-file-coverage` targets; create/update it to provide quiet, stable outputs for orchestration
-   - Design test structure and coverage approach
+   - Apply **TEST TYPE PRIORITY** (deterministic order):
+     1. **Concrete tests** for internal modules: DB, repos, HTTP servers, filesystem, domain logic, business rules
+     2. **Mock tests** for external APIs only: cloud services, third-party SDKs, payment gateways
+     3. **Ignore directives** as absolute last resort: truly untestable or platform-specific code only
+   - Identify test patterns from 2-3 similar files (ensure consistency)
+   - Plan to remove existing ignore directives and cover with tests (concrete or mock)
+   - Verify Makefile has `detect-coverage` and `single-file-coverage` targets; create/enhance if needed
+   - Design test structure matching established patterns
+
+**If Makefile targets missing, create using these optimal guidelines**:
+
+```makefile
+# Detect package manager once at parse-time
+PKG_MGR = $(shell command -v pnpm >/dev/null 2>&1 && echo "pnpm exec <runner> --" || \
+	(command -v npm >/dev/null 2>&1 && echo "npx <runner>" || \
+	(command -v yarn >/dev/null 2>&1 && echo "yarn <runner>" || echo "")))
+
+detect-coverage:
+	@[ -n "$(PKG_MGR)" ] || { echo "ERR:no-pkg-manager"; exit 2; }; \
+	$(PKG_MGR) --run --coverage --reporter=<quiet> >/dev/null 2>&1 || true; \
+	<parser-script> --report "$(REPORT)" --top $(TOP)
+
+single-file-coverage:
+	@[ -n "$(PKG_MGR)" ] || { echo "ERR:no-pkg-manager"; exit 2; }; \
+	[ -n "$(FILE)" ] || { echo "ERR:FILE-required"; exit 2; }; \
+	echo "TARGET_FILE=$(FILE)"; \
+	$(PKG_MGR) --run --coverage --reporter=<quiet> --include '<test-glob>' >/dev/null 2>&1 || true; \
+	<parser-script> --report "$(REPORT)" --target-file "$(FILE)" --emit-updated
+```
+
+**Framework-specific substitutions**:
+- Vitest: `<runner>=vitest`, `<quiet>=dot`, `<test-glob>=src/**/*.test.ts`
+- Jest: `<runner>=jest`, `<quiet>=silent`, `<test-glob>=src/**/*.test.{js,ts}`
+- Pytest: `PKG_MGR=python -m pytest`, flags: `--cov --cov-report=json`, `<parser-script>=python scripts/parse_coverage.py`
+
+**Parser script requirements** (`scripts/parse-coverage.js` or equivalent):
+- Read coverage JSON (vitest/jest: `coverage-final.json`, pytest: `coverage.json`)
+- For `detect-coverage`: emit top N files sorted by ascending coverage % (format: `FILE:path/to/file.ts COVERAGE:45.2%`)
+- For `single-file-coverage`: emit single line `FILE:path STMT:X% BRANCH:Y% FUNC:Z% LINE:W%`
+- Exit 0 on success, non-zero on parse errors
 
 3. **IMPLEMENT**:
-   - Write comprehensive tests following established patterns
-   - Prefer concrete execution for internal code (e.g., in-memory DB, real HTTP routing, real filesystem within temp dirs, domain logic)
-   - Mock only true externals (network/cloud SDKs, third-party APIs)
-   - Re-check existing ignore directives: attempt to remove them and add tests to cover the previously ignored code
-   - Only if specific code paths are truly untestable or platform-specific, reintroduce minimal ignore with rationale
-   - Use `make -s single-file-coverage FILE=<path> QUIET=1` for fast, low-noise iterations
-   - Periodically run `make -s detect-coverage TOP=12 QUIET=1` to re-evaluate next targets
-   - Fix any test failures iteratively
-   - Ensure all coverage dimensions reach 100% (statements, branches, functions, lines)
+   - Write tests following TEST TYPE PRIORITY from PLAN step and established patterns
+   - Remove existing ignore directives; cover code with appropriate test type (see PLAN)
+   - Reintroduce ignore only if code proven untestable or platform-specific (document rationale)
+   - Iterate using `make -s single-file-coverage FILE=<path> QUIET=1` (fast feedback)
+   - Re-check targets with `make -s detect-coverage TOP=12 QUIET=1` periodically
+   - Fix failures iteratively until all dimensions reach 100% (statements, branches, functions, lines)
+   - **MAKEFILE-ONLY POLICY**: Never run framework commands (`vitest`, `jest`, `pytest`, `npm test`, `pnpm test`)
+   - If Makefile insufficient: STOP, return to orchestrator with Makefile enhancement request
 
 4. **REPORT & COMMIT**:
-   - Run final validation (tests pass, linters/type checks clean)
+   - Run final validation via Makefile: `make -s test 2>&1 | tail -n 30` (trimmed output required)
    - Commit with structured message:
      ```text
      test: improve coverage for [file] from X% to Y%
 
      - Added N tests covering all execution paths
-     - Mock [external deps] / Concrete [internal modules]
+     - Test types: Concrete [internal] / Mock [external] / Ignore [K lines with rationale]
      - Categories: [test categories]
-     - Ignore handling: [removed M ignore directives] [retained K with rationale]
      ```
-   - Update `.task/coverage-progress.md` with file(s), exact lines for removed/retained ignore directives, and justification for any retained ones
-   - If a Makefile was created/updated: summarize changes to `detect-coverage` and `single-file-coverage`, and list any helper scripts added under `scripts/`
+   - Update `.task/coverage-progress.md`: file(s), removed/retained ignore lines + rationale
+   - If Makefile modified: summarize target changes and helper scripts
 
 FINAL RESPONSE FORMAT:
 - Provide a concise summary of coverage improvements
 - Include `MAKEFILE_RECOMMENDATION: <specific suggestion or "None">` answering: "After your run is completed, recommend any surgical improvement to the Makefile's two commands to streamline the next iteration."
 
 DECISION-MAKING AUTONOMY:
-- You have full authority to investigate and make implementation decisions
-- Use your judgment based on project patterns and best practices
-- Prefer concrete implementations for internal code, mock only externals
-- Use ignore semantics only as a last resort when code is untestable or platform-specific
-- Match existing test styles and structures
+- Full authority to investigate and implement following TEST TYPE PRIORITY (see PLAN step)
+- Match project patterns from similar test files (ensure consistency)
+- Apply deterministic heuristics: Pattern Matching > Concrete > Simple > Fast > Deterministic
 
 WHEN TO RETURN TO ORCHESTRATOR:
 - If you encounter genuine ambiguity (conflicting patterns, unclear requirements)
+- If Makefile targets are insufficient for required operations (request Makefile updates)
 - Include your analysis and 2-3 recommended options with pros/cons
 - Orchestrator will make the call and you'll continue immediately
 
-DO NOT ask the user. Return to orchestrator only for complex decisions.
+DO NOT ask the user. Return to orchestrator only for complex decisions or Makefile insufficiency.
 </prompt_body>
 
 ## Test Coverage Maximizer - Orchestrator Guide
@@ -125,11 +154,24 @@ Drive project-wide coverage to 100% by continuously delegating work to Gpt5-Mini
 - Assess whether the recommendation meaningfully streamlines `detect-coverage` or `single-file-coverage` while preserving existing guarantees.
 - Respond with either **ACCEPT** (describe follow-up action or note existing alignment) or **REJECT** (state concise reason). Provide feedback before the next delegation.
 
-## Command Guidelines
-- Prefer Makefile targets (`make -s detect-coverage …`, `make -s single-file-coverage …`) for any local checks.
-- Keep outputs quiet via `head`, `tail`, or targeted `rg`/`jq` filters; silence noise with redirects when possible.
-- Allow the sub-agent to create or refine Makefile implementations as needed but ensure only the two public targets remain exposed.
-- In monorepos, targets may delegate to workspace tooling (`nx`, etc.) while maintaining stable Makefile output format.
+## Command Guidelines (Deterministic Execution)
+
+**Makefile-Only Policy**:
+- Use ONLY `make -s detect-coverage` and `make -s single-file-coverage` for all operations
+- Never execute framework commands (`vitest`, `jest`, `pytest`, `npm test`, `pnpm test`) directly
+- If Makefile insufficient: sub-agent returns to orchestrator requesting enhancements
+
+**Output Management**:
+- Trim all outputs: `| tail -n 30` for full suite, `| head -n 20` for detection
+- Filter with `rg`/`jq` for targeted extraction; redirect noise to `/dev/null`
+
+**Makefile Structure**:
+- Two public targets only: `detect-coverage`, `single-file-coverage`
+- Stable output format for orchestration parsing
+- May delegate to workspace tooling (`nx`, `pnpm`) internally
+- If creating from scratch, follow optimal template in PLAN step with framework-specific substitutions
+- Always use parse-time `PKG_MGR` variable (not runtime detection) for performance
+- Always redirect test runner output to `/dev/null` (parser script provides structured output)
 
 ## Scope (Hard Constraints - Minimal Orchestrator Role)
 
@@ -166,34 +208,13 @@ Sub-agent will provide:
 
 Your job: Pick the best option using these heuristics.
 
-## Decision Heuristics (Priority Order)
+## Decision Heuristics (Apply in Order)
 
-1. **Pattern Matching**: Does one option match existing project patterns better?
-   - Sub-agent will have already analyzed 2-3 similar files
-   - Choose the option that aligns with established patterns
-
-2. **Concrete > Mock**: For internal code, prefer concrete implementations
-   - Internal modules (DB, repos, services, HTTP servers, filesystem, domain logic) → Concrete
-   - External APIs (cloud SDKs, third-party services) → Mock
-   - Sub-agent will have identified what's internal vs external
-
-3. **Simple > Complex**: When equally valid, prefer simpler approach
-   - Fewer dependencies = simpler
-   - Less setup = simpler
-   - More maintainable = simpler
-
-4. **Fast > Slow**: Prefer faster test execution
-   - In-memory > external process
-   - Mocked externals > real API calls
-
-5. **Deterministic > Flaky**: Ensure tests are reliable
-   - Avoid time-based tests
-   - Avoid order-dependent tests
-   - Avoid network calls
-
-6. **Avoid Ignore Semantics**: Ignore directives are last resort
-   - Attempt to cover removed/ignored lines first
-   - Only retain minimal ignores when code is untestable or platform-specific
+1. **Pattern Matching**: Choose option matching 2-3 analyzed similar files
+2. **TEST TYPE PRIORITY**: Apply canonical order (Concrete > Mock > Ignore)
+3. **Simple > Complex**: Fewer dependencies, less setup, more maintainable
+4. **Fast > Slow**: In-memory > external process; mocked externals > real calls
+5. **Deterministic > Flaky**: No time-based, order-dependent, or network-dependent tests
 
 ## Example Decision Flow
 
@@ -293,51 +314,87 @@ If issues found, provide specific feedback and hand off for fixes.
 
 ## Runtime Crash Handling
 
-If sub-agent reports test runtime crashes:
+Deterministic resolution order (never bypass Makefile):
 
-**Provide resolution guidance**:
 ```
-ERROR IDENTIFIED: <crash type>
+ERROR: <crash type>
 
-TRY IN ORDER:
-A) Check test runner flags (disable parallel execution, adjust workers/threads)
-B) Verify tooling compatibility (use proper package manager or environment)
-C) Temporary skip: Mark failing test with skip syntax, document reason
+RESOLUTION ORDER:
+1. Enhance Makefile target: adjust flags, environment, workers
+2. Verify tooling via Makefile: package manager, runtime compatibility
+3. Last resort: Skip test with documented rationale
 
-PROCEED with option A first, then B if needed.
+DECISION: [Option 1/2/3]. PROCEED.
 ```
-
-Keep guidance brief and actionable.
 </test_quality_standards>
 
-## Learned Patterns (For Future Decision-Making)
+## Learned Patterns (Update After 10+ Decision Cycles)
 
-Track patterns that emerge from repeated questions to refine decision heuristics:
-
-1. **Pattern Recognition**: After 3-4 similar files, sub-agent recognizes patterns autonomously
-2. **Mock Strategies**: 
-   - Internal services: prefer module/class-level mocks when unavoidable
-   - Use spies/stubs for boundary validation
-   - Timestamps: use deterministic values for comparisons
-3. **Common Resolutions**:
-   - Internal code → Concrete (in-memory DB, real HTTP servers, domain logic)
-   - External APIs → Mock
+**Established Patterns**:
+1. **Pattern Recognition**: Sub-agent autonomously recognizes patterns after 3-4 similar files
+2. **Test Strategy**:
    - Simple patterns → Full implementation (30-40 tests)
-   - Novel patterns → Batched (5-10 tests)
- 4. **Ignore Semantics**:
-    - Prefer covering previously ignored lines with tests
-    - Retain only minimal ignores with explicit documentation
-
+   - Novel patterns → Batched (5-10 tests per batch)
+3. **Mock Strategies** (when unavoidable):
+   - Module/class-level mocks for internal services
+   - Spies/stubs for boundary validation
+   - Deterministic timestamps for comparisons
+4. **Ignore Handling**:
+   - Always attempt removal and coverage first
+   - Retain only for untestable/platform-specific code
+   - Document in `.task/coverage-progress.md`: file, lines, rationale
 5. **Makefile Interface**:
-   - Two public targets (`detect-coverage`, `single-file-coverage`) unify coverage across languages
-   - Keep outputs stable and low-noise for orchestration
-   - Use helper scripts as needed; avoid adding more public Make targets
+   - Two targets unify coverage across all toolchains
+   - Stable, quiet outputs for orchestration
+   - Helper scripts allowed; no additional public targets
 
-## Ignore Semantics Policy
+---
 
-- Precedence: concrete tests > mock tests > ignore semantics
-- Scan for and attempt to remove existing ignore directives when feasible
-- Use ignore directives only for truly untestable or platform-specific code paths
-- Document all removals/retentions in `.task/coverage-progress.md` with file + line numbers and rationale
+## Agent File Maintenance (Meta-Instructions)
 
-Update this section when new patterns emerge from 10+ decision cycles.
+When the user requests updates to this agent file itself, apply these optimization principles:
+
+**1. Deduplication**:
+- Identify concepts repeated across multiple sections
+- Create single canonical definition in earliest/most logical section
+- Replace duplicates with references to canonical definition
+- Example: "TEST TYPE PRIORITY" defined once in PLAN, referenced elsewhere
+
+**2. Logical Coherence**:
+- Ensure statements don't contradict each other
+- Verify instruction flow follows logical sequence: INVESTIGATE → PLAN → IMPLEMENT → REPORT
+- Check that orchestrator guidance aligns with sub-agent workflow
+- Validate decision heuristics match TEST TYPE PRIORITY order
+
+**3. Maximum Determinism**:
+- Remove conditional phrasing ("if possible", "try to", "consider")
+- Replace with imperative directives ("use", "apply", "choose")
+- Establish clear priority orders (numbered lists, not suggestions)
+- Eliminate ambiguous terms ("reasonable", "appropriate") with concrete criteria
+
+**4. Output Minimization**:
+- Enforce trimmed output for all commands: `| tail -n 30`, `| head -n 20`
+- Mandate `/dev/null` redirection for noisy tool output
+- Require quiet/silent flags for test runners (`--reporter=dot`, `--silent`)
+- Parser scripts emit structured data only (no verbose logs)
+
+**5. Structural Optimization**:
+- Consolidate related sections (e.g., merge redundant policy statements)
+- Use consistent formatting: bold for section headers, code blocks for commands
+- Keep decision trees flat (avoid deep nesting)
+- Place meta-content (like this section) at file end
+
+**6. Precision in Language**:
+- Replace vague terms: "ensure" → specify verification method
+- Quantify where possible: "2-3 similar files", "100% coverage", "30-40 tests"
+- Use domain-specific terminology consistently throughout
+- Avoid redundant modifiers ("very important" → "critical")
+
+**Update Checklist**:
+- [ ] Scan for duplicate concepts across all sections
+- [ ] Verify TEST TYPE PRIORITY is canonical reference point
+- [ ] Check all commands include output trimming/redirection
+- [ ] Ensure decision points use ordered heuristics (no ambiguity)
+- [ ] Validate Makefile template matches current optimal structure
+- [ ] Remove conditional language in favor of deterministic directives
+- [ ] Confirm orchestrator/sub-agent roles clearly separated

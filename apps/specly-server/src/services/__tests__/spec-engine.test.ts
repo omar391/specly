@@ -379,6 +379,124 @@ describe('SpecEngine', () => {
       expect(mockJournalWithReuseNoResult.getSuccessfulResult).toHaveBeenCalledWith('entry');
       expect(mockExecutor.execute).toHaveBeenCalled();
     });
+
+    it('should fetch workspace rules when workspaceId provided', async () => {
+      mockPlanner.buildPlan.mockReturnValue({
+        steps: [
+          { specHash: 'entry', awaitingHuman: false },
+          { specHash: 'node1', awaitingHuman: false },
+        ],
+        warnings: [],
+      });
+      const mockRulesRepo = {
+        list: vi.fn().mockResolvedValue([
+          { relation: 'test', rule: 'rule1', confidence: 0.5 },
+          { relation: 'test2', rule: 'rule2', confidence: undefined },
+        ]),
+      };
+      const engineWithRules = new SpecEngine({
+        planner: mockPlanner,
+        executor: mockExecutor,
+        leaseProvider: mockLeaseProvider,
+        journalAdapter: mockJournal,
+        metricsCollector: mockMetrics,
+        retryPolicy: mockRetryPolicy,
+        rulesRepo: mockRulesRepo as any,
+      });
+      const result = await engineWithRules.run(mockToolGraph, { workspaceId: 'ws1' });
+      expect(result).toEqual({
+        status: 'completed',
+        executed: ['entry', 'node1'],
+        results: {
+          entry: { success: true },
+          node1: { success: true },
+        },
+        warnings: [],
+      });
+      expect(mockRulesRepo.list).toHaveBeenCalledWith('ws1', true);
+    });
+
+    it('should handle workspace rules fetch error gracefully', async () => {
+      mockPlanner.buildPlan.mockReturnValue({
+        steps: [
+          { specHash: 'entry', awaitingHuman: false },
+          { specHash: 'node1', awaitingHuman: false },
+        ],
+        warnings: [],
+      });
+      const mockRulesRepo = {
+        list: vi.fn().mockRejectedValue(new Error('DB error')),
+      };
+      const engineWithRules = new SpecEngine({
+        planner: mockPlanner,
+        executor: mockExecutor,
+        leaseProvider: mockLeaseProvider,
+        journalAdapter: mockJournal,
+        metricsCollector: mockMetrics,
+        retryPolicy: mockRetryPolicy,
+        rulesRepo: mockRulesRepo as any,
+      });
+      const result = await engineWithRules.run(mockToolGraph, { workspaceId: 'ws1' });
+      expect(result).toEqual({
+        status: 'completed',
+        executed: ['entry', 'node1'],
+        results: {
+          entry: { success: true },
+          node1: { success: true },
+        },
+        warnings: [],
+      });
+      expect(mockRulesRepo.list).toHaveBeenCalledWith('ws1', true);
+    });
+
+    it('should upgrade journal from NoopActionJournalAdapter to PersistentJournalService when sessionId provided', async () => {
+      const { NoopActionJournalAdapter, BasicExecutionPlanner } = await import('../spec-engine.js');
+      const noopJournal = new NoopActionJournalAdapter();
+      const realPlanner = new BasicExecutionPlanner();
+      const engineWithNoopJournal = new SpecEngine({
+        planner: realPlanner,
+        executor: mockExecutor,
+        leaseProvider: mockLeaseProvider,
+        journalAdapter: noopJournal,
+        metricsCollector: mockMetrics,
+        retryPolicy: mockRetryPolicy,
+      });
+
+      const result = await engineWithNoopJournal.run(mockToolGraph, { sessionId: 'session', clientId: 'client' });
+      expect(result.status).toBe('completed');
+      // The journal should have been upgraded internally
+      expect(engineWithNoopJournal['journal']).not.toBe(noopJournal);
+      expect(engineWithNoopJournal['journal'].constructor.name).toBe('PersistentJournalService');
+    });
+
+    it('should handle cycle detection in BasicExecutionPlanner', async () => {
+      const planner = new BasicExecutionPlanner();
+      const cyclicGraph: ToolGraph = {
+        entry: 'entry',
+        nodes: {
+          entry: { hash: 'entry', intent: 'autonomous', sideEffect: false },
+          node1: { hash: 'node1', intent: 'autonomous', sideEffect: false },
+        },
+        edges: [
+          { from: 'entry', to: 'node1' },
+          { from: 'node1', to: 'entry' },
+        ],
+      };
+
+      const engineWithCycle = new SpecEngine({
+        planner,
+        executor: mockExecutor,
+        leaseProvider: mockLeaseProvider,
+        journalAdapter: mockJournal,
+        metricsCollector: mockMetrics,
+        retryPolicy: mockRetryPolicy,
+      });
+
+      const result = await engineWithCycle.run(cyclicGraph);
+      expect(result.status).toBe('error');
+      expect(result.error?.message).toBe('Cycle detected in reachable subgraph');
+      expect(result.errorCode).toBe(SpecEngineErrorCode.GRAPH_CYCLE);
+    });
   });
 
   describe('resume', () => {
@@ -541,6 +659,31 @@ describe('SpecEngine', () => {
       expect(result.status).toBe('error');
       expect(result.error?.message).toContain('Lease renewal failed');
       expect(result.errorCode).toBe(SpecEngineErrorCode.LEASE_RENEW_FAILED);
+    });
+
+    it('should handle journal success recording for human spec when journal is PersistentJournalService', async () => {
+      const { PersistentJournalService } = await import('../persistent-journal-service.js');
+      const persistentJournal = new PersistentJournalService('session', { metrics: mockMetrics });
+      // Mock the recordSuccess method
+      vi.spyOn(persistentJournal, 'recordSuccess').mockResolvedValue(undefined);
+
+      const engineWithPersistentJournal = new SpecEngine({
+        planner: mockPlanner,
+        executor: mockExecutor,
+        leaseProvider: mockLeaseProvider,
+        journalAdapter: persistentJournal,
+        metricsCollector: mockMetrics,
+        retryPolicy: mockRetryPolicy,
+      });
+
+      const result = await engineWithPersistentJournal.resume(mockToolGraph, mockSerializedState, {
+        specHash: 'entry',
+        humanOutput: { userInput: 'test' },
+      });
+
+      expect(result.status).toBe('completed');
+      // Should have called recordSuccess on PersistentJournalService
+      expect(persistentJournal.recordSuccess).toHaveBeenCalledWith('entry', 1, { userInput: 'test' });
     });
   });
 

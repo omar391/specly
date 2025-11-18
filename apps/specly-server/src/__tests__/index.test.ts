@@ -284,6 +284,17 @@ describe('src/index.ts - SpeclyServer and exports', () => {
         expect(mod.SPECLY_VERSION).toBe('0.1.0');
     });
 
+    it('SPECLY_VERSION falls back when fs.readFileSync throws', async () => {
+        vi.resetModules();
+        const fs = await import('fs');
+        (fs.readFileSync as any).mockImplementation(() => {
+            throw new Error('File not found');
+        });
+
+        const mod = await import('../index');
+        expect(mod.SPECLY_VERSION).toBe('0.1.0');
+    });
+
     it('ensureServerInitialized calls initializeServer when not initialized', async () => {
         vi.resetModules();
         const mod = await import('../index');
@@ -615,7 +626,10 @@ describe('index.ts', () => {
                     all: vi.fn().mockRejectedValue(new Error('DB error'))
                 });
 
+                const errSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
                 await server.ensureSpeclySeed(false);
+                expect(errSpy).toHaveBeenCalledWith('Error checking/performing Specly seed:', expect.any(Error));
+                errSpy.mockRestore();
                 // Should not throw
             });
 

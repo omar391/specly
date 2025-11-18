@@ -584,3 +584,26 @@ describe('CLI main function', () => {
         mockExec.mockRestore?.();
     });
 });
+
+describe('CLI runCli outer catch coverage', () => {
+    it('should execute outer catch when inner throws', async () => {
+        const mockExec = vi.fn().mockRejectedValue('test error');
+
+        const originalLog = console.log;
+        const originalError = console.error;
+        const logSpy = vi.fn();
+        const errorSpy = vi.fn();
+        console.log = logSpy;
+        console.error = errorSpy;
+
+        try {
+            await runCli('specly_start', { workspace_path: '/tmp' }, { executeOverride: mockExec });
+        } catch (error) {
+            expect(error.message).toBe('process.exit called with code 1');
+            expect(errorSpy).toHaveBeenCalledWith('❌ CLI test failed:', expect.any(Error));
+        } finally {
+            console.log = originalLog;
+            console.error = originalError;
+        }
+    });
+});
