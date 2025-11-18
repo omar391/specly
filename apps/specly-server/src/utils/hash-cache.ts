@@ -27,7 +27,6 @@ export class LRUCache<K, V> {
     this.map.set(key, value);
     if (this.map.size > this.maxSize) {
       // evict oldest
-      /* istanbul ignore next -- defensive branch for broken Map iterator implementations */
       const oldestKey = this.map.keys().next().value as K | undefined;
       if (oldestKey !== undefined) this.map.delete(oldestKey);
     }
