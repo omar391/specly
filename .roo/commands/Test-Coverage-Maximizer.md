@@ -1,12 +1,12 @@
 ---
-description: Orchestrates test coverage maximization (concrete > mock > ignore) by delegating implementation to Gpt5-Mini-Agent and handling all decisions autonomously
+description: Orchestrates test coverage maximization (concrete > mock > ignore) by delegating implementation to sub agent and handling all decisions autonomously
 argument-hint: <file or directory to focus on>
 ---
  
 # Test-Coverage-Maximizer
- 
+  
 ## Overview
-Orchestrates test coverage maximization by delegating implementation to a sub-agent (Gpt5-Mini-Agent). It drives a Makefile-first workflow and tracks progress in .task/coverage-progress.md.
+Orchestrates test coverage maximization by delegating implementation to a sub-agent (sub agent). It drives a Makefile-first workflow and tracks progress in .task/coverage-progress.md.
  
 ## Usage
 Use the slash command from chat or the CLI-style invocation:
@@ -37,11 +37,11 @@ argument-hint: <file-path>
 Grok Code Fast 1 (copilot) — orchestrator mode for high-level decision making.
  
 ## Handoffs
-The orchestrator delegates implementation to Gpt5-Mini-Agent using the following handoff:
- 
+The orchestrator delegates implementation to sub agent using the following handoff:
+  
 ```yaml
 label: Investigate & Implement Test Coverage
-agent: Gpt5-Mini-Agent
+agent: sub agent
 prompt: |-
   You are responsible for INVESTIGATING, PLANNING, and IMPLEMENTING comprehensive tests to achieve 100% coverage.
   
@@ -119,9 +119,9 @@ NEVER ask the user for permission or present options. Autonomously resolve all q
  
 Your role is MINIMAL ORCHESTRATION:
 1. Identify next target file (or let sub-agent find lowest coverage file)
-2. Delegate to Gpt5-Mini-Agent for full investigation, planning, and implementation
+2. Delegate to sub agent for full investigation, planning, and implementation
 3. When sub-agent returns with questions and recommendations, make optimal decisions automatically
-4. Hand off back to Gpt5-Mini-Agent with resolved decision
+4. Hand off back to sub agent with resolved decision
 5. Continue until 100% coverage achieved
  
 Always follow deterministic priority: prefer debugging and non-invasive fixes first, then apply reversible test-only patches as last resort.
@@ -133,7 +133,7 @@ Orchestrate systematic processing of files with insufficient coverage until proj
  
 **Your Minimal Orchestration Loop:**
 1. **Initiate**: Identify next target file (optional - sub-agent can find it) or simply hand off
-2. **Delegate**: Hand off to Gpt5-Mini-Agent - they do ALL investigation, planning, implementation
+2. **Delegate**: Hand off to sub agent - they do ALL investigation, planning, implementation
 3. **Resolve Questions**: When sub-agent returns with questions + recommendations:
    - Review their analysis and recommendations (2-3 options with pros/cons)
    - Apply decision framework (see below) to select optimal path
@@ -153,7 +153,7 @@ Minimal orchestration workflow - sub-agent does the heavy lifting:
 ### Phase 1: Initiate (Optional)
 You can optionally identify the next target file, but it's not required:
 - Use Makefile target if available: `make -s detect-coverage TOP=12 QUIET=1 | head -n 20`
-- OR let Gpt5-Mini-Agent find the lowest coverage file themselves
+- OR let sub agent find the lowest coverage file themselves
  
 **Preferred**: Simply hand off and let sub-agent investigate and find the target.
  
@@ -176,7 +176,7 @@ Notes:
 - In monorepos, per-package Makefiles are allowed; targets can delegate to workspace tools (e.g., `nx test`).
 - If no Makefile exists, the sub-agent creates one and iteratively refines these two targets to minimize noise and speed up coverage.
  
-### Phase 2: Delegate to Gpt5-Mini-Agent
+### Phase 2: Delegate to sub agent
 Hand off with minimal context:
  
 ```
@@ -227,7 +227,7 @@ When sub-agent reports successful completion:
 **Continue until project-wide 100% coverage achieved.**
  
 ## CLI Output Discipline
-**Note**: These guidelines apply mainly when YOU need to run commands. Gpt5-Mini-Agent will handle most investigation.
+**Note**: These guidelines apply mainly when YOU need to run commands. sub agent will handle most investigation.
  
 Keep every command quiet and scoped to the minimal output required for decision making.
  
