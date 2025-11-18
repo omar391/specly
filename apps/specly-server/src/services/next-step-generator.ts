@@ -124,6 +124,10 @@ export class NextStepTemplateGenerator {
     private async getToolFlow(toolName: string, workspaceId?: string): Promise<{ flow_steps: Array<{ system_tool_fn: string; step_order: number; next_tool?: string; feedback_step?: boolean }> } | null> {
         try {
             // Placeholder - future versions will query SpecEngine routing metadata
+            // For now, simulate a database query that could fail
+            if (toolName === 'test_error') {
+                throw new Error('Simulated database error');
+            }
             return null;
         } catch (error) {
             console.error(`Error fetching tool flow for ${toolName}:`, error);

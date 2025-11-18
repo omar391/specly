@@ -235,6 +235,11 @@ describe('NextStepTemplateGenerator', () => {
                 const result = await (generator as any).getToolFlow('specly_add');
                 expect(result).toBeNull();
             });
+
+            it('should handle errors and return null', async () => {
+                const result = await (generator as any).getToolFlow('test_error', 'workspace-123');
+                expect(result).toBeNull();
+            });
         });
 
         describe('determineNextStep', () => {
@@ -248,6 +253,18 @@ describe('NextStepTemplateGenerator', () => {
 
                 const result = await (generator as any).determineNextStep(toolFlow);
                 expect(result).toEqual({ system_tool_fn: 'specly_add:validate', step_order: 1 });
+            });
+
+            it('should return null when no steps have step_order 1', async () => {
+                const toolFlow = {
+                    flow_steps: [
+                        { system_tool_fn: 'specly_add:validate', step_order: 2 },
+                        { system_tool_fn: 'specly_add:create', step_order: 3 }
+                    ]
+                };
+
+                const result = await (generator as any).determineNextStep(toolFlow);
+                expect(result).toBeNull();
             });
 
             it('should return null when current step not found', async () => {
