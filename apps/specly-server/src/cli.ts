@@ -20,8 +20,8 @@ import { RemoteInterfaceTool, remoteInterfaceToolSchema } from './tools/remote-i
 
 /**
  * CLI tool for testing MCP tool calls programmatically
- * Usage: npm run test:tool -- <toolName> <arguments>
- * Example: npm run test:tool -- specly_start '{"workspace_path": "/tmp/test-workspace"}'
+ * Usage: pnpm run test:tool -- <toolName> <arguments>
+ * Example: pnpm run test:tool -- specly_start '{"workspace_path": "/tmp/test-workspace"}'
  */
 
 // TODO: do we need ToolRegistry and SchemaRegistry be defined here or can it be centralized?
@@ -270,8 +270,8 @@ async function main() {
     const args = process.argv.slice(2);
 
     if (args.length < 1) {
-        console.error('Usage: npm run test:tool -- <toolName> [arguments]');
-        console.error('Example: npm run test:tool -- specly_start \'{"workspace_path": "/tmp/test-workspace"}\'');
+        console.error('Usage: pnpm run test:tool -- <toolName> [arguments]');
+        console.error('Example: pnpm run test:tool -- specly_start \'{"workspace_path": "/tmp/test-workspace"}\'');
         console.error('');
         console.error('Available tools:');
         console.error('  specly_init');

@@ -10,9 +10,7 @@ SHELL := /bin/bash
 .PHONY: detect-coverage single-file-coverage
 
 # Detect package manager + test runner once (vitest), keeping minimal logic
-PKG_MGR = $(shell command -v pnpm >/dev/null 2>&1 && echo "pnpm exec vitest" || \
-	(command -v npm >/dev/null 2>&1 && echo "npx vitest" || \
-	(command -v yarn >/dev/null 2>&1 && echo "yarn vitest" || echo "")))
+PKG_MGR = pnpm exec vitest
 
 # Respect QUIET: when QUIET=1 (default), silence test output
 SILENT = $(if $(filter 1,$(QUIET)),>/dev/null 2>&1,)

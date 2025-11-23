@@ -22,8 +22,6 @@ bun run dev
 bun run build
 ```
 
-Optional: You can also use npm or pnpm if you prefer.
-- npm: `npm install` then `npm run dev`
 - pnpm: `pnpm install` then `pnpm run dev`
 
 ## Environment variables

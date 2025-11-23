@@ -19,3 +19,12 @@ update-submodules: ## Update all submodules to their latest commits
 status-submodules: ## Show status of all submodules
 	@echo "Submodule status:"
 	@git submodule status --recursive
+
+dev-be: ## Run backend in HTTP mode
+	cd apps/specly-server && pnpm run dev:http
+
+dev-fe: ## Run frontend
+	cd apps/specly-ui && pnpm run dev
+
+dev: ## Run both backend and frontend concurrently
+	make -j2 dev-be dev-fe

@@ -8,16 +8,16 @@ describe('CLI tests', () => {
         expect(result.content[0].text).toContain('Unknown tool');
     });
 
-  it('main throws when no args provided', async () => {
-    // Temporarily set process.argv to simulate no arguments
-    const oldArgv = process.argv;
-    try {
-      process.argv = [oldArgv[0], oldArgv[1]];
-      await expect(main()).rejects.toThrow('process.exit called with code 1');
-    } finally {
-      process.argv = oldArgv;
-    }
-  });
+    it('main throws when no args provided', async () => {
+        // Temporarily set process.argv to simulate no arguments
+        const oldArgv = process.argv;
+        try {
+            process.argv = [oldArgv[0], oldArgv[1]];
+            await expect(main()).rejects.toThrow('process.exit called with code 1');
+        } finally {
+            process.argv = oldArgv;
+        }
+    });
 });
 
 /**
@@ -90,7 +90,7 @@ describe('CLI Tool Execution Tests', () => {
             expect(result.content).toBeDefined();
             expect(Array.isArray(result.content)).toBe(true);
         }, 10000);
-        
+
         it('should execute specly_add (single-step)', async () => {
             const args = {
                 task_description: 'Test task for CLI execution',
@@ -167,7 +167,7 @@ describe('CLI Tool Execution Tests', () => {
             const { AddToolNew } = await import('../tools/add.js');
             const { StartTool } = await import('../tools/start.js');
             const { StatusToolNew } = await import('../tools/status.js');
-            
+
             expect(AddToolNew.getToolDefinition).toBeDefined();
             expect(StartTool.getToolDefinition).toBeDefined();
             expect(StatusToolNew.getToolDefinition).toBeDefined();
@@ -284,7 +284,7 @@ describe('CLI Tool Execution Tests', () => {
     describe('Global unhandledRejection handler', () => {
         it('should exit process on unhandled rejection', async () => {
             const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as any);
-            const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+            const errSpy = vi.spyOn(console, 'error').mockImplementation(() => { });
 
             // Emit a fake unhandled rejection
             process.emit('unhandledRejection', new Error('boom'), Promise.resolve());
@@ -369,8 +369,8 @@ describe('CLI Tool Execution Tests', () => {
 
             await expect(main()).rejects.toThrow('process.exit called with code 1');
 
-            expect(consoleErrorSpy).toHaveBeenCalledWith('Usage: npm run test:tool -- <toolName> [arguments]');
-            expect(consoleErrorSpy).toHaveBeenCalledWith('Example: npm run test:tool -- specly_start \'{"workspace_path": "/tmp/test-workspace"}\'');
+            expect(consoleErrorSpy).toHaveBeenCalledWith('Usage: pnpm run test:tool -- <toolName> [arguments]');
+            expect(consoleErrorSpy).toHaveBeenCalledWith('Example: pnpm run test:tool -- specly_start \'{"workspace_path": "/tmp/test-workspace"}\'');
             expect(consoleErrorSpy).toHaveBeenCalledWith('');
             expect(consoleErrorSpy).toHaveBeenCalledWith('Available tools:');
             expect(consoleErrorSpy).toHaveBeenCalledWith('  specly_init');
@@ -532,7 +532,7 @@ describe('CLI main function', () => {
         process.argv = ['node', 'cli.js'];
 
         await expect(main()).rejects.toThrow('process.exit called with code 1');
-        expect(consoleErrorSpy).toHaveBeenCalledWith('Usage: npm run test:tool -- <toolName> [arguments]');
+        expect(consoleErrorSpy).toHaveBeenCalledWith('Usage: pnpm run test:tool -- <toolName> [arguments]');
     });
 
     it('should execute tool successfully', async () => {

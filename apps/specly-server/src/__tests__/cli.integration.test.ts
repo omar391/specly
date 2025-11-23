@@ -11,7 +11,7 @@ const pkgDir = path.resolve(__dirname, '..', '..');
 const distPath = path.resolve(pkgDir, 'dist', 'index.js');
 
 function runBuild() {
-    const res = child_process.spawnSync('npm', ['run', 'build'], {
+    const res = child_process.spawnSync('pnpm', ['run', 'build'], {
         cwd: pkgDir,
         encoding: 'utf8',
         env: { ...process.env, NODE_ENV: 'test' },
