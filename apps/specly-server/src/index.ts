@@ -194,7 +194,7 @@ export class SpeclyServer {
 
   // Setup Specly API routes in Hono app
   async setupSpeclyApi(app: Hono) {
-    const apiRouter = await createApiRouter(this.databaseService);
+    const apiRouter = await createApiRouter(this.databaseService, this.sseManager);
     app.route('/api', apiRouter);
   }
 

@@ -12,7 +12,7 @@ import { SpecsController, ToolsController } from './specs-tools.js';
 import { ProfilesController } from './profiles.js';
 import { SessionsController } from './sessions.js';
 import { RulesController } from './rules.js';
-import { 
+import {
   createErrorResponse,
   createSuccessResponse,
   rateLimit,
@@ -26,7 +26,10 @@ import {
 /**
  * Create API Hono app with all endpoints
  */
-export async function createApiRouter(databaseService: DatabaseService): Promise<Hono> {
+/**
+ * Create API Hono app with all endpoints
+ */
+export async function createApiRouter(databaseService: DatabaseService, sseManager: SSEEventManager): Promise<Hono> {
   const app = new Hono();
 
   // Initialize controllers
@@ -96,6 +99,13 @@ export async function createApiRouter(databaseService: DatabaseService): Promise
   // GET list dependencies
   app.get('/workspaces/:workspaceId/tasks/:taskId/dependencies', readRateLimit, validateWorkspaceId, validateTaskId, async (c) => await tasksController.listDependencies(c));
 
+  // GET /api/sse - Server-Sent Events endpoint
+  app.get('/sse', async (c) => {
+    const clientId = crypto.randomUUID();
+    sseManager.addClient(clientId, c);
+    return new Response(null, { status: 200 }); // Handled by streamSSE
+  });
+
   // Error handling
   app.onError((err, c) => {
     console.log('onError called with:', err.constructor.name, err.message);
@@ -133,7 +143,7 @@ export class SSEEventManager {
     c.streamSSE(async (stream: any) => {
       this.clients.set(clientId, stream.controller);
 
-  // Send initial connection event
+      // Send initial connection event
       await stream.writeln(`data: ${JSON.stringify({
         type: 'connection.established',
         data: { clientId, timestamp: new Date().toISOString() }
@@ -167,7 +177,7 @@ export class SSEEventManager {
    */
   broadcast(event: any): void {
     const clientsToRemove: string[] = [];
-    
+
     for (const [clientId, controller] of this.clients.entries()) {
       try {
         controller.enqueue(`data: ${JSON.stringify(event)}\n\n`);
@@ -176,7 +186,7 @@ export class SSEEventManager {
         clientsToRemove.push(clientId);
       }
     }
-    
+
     // Clean up disconnected clients
     clientsToRemove.forEach(clientId => this.clients.delete(clientId));
   }
