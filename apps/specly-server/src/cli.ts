@@ -243,6 +243,7 @@ async function executeToolCall(toolName: string, toolArguments: Record<string, u
                 const args = validatedArgs as z.infer<typeof remoteInterfaceToolSchema>;
                 return await tools.specly_remote_interface.execute(args);
             }
+            /* istanbul ignore next */
             default:
                 return throwUnhandledTool(toolName);
         }

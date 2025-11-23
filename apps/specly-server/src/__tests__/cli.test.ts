@@ -135,8 +135,6 @@ describe('CLI Tool Execution Tests', () => {
             expect(result.isError).toBe(true);
             expect(result.content[0].text).toContain('Unknown tool');
         });
-
-        // stepId validation removed with single-step migration
     });
 
     describe('Error Handling', () => {
@@ -604,6 +602,25 @@ describe('CLI runCli outer catch coverage', () => {
         } finally {
             console.log = originalLog;
             console.error = originalError;
+        }
+    });
+
+    it('should execute success path in runCli', async () => {
+        const mockExec = vi.fn().mockResolvedValue({
+            isError: false,
+            content: [{ type: 'text', text: 'success' }]
+        });
+
+        const originalLog = console.log;
+        const logSpy = vi.fn();
+        console.log = logSpy;
+
+        try {
+            await runCli('specly_start', { workspace_path: '/tmp' }, { executeOverride: mockExec });
+            expect(logSpy).toHaveBeenCalledWith('📋 Tool result:');
+            expect(logSpy).toHaveBeenCalledWith('success');
+        } finally {
+            console.log = originalLog;
         }
     });
 });
