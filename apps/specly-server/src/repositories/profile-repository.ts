@@ -42,7 +42,7 @@ export interface WorkspaceProfileBindingDetails extends WorkspaceProfileBindingR
 }
 
 export class ProfileRepository {
-  constructor(private globalDb: GlobalDatabaseService) {}
+  constructor(private globalDb: GlobalDatabaseService) { }
 
   private uuid(): string { return crypto.randomUUID(); }
 
@@ -76,6 +76,12 @@ export class ProfileRepository {
     const db = this.globalDb.getDrizzleManager().getDb();
     const [row] = await db.select().from(profiles).where(eq(profiles.name, name)).limit(1);
     return (row as any) || null;
+  }
+
+  async listProfiles(): Promise<ProfileRecord[]> {
+    const db = this.globalDb.getDrizzleManager().getDb();
+    const rows = await db.select().from(profiles).orderBy(desc(profiles.createdAt));
+    return rows as any;
   }
 
   async createProfileVersion(input: CreateProfileVersionInput): Promise<{ id: string; version: number; created: boolean }> {

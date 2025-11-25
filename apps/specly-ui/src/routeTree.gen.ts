@@ -11,8 +11,14 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SessionsRouteImport } from './routes/sessions'
 import { Route as RulesRouteImport } from './routes/rules'
+import { Route as ProfilesRouteImport } from './routes/profiles'
+import { Route as ConnectRouteImport } from './routes/connect'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ToolsIndexRouteImport } from './routes/tools.index'
 import { Route as WorkspacesWorkspaceIdRouteImport } from './routes/workspaces.$workspaceId'
+import { Route as ToolsNewRouteImport } from './routes/tools.new'
+import { Route as ToolsToolRouteImport } from './routes/tools.$tool'
+import { Route as ProfilesProfileRouteImport } from './routes/profiles.$profile'
 import { Route as WorkspacesWorkspaceIdTasksRouteImport } from './routes/workspaces.$workspaceId.tasks'
 import { Route as WorkspacesWorkspaceIdTasksTaskIdRouteImport } from './routes/workspaces.$workspaceId.tasks.$taskId'
 
@@ -26,15 +32,45 @@ const RulesRoute = RulesRouteImport.update({
   path: '/rules',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProfilesRoute = ProfilesRouteImport.update({
+  id: '/profiles',
+  path: '/profiles',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConnectRoute = ConnectRouteImport.update({
+  id: '/connect',
+  path: '/connect',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ToolsIndexRoute = ToolsIndexRouteImport.update({
+  id: '/tools/',
+  path: '/tools/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const WorkspacesWorkspaceIdRoute = WorkspacesWorkspaceIdRouteImport.update({
   id: '/workspaces/$workspaceId',
   path: '/workspaces/$workspaceId',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ToolsNewRoute = ToolsNewRouteImport.update({
+  id: '/tools/new',
+  path: '/tools/new',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ToolsToolRoute = ToolsToolRouteImport.update({
+  id: '/tools/$tool',
+  path: '/tools/$tool',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfilesProfileRoute = ProfilesProfileRouteImport.update({
+  id: '/$profile',
+  path: '/$profile',
+  getParentRoute: () => ProfilesRoute,
 } as any)
 const WorkspacesWorkspaceIdTasksRoute =
   WorkspacesWorkspaceIdTasksRouteImport.update({
@@ -51,26 +87,44 @@ const WorkspacesWorkspaceIdTasksTaskIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/connect': typeof ConnectRoute
+  '/profiles': typeof ProfilesRouteWithChildren
   '/rules': typeof RulesRoute
   '/sessions': typeof SessionsRoute
+  '/profiles/$profile': typeof ProfilesProfileRoute
+  '/tools/$tool': typeof ToolsToolRoute
+  '/tools/new': typeof ToolsNewRoute
   '/workspaces/$workspaceId': typeof WorkspacesWorkspaceIdRouteWithChildren
+  '/tools': typeof ToolsIndexRoute
   '/workspaces/$workspaceId/tasks': typeof WorkspacesWorkspaceIdTasksRouteWithChildren
   '/workspaces/$workspaceId/tasks/$taskId': typeof WorkspacesWorkspaceIdTasksTaskIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/connect': typeof ConnectRoute
+  '/profiles': typeof ProfilesRouteWithChildren
   '/rules': typeof RulesRoute
   '/sessions': typeof SessionsRoute
+  '/profiles/$profile': typeof ProfilesProfileRoute
+  '/tools/$tool': typeof ToolsToolRoute
+  '/tools/new': typeof ToolsNewRoute
   '/workspaces/$workspaceId': typeof WorkspacesWorkspaceIdRouteWithChildren
+  '/tools': typeof ToolsIndexRoute
   '/workspaces/$workspaceId/tasks': typeof WorkspacesWorkspaceIdTasksRouteWithChildren
   '/workspaces/$workspaceId/tasks/$taskId': typeof WorkspacesWorkspaceIdTasksTaskIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/connect': typeof ConnectRoute
+  '/profiles': typeof ProfilesRouteWithChildren
   '/rules': typeof RulesRoute
   '/sessions': typeof SessionsRoute
+  '/profiles/$profile': typeof ProfilesProfileRoute
+  '/tools/$tool': typeof ToolsToolRoute
+  '/tools/new': typeof ToolsNewRoute
   '/workspaces/$workspaceId': typeof WorkspacesWorkspaceIdRouteWithChildren
+  '/tools/': typeof ToolsIndexRoute
   '/workspaces/$workspaceId/tasks': typeof WorkspacesWorkspaceIdTasksRouteWithChildren
   '/workspaces/$workspaceId/tasks/$taskId': typeof WorkspacesWorkspaceIdTasksTaskIdRoute
 }
@@ -78,34 +132,57 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/connect'
+    | '/profiles'
     | '/rules'
     | '/sessions'
+    | '/profiles/$profile'
+    | '/tools/$tool'
+    | '/tools/new'
     | '/workspaces/$workspaceId'
+    | '/tools'
     | '/workspaces/$workspaceId/tasks'
     | '/workspaces/$workspaceId/tasks/$taskId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/connect'
+    | '/profiles'
     | '/rules'
     | '/sessions'
+    | '/profiles/$profile'
+    | '/tools/$tool'
+    | '/tools/new'
     | '/workspaces/$workspaceId'
+    | '/tools'
     | '/workspaces/$workspaceId/tasks'
     | '/workspaces/$workspaceId/tasks/$taskId'
   id:
     | '__root__'
     | '/'
+    | '/connect'
+    | '/profiles'
     | '/rules'
     | '/sessions'
+    | '/profiles/$profile'
+    | '/tools/$tool'
+    | '/tools/new'
     | '/workspaces/$workspaceId'
+    | '/tools/'
     | '/workspaces/$workspaceId/tasks'
     | '/workspaces/$workspaceId/tasks/$taskId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ConnectRoute: typeof ConnectRoute
+  ProfilesRoute: typeof ProfilesRouteWithChildren
   RulesRoute: typeof RulesRoute
   SessionsRoute: typeof SessionsRoute
+  ToolsToolRoute: typeof ToolsToolRoute
+  ToolsNewRoute: typeof ToolsNewRoute
   WorkspacesWorkspaceIdRoute: typeof WorkspacesWorkspaceIdRouteWithChildren
+  ToolsIndexRoute: typeof ToolsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -124,11 +201,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RulesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/profiles': {
+      id: '/profiles'
+      path: '/profiles'
+      fullPath: '/profiles'
+      preLoaderRoute: typeof ProfilesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/connect': {
+      id: '/connect'
+      path: '/connect'
+      fullPath: '/connect'
+      preLoaderRoute: typeof ConnectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tools/': {
+      id: '/tools/'
+      path: '/tools'
+      fullPath: '/tools'
+      preLoaderRoute: typeof ToolsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/workspaces/$workspaceId': {
@@ -137,6 +235,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/workspaces/$workspaceId'
       preLoaderRoute: typeof WorkspacesWorkspaceIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/tools/new': {
+      id: '/tools/new'
+      path: '/tools/new'
+      fullPath: '/tools/new'
+      preLoaderRoute: typeof ToolsNewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tools/$tool': {
+      id: '/tools/$tool'
+      path: '/tools/$tool'
+      fullPath: '/tools/$tool'
+      preLoaderRoute: typeof ToolsToolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profiles/$profile': {
+      id: '/profiles/$profile'
+      path: '/$profile'
+      fullPath: '/profiles/$profile'
+      preLoaderRoute: typeof ProfilesProfileRouteImport
+      parentRoute: typeof ProfilesRoute
     }
     '/workspaces/$workspaceId/tasks': {
       id: '/workspaces/$workspaceId/tasks'
@@ -154,6 +273,18 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface ProfilesRouteChildren {
+  ProfilesProfileRoute: typeof ProfilesProfileRoute
+}
+
+const ProfilesRouteChildren: ProfilesRouteChildren = {
+  ProfilesProfileRoute: ProfilesProfileRoute,
+}
+
+const ProfilesRouteWithChildren = ProfilesRoute._addFileChildren(
+  ProfilesRouteChildren,
+)
 
 interface WorkspacesWorkspaceIdTasksRouteChildren {
   WorkspacesWorkspaceIdTasksTaskIdRoute: typeof WorkspacesWorkspaceIdTasksTaskIdRoute
@@ -185,9 +316,14 @@ const WorkspacesWorkspaceIdRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ConnectRoute: ConnectRoute,
+  ProfilesRoute: ProfilesRouteWithChildren,
   RulesRoute: RulesRoute,
   SessionsRoute: SessionsRoute,
+  ToolsToolRoute: ToolsToolRoute,
+  ToolsNewRoute: ToolsNewRoute,
   WorkspacesWorkspaceIdRoute: WorkspacesWorkspaceIdRouteWithChildren,
+  ToolsIndexRoute: ToolsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

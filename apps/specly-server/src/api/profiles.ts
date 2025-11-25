@@ -45,6 +45,15 @@ export class ProfilesController {
     }
   }
 
+  /** GET /api/profiles */
+  async getProfiles(c: Context) {
+    const db = resolveDbService(c, this.defaultDb);
+    await db.initialize();
+    const repo = new ProfileRepository(db);
+    const profiles = await repo.listProfiles();
+    return c.json({ profiles }, 200);
+  }
+
   /** POST /api/profiles/:profile/versions */
   async createProfileVersion(c: Context) {
     const profileName = c.req.param('profile');
@@ -136,7 +145,7 @@ export class ProfilesController {
     if (!profile) return c.json({ error: 'profile not found', profile: profileName }, 404);
     const pv = await repo.getProfileVersionByNumber(profile.id, versionNum);
     if (!pv) return c.json({ error: 'profile version not found', profile: profileName, version: versionNum }, 404);
-    const results: Array<{ tool: string; created: boolean } > = [];
+    const results: Array<{ tool: string; created: boolean }> = [];
     for (const item of attachments) {
       const { tool_name, tool_version_hash, command_alias } = item || {};
       if (!tool_name || !tool_version_hash) {
@@ -169,21 +178,21 @@ export class ProfilesController {
     return c.json({ profile: profileName, version: versionNum, attachments: list }, 200);
   }
 
-    /** POST /api/profiles/:profile/versions/:version/publish */
+  /** POST /api/profiles/:profile/versions/:version/publish */
   async publishProfileVersion(c: Context) {
     const profileName = c.req.param('profile');
     const versionNum = Number(c.req.param('version'));
-        if (!profileName || Number.isNaN(versionNum)) {
-          return c.json({ error: 'profile and numeric version required' }, 400);
-        }
-    const db = resolveDbService(c, this.defaultDb);
-        await db.initialize();
-        const repo = new ProfileRepository(db);
-        const profile = await repo.getProfileByName(profileName);
-    if (!profile) return c.json({ error: 'profile not found', profile: profileName }, 404);
-        const pv = await repo.getProfileVersionByNumber(profile.id, versionNum);
-    if (!pv) return c.json({ error: 'profile version not found', profile: profileName, version: versionNum }, 404);
-        // Current model has no additional publish state; treat as validation-only "publish".
-    return c.json({ profile: profileName, version: versionNum, published: true }, 200);
+    if (!profileName || Number.isNaN(versionNum)) {
+      return c.json({ error: 'profile and numeric version required' }, 400);
     }
+    const db = resolveDbService(c, this.defaultDb);
+    await db.initialize();
+    const repo = new ProfileRepository(db);
+    const profile = await repo.getProfileByName(profileName);
+    if (!profile) return c.json({ error: 'profile not found', profile: profileName }, 404);
+    const pv = await repo.getProfileVersionByNumber(profile.id, versionNum);
+    if (!pv) return c.json({ error: 'profile version not found', profile: profileName, version: versionNum }, 404);
+    // Current model has no additional publish state; treat as validation-only "publish".
+    return c.json({ profile: profileName, version: versionNum, published: true }, 200);
+  }
 }

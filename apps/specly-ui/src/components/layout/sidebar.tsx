@@ -8,7 +8,8 @@ import {
     Activity,
     Shield,
     Box,
-    ChevronRight
+    ChevronRight,
+    Wrench
 } from "lucide-react"
 
 export function Sidebar() {
@@ -32,6 +33,16 @@ export function Sidebar() {
             title: "Rules",
             icon: Shield,
             to: "/rules",
+        },
+        {
+            title: "Profiles",
+            icon: Box,
+            to: "/profiles",
+        },
+        {
+            title: "Tools",
+            icon: Wrench,
+            to: "/tools",
         },
         {
             title: "Settings",

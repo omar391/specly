@@ -6,8 +6,8 @@ export function useWorkspaces() {
     return useQuery({
         queryKey: ['workspaces'],
         queryFn: async () => {
-            const response = await api.get<WorkspacesResponse>('/workspaces');
-            return response.workspaces;
+            const response = await api.get<any>('/workspaces');
+            return response.data?.workspaces || [];
         },
     });
 }

@@ -11,7 +11,7 @@ Specly is an MCP server providing deterministic multi-step “spec” workflows 
 
 | Spec | Immutable execution unit (prompt or action) hashed over canonical fields. | 
 
-| Tool Version | DAG snapshot of spec hashes (ordered list + transition edges) hashed for integrity. | 
+| Tool Version | DAG snapshot of spec hashes (ordered list + transition edges) hashed for integrity. **This IS the Workflow Graph.** | 
 
 | Tool | Stable identity (name + description); owns many versions historically. | 
 
@@ -213,6 +213,12 @@ Tool alias uniqueness enforced per profile version (post-inheritance application
 ## 13. Tools & Versions
 - `tools (name, description, created_at)`
 - `tool_versions (hash, tool_name, graph_manifest JSON, created_at)`
+
+> **Architectural Note: Tool Version vs. Workflow**
+> In the database schema, we use `tool_version` to denote an immutable snapshot of a tool's implementation.
+> Conceptually and in the UI, this **IS** the "Workflow" or "Tool Graph".
+> We retain `tool_version` in the schema to emphasize its role in the versioning and determinism system (upgrades, rollbacks, pinning), but users should see "Workflow Graph" when editing.
+
 Graph manifest minimal schema:
 ```json
 {

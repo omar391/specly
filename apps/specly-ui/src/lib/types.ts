@@ -13,7 +13,7 @@ export interface Workspace {
     id: string;
     name: string;
     path: string;
-    status: 'connected' | 'disconnected' | 'error';
+    status: 'active' | 'connected' | 'disconnected' | 'error';
     last_activity: string;
     task_count: number;
     active_task: string | null;
@@ -84,4 +84,61 @@ export interface SessionSummary {
 
 export interface SessionsResponse {
     sessions: SessionSummary[];
+}
+export interface Tool {
+    name: string;
+    description?: string;
+    commandAlias?: string;
+    createdAt: string;
+}
+
+export interface Spec {
+    hash?: string;
+    executor_type: string;
+    executor_version: string;
+    intent: string;
+    content_template?: string;
+    static_params?: Record<string, any>;
+    input_schema?: any;
+    output_schema?: any;
+    idempotency_key_template?: string;
+    retry_policy?: any;
+    show_output?: boolean;
+    security?: any;
+    metadata?: Record<string, any>;
+}
+
+export interface GraphEdge {
+    from: string;
+    to: string;
+    condition_type?: 'always' | 'success' | 'failure' | 'json_path';
+    condition_value?: string;
+    priority?: number;
+}
+
+export interface GraphManifest {
+    ordered_specs: string[]; // List of spec hashes
+    entry_spec: string;
+    edges: GraphEdge[];
+    specs?: Record<string, Spec>; // Optional: map of hash -> Spec details for UI
+    layout?: Record<string, { x: number; y: number }>; // Map of spec hash -> position
+}
+
+export interface ToolVersion {
+    hash: string;
+    toolName: string;
+    graphManifest: GraphManifest;
+    createdAt: string;
+}
+
+export interface ToolsResponse {
+    tools: Tool[];
+}
+
+export interface ToolResponse {
+    tool: Tool;
+}
+
+export interface ToolVersionsResponse {
+    versions: ToolVersion[];
 }

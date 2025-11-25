@@ -6,10 +6,10 @@
 import type { Context } from 'hono';
 import { DatabaseService } from '../services/database-service.js';
 import { WorkspacesResponse, WorkspaceSummary } from './types.js';
-import { createSuccessResponse, createErrorResponse, NotFoundError } from './middleware.js';
+import { createSuccessResponse, NotFoundError } from './middleware.js';
 
 export class WorkspacesController {
-  constructor(private databaseService: DatabaseService) {}
+  constructor(private databaseService: DatabaseService) { }
 
   /**
    * GET /api/workspaces
@@ -27,10 +27,10 @@ export class WorkspacesController {
           try {
             // Get workspace database service
             const workspaceDb = await this.databaseService.getWorkspace(workspace.path);
-            
+
             // Get all tasks to calculate task count and find active task
             const allTasks = await workspaceDb.getAllTasks();
-            const activeTasks = allTasks.filter(task => 
+            const activeTasks = allTasks.filter(task =>
               task.status !== 'completed' && task.status !== 'failed'
             );
             const taskCount = activeTasks.length;

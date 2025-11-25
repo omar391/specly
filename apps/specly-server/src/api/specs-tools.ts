@@ -175,4 +175,38 @@ export class ToolsController {
         await db.insert(toolVersions).values({ hash, toolName, graphManifest: { ordered_specs, entry_spec, edges } } as any);
         return c.json({ hash, tool: toolName, created: true }, 201);
     }
+
+    async getTools(c: Context) {
+        const dbService = resolveDbService(c, this.defaultDbService);
+        await dbService.initialize();
+        const db = dbService.getDrizzleManager().getDb();
+        const allTools = await db.select().from(tools);
+        return c.json({ data: { tools: allTools } });
+    }
+
+    async getTool(c: Context) {
+        const toolName = c.req.param('tool');
+        const dbService = resolveDbService(c, this.defaultDbService);
+        await dbService.initialize();
+        const db = dbService.getDrizzleManager().getDb();
+        const tool = await db.select().from(tools).where(eq(tools.name, toolName)).limit(1);
+        if (!tool.length) {
+            return c.json({ error: 'Tool not found' }, 404);
+        }
+        return c.json({ data: { tool: tool[0] } });
+    }
+
+    async getToolVersions(c: Context) {
+        const toolName = c.req.param('tool');
+        const dbService = resolveDbService(c, this.defaultDbService);
+        await dbService.initialize();
+        const db = dbService.getDrizzleManager().getDb();
+        // Verify tool exists
+        const toolExists = await db.select().from(tools).where(eq(tools.name, toolName)).limit(1);
+        if (!toolExists.length) {
+            return c.json({ error: 'Tool not found' }, 404);
+        }
+        const versions = await db.select().from(toolVersions).where(eq(toolVersions.toolName, toolName));
+        return c.json({ data: { versions } });
+    }
 }

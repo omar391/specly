@@ -3,7 +3,8 @@
  * Combines all API controllers and sets up routes
  */
 
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
+import { streamSSE } from 'hono/streaming';
 import type { DatabaseService } from '../services/database-service.js';
 import { WorkspacesController } from './workspaces.js';
 import { TasksController } from './tasks.js';
@@ -23,9 +24,6 @@ import {
   NotFoundError
 } from './middleware.js';
 
-/**
- * Create API Hono app with all endpoints
- */
 /**
  * Create API Hono app with all endpoints
  */
@@ -56,9 +54,13 @@ export async function createApiRouter(databaseService: DatabaseService, sseManag
   app.post('/specs', writeRateLimit, async (c) => await specsController.createSpec(c));
   app.post('/tools', writeRateLimit, async (c) => await toolsController.createTool(c));
   app.post('/tools/:tool/versions', writeRateLimit, async (c) => await toolsController.createToolVersion(c));
+  app.get('/tools', readRateLimit, async (c) => await toolsController.getTools(c));
+  app.get('/tools/:tool', readRateLimit, async (c) => await toolsController.getTool(c));
+  app.get('/tools/:tool/versions', readRateLimit, async (c) => await toolsController.getToolVersions(c));
 
   // Profile & Workspace Binding (SP-015)
   app.post('/profiles', writeRateLimit, async (c) => await profilesController.createProfile(c));
+  app.get('/profiles', readRateLimit, async (c) => await profilesController.getProfiles(c));
   app.post('/profiles/:profile/versions', writeRateLimit, async (c) => await profilesController.createProfileVersion(c));
   app.post('/profiles/:profile/versions/:version/publish', writeRateLimit, async (c) => await profilesController.publishProfileVersion(c));
   app.post('/profiles/:profile/versions/:version/attachments', writeRateLimit, async (c) => await profilesController.attachTools(c));
@@ -102,8 +104,7 @@ export async function createApiRouter(databaseService: DatabaseService, sseManag
   // GET /api/sse - Server-Sent Events endpoint
   app.get('/sse', async (c) => {
     const clientId = crypto.randomUUID();
-    sseManager.addClient(clientId, c);
-    return new Response(null, { status: 200 }); // Handled by streamSSE
+    return sseManager.addClient(clientId, c);
   });
 
   // Error handling
@@ -138,9 +139,9 @@ export class SSEEventManager {
   /**
    * Add SSE client
    */
-  addClient(clientId: string, c: any): void {
+  addClient(clientId: string, c: Context): Response {
     // Use Hono's streamSSE
-    c.streamSSE(async (stream: any) => {
+    return streamSSE(c, async (stream) => {
       this.clients.set(clientId, stream.controller);
 
       // Send initial connection event
@@ -154,6 +155,11 @@ export class SSEEventManager {
         this.clients.delete(clientId);
         console.log(`SSE client disconnected: ${clientId}`);
       });
+
+      // Keep connection open
+      while (true) {
+        await stream.sleep(1000);
+      }
     });
   }
 

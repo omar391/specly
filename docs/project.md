@@ -110,7 +110,7 @@ See Acceptance Criteria in `docs/task.md` (direct cutover). Completion gating en
 
 ## 18. Glossary
 Spec: immutable hashed execution unit.
-Tool Version: hashed DAG of specs.
+Tool Version: DAG of specs (the "Workflow Graph") hashed for integrity.
 Profile Version: flattened selection of tool versions with aliases.
 Workspace Binding: workspace → profile version pointer.
 Session Lease: (session_id, client_state_id) exclusivity pair.

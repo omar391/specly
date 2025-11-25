@@ -21,6 +21,7 @@
     "@radix-ui/react-tabs": "^1.1.0",
     "@tanstack/react-query": "^5.66.0",
     "@tanstack/react-router": "^1.125.4",
+    "@xyflow/react": "^12.9.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "framer-motion": "^12.4.3",

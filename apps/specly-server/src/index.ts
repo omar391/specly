@@ -194,8 +194,10 @@ export class SpeclyServer {
 
   // Setup Specly API routes in Hono app
   async setupSpeclyApi(app: Hono) {
+    console.log('DEBUG: setupSpeclyApi called');
     const apiRouter = await createApiRouter(this.databaseService, this.sseManager);
     app.route('/api', apiRouter);
+    console.log('DEBUG: setupSpeclyApi completed');
   }
 
   async ensureSpeclySeed(force: boolean) {
@@ -349,16 +351,23 @@ export function buildStartOptions() {
       });
     },
     onInitialize: async (options: any) => {
+      console.log('DEBUG: onInitialize called');
       await speclyServer.ensureServerInitialized();
       await speclyServer.ensureSpeclySeed(!!(options as any).forceSeed);
+      console.log('DEBUG: onInitialize completed');
     },
     configureApp: async (app: any, options: any) => {
+      console.log('DEBUG: configureApp called');
       await speclyServer.configureSpeclyApp(app, { local: options.local });
+      console.log('DEBUG: configureApp completed');
     },
     setupRoutes: async (app: any, options: any) => {
+      console.log('DEBUG: setupRoutes called');
       await speclyServer.setupSpeclyApi(app);
+      console.log('DEBUG: setupRoutes completed');
     },
     onAfterStart: async (app: any, options: any) => {
+      console.log('DEBUG: onAfterStart called');
       console.log(`Specly backend server running on http://localhost:${options.port}`);
     },
     localMode: {
